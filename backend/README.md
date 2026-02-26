@@ -23,7 +23,14 @@ python -m venv venv
   ```
 
 ### 3. Install Dependencies
-Install the package in editable mode with development dependencies:
+You can install dependencies using the provided `requirements.txt` or via editable mode:
+
+**Using requirements.txt:**
+```bash
+pip install -r requirements.txt
+```
+
+**Using editable mode (recommended for development):**
 ```bash
 pip install -e .
 ```
