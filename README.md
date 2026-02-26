@@ -1,58 +1,48 @@
-# VERO | The Personal Research Workspace
+# VERO
 
-VERO is a text-first research environment built on the principle of **traceability over fluency**. It follows a layered engineering framework to ensure the project reaches a finished, usable state (v1).
+VERO is a personal research workspace designed for high-fidelity information retrieval and synthesis. It prioritizes data integrity and source traceability over conversational fluency, providing a structured environment for technical literature review.
 
----
+## Project Architecture
 
-## Layer 0: The Project Contract
+VERO is built using a layered engineering framework. Each layer must be independently verifiable and demoable before proceeding to subsequent components.
 
-This contract defines the non-negotiable boundaries of the project. Any feature expansion must be reviewed against this "Definition of Done."
+### Core Principles
+* **Deduplication**: Content is normalized and hashed using SHA-256 to prevent redundant storage and processing.
+* **Source Integrity**: Every document carries a confidence score based on the extraction method (native vs. OCR).
+* **Traceability**: All generated answers are strictly grounded in retrieved segments with direct pointers to the source material.
 
-### 1. The User
-*   **Persona**: A single technical researcher or engineer (me).
-*   **Context**: Deep-diving into academic papers, technical documentation, and codebases.
-*   **Requirement**: Needs verifiable facts, not creative summaries.
+## Technical Stack
 
-### 2. The Inputs (v1 Scope)
-*   **Formats**: PDF, DOCX, Markdown, TXT.
-*   **Sources**: Local files, GitHub Repositories (README/Comments), and clean Web URLs.
-*   **Constraint**: No complex dynamic JS rendering or video/audio in v1.
+* **API**: FastAPI (Async Python)
+* **Database**: SQLite / SQLAlchemy (Asyncio)
+* **Parsers**: PyMuPDF, python-docx, BeautifulSoup4
 
-### 3. The Outputs
-*   **Primary**: Grounded answers to research questions.
-*   **Constraint**: Every claim MUST be linked to a specific `chunk_id`.
-*   **Traceability**: Clicking a citation must reveal the exact source text.
+## Getting Started
 
-### 4. Failure Behavior
-*   **The "Honesty" Rule**: If the retrieved context does not contain the answer, the system must explicitly state: *"I don't have enough information in your documents to answer this."*
-*   **No Hallucinations**: Creative guessing is strictly disabled via prompt engineering and low temperature.
+### Prerequisites
+* Python 3.10+
 
-### 5. Definition of Done (v1)
-A successful v1 is achieved when:
-1.  A user can upload a 20-page PDF or point to a GitHub Repo.
-2.  A user can ask a specific technical question.
-3.  The system returns a concise answer with at least one valid chunk citation.
-4.  The citation correctly points to the source material.
+### Installation
+```bash
+cd backend
+pip install -e .
+```
 
----
+### Development Server
+```bash
+python -m uvicorn app.main:app --reload --port 8000
+```
+API documentation is available at `/docs` once the server is running.
 
-## Technical Core (The Data Schema)
+## Development Status
 
-| Entity | Responsibilities |
-| :--- | :--- |
-| **Project** | A knowledge boundary (e.g., "Deep Learning Research"). |
-| **Document** | Raw source material. Stored unchunked. |
-| **Chunk** | A window of text from a Document. Versioned by strategy. |
-| **Embedding** | A vector representation of a Chunk. Strictly versioned. |
-
----
-
-## Next Steps: The Layered Build
-*   [x] **Layer 0**: The Contract
-*   [ ] **Layer 1**: Ingestion Pipeline (FastAPI + Parsers)
-*   [ ] **Layer 2**: Chunking System
-*   [ ] **Layer 3**: Versioned Embeddings (FAISS)
-*   [ ] **Layer 4**: Retrieval Pipeline
-*   [ ] **Layer 5**: Grounded Answering (LLM)
-*   [ ] **Layer 6**: Session Context
-*   [ ] **Layer 7**: Minimal UI (React)
+| Layer | Status | Description |
+| :--- | :--- | :--- |
+| 0 | Complete | Project Contract & Data Schema |
+| 1 | Complete | Hardened Ingestion Pipeline |
+| 2 | Pending | Reversible Chunking System |
+| 3 | Pending | Versioned Vector Embeddings |
+| 4 | Pending | Retrieval Pipeline |
+| 5 | Pending | Grounded Answering System |
+| 6 | Pending | Session Management |
+| 7 | Pending | UI Implementation |

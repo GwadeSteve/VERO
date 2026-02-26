@@ -12,8 +12,11 @@ print(f"1. CREATE PROJECT: {r.status_code} -> id={pid}")
 # 2. Ingest README
 with open("a:/AI-Searcher/README.md", "rb") as f:
     r1 = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)})
+if r1.status_code != 201:
+    print(f"FAILED to ingest README: {r1.status_code}\n{r1.text}")
+    exit(1)
 d1 = r1.json()
-print(f"2. INGEST README:  {r1.status_code} -> id={d1['id']}, confidence={d1['confidence_level']}, dup={d1['is_duplicate']}")
+print(f"2. INGEST README:  {r1.status_code} -> id={d1['id']}, confidence={d1.get('confidence_level', 'MISSING')}, dup={d1.get('is_duplicate', 'MISSING')}")
 
 # 3. Ingest SAME README again (dedup test)
 with open("a:/AI-Searcher/README.md", "rb") as f:
