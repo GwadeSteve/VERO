@@ -15,7 +15,7 @@ VERO is built using a layered engineering framework. Each layer must be independ
 
 * **API**: FastAPI (Async Python)
 * **Database**: SQLite / SQLAlchemy (Asyncio)
-* **Parsers**: PyMuPDF, python-docx, BeautifulSoup4
+* **Parsers**: PyMuPDF, python-docx, BeautifulSoup4, GitHub REST API
 
 ## Getting Started
 

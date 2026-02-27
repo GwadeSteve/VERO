@@ -18,10 +18,12 @@ from app.database import get_db
 from app.models import ProjectModel, DocumentModel
 from app.parsers import detect_source_type, parse_file
 from app.parsers.web import parse_web
+from app.parsers.repo import parse_repo
 from app.utils import compute_content_hash
 from app.schema import (
     DocumentDetail,
     DocumentSummary,
+    IngestRepoRequest,
     IngestURLRequest,
     SourceType,
     SOURCE_CONFIDENCE,
@@ -157,6 +159,54 @@ async def ingest_url(
     doc = DocumentModel(
         project_id=project_id,
         source_type=SourceType.WEB.value,
+        title=title,
+        raw_text=raw_text,
+        content_hash=content_hash,
+        confidence_level=confidence,
+        metadata_json=json.dumps(result.get("metadata", {})),
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+
+    return _to_summary(doc)
+
+
+# ─── Repository Ingestion ─────────────────────────────────────────────────────
+
+@router.post("/projects/{project_id}/ingest-repo", status_code=201, response_model=DocumentSummary)
+async def ingest_repo(
+    project_id: str,
+    body: IngestRepoRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Ingest a public GitHub repository (README + Python docstrings).
+    Deduplicates by content hash.
+    """
+    await _verify_project(project_id, db)
+
+    try:
+        result = await parse_repo(body.repo_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to fetch repo: {e}")
+
+    raw_text = result["text"]
+    content_hash = compute_content_hash(raw_text)
+
+    # ── Deduplication check ──
+    existing = await _check_duplicate(project_id, content_hash, db)
+    if existing is not None:
+        return _to_summary(existing, is_duplicate=True)
+
+    title = body.title or result.get("metadata", {}).get("repo_name", body.repo_url)
+    confidence = SOURCE_CONFIDENCE[SourceType.REPO].value
+
+    doc = DocumentModel(
+        project_id=project_id,
+        source_type=SourceType.REPO.value,
         title=title,
         raw_text=raw_text,
         content_hash=content_hash,

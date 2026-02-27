@@ -113,6 +113,11 @@ class IngestURLRequest(BaseModel):
     title: Optional[str] = None
 
 
+class IngestRepoRequest(BaseModel):
+    repo_url: str
+    title: Optional[str] = None
+
+
 class DocumentSummary(BaseModel):
     """Lightweight view for list endpoints (no raw_text)."""
     id: str
