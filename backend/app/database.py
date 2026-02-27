@@ -30,9 +30,14 @@ class Base(DeclarativeBase):
 
 
 async def init_db():
-    """Create all tables that don't exist yet."""
+    """Drop and recreate all tables (dev-safe for SQLite).
+
+    This ensures the schema always matches the ORM models.
+    Will be replaced with Alembic migrations before production.
+    """
     async with engine.begin() as conn:
         from app.models import ProjectModel, DocumentModel  # noqa: F401
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
 

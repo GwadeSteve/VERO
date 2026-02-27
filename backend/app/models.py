@@ -25,7 +25,7 @@ class ProjectModel(Base):
     __tablename__ = "projects"
 
     id = Column(String, primary_key=True, default=_new_id)
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False, unique=True)
     description = Column(Text, default="")
     created_at = Column(DateTime, default=_utcnow)
 

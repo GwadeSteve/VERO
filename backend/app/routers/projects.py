@@ -7,6 +7,7 @@ CRUD endpoints for managing research projects.
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -21,7 +22,11 @@ async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)
     """Create a new research project (knowledge boundary)."""
     project = ProjectModel(name=body.name, description=body.description or "")
     db.add(project)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"Project '{body.name}' already exists")
     await db.refresh(project)
     return ProjectResponse(
         id=project.id,
