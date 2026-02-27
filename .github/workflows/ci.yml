@@ -1,0 +1,34 @@
+name: VERO CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -e .
+
+      - name: Start server
+        working-directory: backend
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          sleep 5
+          curl --fail http://127.0.0.1:8000/health || exit 1
+
+      - name: Run Layer 1 tests
+        working-directory: backend
+        run: python tests/test_layer1.py
