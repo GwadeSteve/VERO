@@ -12,9 +12,15 @@ The script exits with code 0 if all tests pass, 1 otherwise.
 """
 
 import sys
+from pathlib import Path
 import httpx
 
 BASE = "http://localhost:8000"
+
+# Resolve paths relative to repo root (works on Windows and Linux CI)
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+README = REPO_ROOT / "README.md"
+FRAMEWORK = REPO_ROOT / "Framework.md"
 PASS = 0
 FAIL = 0
 
@@ -76,7 +82,7 @@ check("GET nonexistent project returns 404", r_bad.status_code == 404)
 
 section("3. File Ingestion (Markdown)")
 
-with open("a:/AI-Searcher/README.md", "rb") as f:
+with open(README, "rb") as f:
     r1 = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)})
 check("Ingest README returns 201", r1.status_code == 201)
 d1 = r1.json()
@@ -87,7 +93,7 @@ check("content_hash is present", len(d1.get("content_hash", "")) == 64)
 check("char_count > 0", d1["char_count"] > 0)
 
 # Ingest a second different file
-with open("a:/AI-Searcher/Framework.md", "rb") as f:
+with open(FRAMEWORK, "rb") as f:
     r_fw = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("Framework.md", f)})
 check("Ingest Framework.md returns 201", r_fw.status_code == 201)
 d_fw = r_fw.json()
@@ -100,7 +106,7 @@ check("Framework has different hash", d_fw["content_hash"] != d1["content_hash"]
 
 section("4. Deduplication")
 
-with open("a:/AI-Searcher/README.md", "rb") as f:
+with open(README, "rb") as f:
     r2 = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)})
 check("Re-ingest README returns 201", r2.status_code == 201)
 d2 = r2.json()
@@ -207,12 +213,12 @@ check("Invalid repo URL returns 400", r_bad_repo.status_code == 400)
 section("8. Error Handling")
 
 # Ingest to nonexistent project
-with open("a:/AI-Searcher/README.md", "rb") as f:
+with open(README, "rb") as f:
     r_noproject = httpx.post(f"{BASE}/projects/nonexistent/ingest", files={"file": ("README.md", f)})
 check("Ingest to nonexistent project returns 404", r_noproject.status_code == 404)
 
 # Bad file extension
-with open("a:/AI-Searcher/README.md", "rb") as f:
+with open(README, "rb") as f:
     r_badext = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("photo.jpg", f)})
 check("Unsupported file extension returns 400", r_badext.status_code == 400)
 
@@ -231,7 +237,7 @@ try:
         pid2 = r_p2.json()["id"]
 
         # Same README in a different project should NOT be dedup'd
-        with open("a:/AI-Searcher/README.md", "rb") as f:
+        with open(README, "rb") as f:
             r_cross = client.post(f"/projects/{pid2}/ingest", files={"file": ("README.md", f)})
         check("Same file in different project is NOT duplicate", r_cross.json()["is_duplicate"] is False)
 
