@@ -1,8 +1,4 @@
-"""
-VERO — Text Utilities
----------------------
-Normalization and hashing for deterministic ingestion.
-"""
+"""VERO Text Utilities: Normalization and hashing for deterministic ingestion."""
 
 import hashlib
 import re

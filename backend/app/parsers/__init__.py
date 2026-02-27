@@ -1,8 +1,4 @@
-"""
-VERO Parsers — Init
--------------------
-Dispatcher that routes files to the correct parser based on source type.
-"""
+"""VERO Parsers: Dispatcher that routes files to the correct parser based on source type."""
 
 from pathlib import Path
 from app.schema import SourceType

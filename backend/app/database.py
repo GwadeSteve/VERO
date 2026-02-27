@@ -1,9 +1,4 @@
-"""
-VERO Database Layer
--------------------
-Async SQLAlchemy engine backed by SQLite for v1.
-Swap to PostgreSQL later by changing the URL.
-"""
+"""VERO Database Layer: Async SQLAlchemy engine backed by SQLite."""
 
 import os
 from pathlib import Path

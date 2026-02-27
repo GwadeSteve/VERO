@@ -41,14 +41,14 @@ def section(title: str):
     print(f"{'='*60}")
 
 
-# ── 1. Health Check ──────────────────────────────────────────────────────────
+# 1. Health check
 
 section("1. Health Check")
 r = httpx.get(f"{BASE}/health")
 check("GET /health returns 200", r.status_code == 200)
 
 
-# ── 2. Projects ──────────────────────────────────────────────────────────────
+# 2. Projects
 
 section("2. Projects")
 
@@ -78,7 +78,7 @@ r_bad = httpx.get(f"{BASE}/projects/nonexistent")
 check("GET nonexistent project returns 404", r_bad.status_code == 404)
 
 
-# ── 3. File Ingestion (Markdown) ─────────────────────────────────────────────
+# 3. File ingestion (Markdown)
 
 section("3. File Ingestion (Markdown)")
 
@@ -102,7 +102,7 @@ check("Framework has different id", d_fw["id"] != d1["id"])
 check("Framework has different hash", d_fw["content_hash"] != d1["content_hash"])
 
 
-# ── 4. Deduplication ─────────────────────────────────────────────────────────
+# 4. Deduplication
 
 section("4. Deduplication")
 
@@ -115,7 +115,7 @@ check("Returns same document id", d2["id"] == d1["id"])
 check("Returns same content_hash", d2["content_hash"] == d1["content_hash"])
 
 
-# ── 5. Document Listing and Detail ───────────────────────────────────────────
+# 5. Document listing and detail
 
 section("5. Document Listing and Detail")
 
@@ -137,7 +137,7 @@ r_bad_doc = httpx.get(f"{BASE}/documents/nonexistent")
 check("GET nonexistent document returns 404", r_bad_doc.status_code == 404)
 
 
-# ── 6. URL Ingestion ─────────────────────────────────────────────────────────
+# 6. URL ingestion
 
 section("6. URL Ingestion")
 
@@ -169,7 +169,7 @@ except Exception as e:
     print(f"  SKIP  URL ingestion tests failed with exception: {e}")
 
 
-# ── 7. Repo Ingestion ────────────────────────────────────────────────────────
+# 7. Repo ingestion
 
 section("7. Repo Ingestion (GitHub)")
 
@@ -208,7 +208,7 @@ r_bad_repo = httpx.post(
 check("Invalid repo URL returns 400", r_bad_repo.status_code == 400)
 
 
-# ── 8. Error Handling ────────────────────────────────────────────────────────
+# 8. Error handling
 
 section("8. Error Handling")
 
@@ -227,7 +227,7 @@ r_noval = httpx.post(f"{BASE}/projects", json={})
 check("Empty project body returns 422", r_noval.status_code == 422)
 
 
-# ── 9. Cross-Project Isolation ───────────────────────────────────────────────
+# 9. Cross-project isolation
 
 section("9. Cross-Project Isolation")
 
@@ -248,7 +248,7 @@ except Exception as e:
     print(f"  FAIL  Cross-project isolation tests failed: {e}")
 
 
-# ── Final Summary ────────────────────────────────────────────────────────────
+# Summary
 
 section("RESULTS")
 total = PASS + FAIL

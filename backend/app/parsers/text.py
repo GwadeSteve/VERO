@@ -1,8 +1,4 @@
-"""
-VERO Parser — Text / Markdown
-------------------------------
-Reads plain text and markdown files as-is.
-"""
+"""VERO Parser — Text / Markdown: Reads plain text and markdown files as-is."""
 
 
 async def parse_text(filepath: str) -> dict:

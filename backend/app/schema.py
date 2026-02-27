@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-# ─── Enums ────────────────────────────────────────────────────────────────────
+# Enums
 
 class SourceType(str, Enum):
     PDF = "pdf"
@@ -40,7 +40,7 @@ SOURCE_CONFIDENCE = {
 }
 
 
-# ─── Layer 0: Core Data Contracts ─────────────────────────────────────────────
+# Core data contracts
 
 class Project(BaseModel):
     id: str
@@ -93,7 +93,7 @@ class GroundedAnswer(BaseModel):
     found_sufficient_info: bool
 
 
-# ─── Request / Response Models (Layer 1 API) ──────────────────────────────────
+# Request and response models
 
 class ProjectCreate(BaseModel):
     name: str

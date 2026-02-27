@@ -1,8 +1,4 @@
-"""
-VERO Parser — Web URL
----------------------
-Fetches a URL and extracts clean article text using BeautifulSoup.
-"""
+"""VERO Parser — Web URL: Fetches a URL and extracts clean article text using BeautifulSoup."""
 
 import httpx
 from bs4 import BeautifulSoup

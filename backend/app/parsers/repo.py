@@ -1,9 +1,4 @@
-"""
-VERO Parser — GitHub Repository
---------------------------------
-Fetches README and Python docstrings from a public GitHub repository
-using the GitHub REST API. No cloning required.
-"""
+"""VERO Parser — GitHub Repository: Fetches README and Python docstrings from GitHub."""
 
 import re
 import httpx

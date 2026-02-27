@@ -1,8 +1,4 @@
-"""
-VERO — FastAPI Application
---------------------------
-Entry point for the backend server.
-"""
+"""VERO FastAPI Entry Point: Entry point for the backend server."""
 
 from contextlib import asynccontextmanager
 

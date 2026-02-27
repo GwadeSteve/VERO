@@ -1,8 +1,4 @@
-"""
-VERO Parser — DOCX
-------------------
-Extracts text from Word documents using python-docx.
-"""
+"""VERO Parser — DOCX: Extracts text from Word documents using python-docx."""
 
 from docx import Document as DocxDocument
 

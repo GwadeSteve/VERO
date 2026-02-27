@@ -1,8 +1,4 @@
-"""
-VERO Parser — PDF
------------------
-Extracts text from PDF files using PyMuPDF.
-"""
+"""VERO Parser — PDF: Extracts text from PDF files using PyMuPDF."""
 
 import fitz  # PyMuPDF
 

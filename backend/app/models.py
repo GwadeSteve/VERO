@@ -1,8 +1,4 @@
-"""
-VERO ORM Models
----------------
-SQLAlchemy table definitions mirroring the Layer 0 Pydantic contract.
-"""
+"""VERO ORM Models: SQLAlchemy table definitions for the core domain."""
 
 import uuid
 from datetime import datetime, timezone

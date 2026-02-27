@@ -69,7 +69,7 @@ def _to_summary(doc: DocumentModel, is_duplicate: bool = False) -> DocumentSumma
     )
 
 
-# ─── File Upload Ingestion ────────────────────────────────────────────────────
+# File upload ingestion
 
 @router.post("/projects/{project_id}/ingest", status_code=201, response_model=DocumentSummary)
 async def ingest_file(
@@ -104,7 +104,7 @@ async def ingest_file(
     raw_text = result["text"]
     content_hash = compute_content_hash(raw_text)
 
-    # ── Deduplication check ──
+    # Dedup check
     existing = await _check_duplicate(project_id, content_hash, db)
     if existing is not None:
         return _to_summary(existing, is_duplicate=True)
@@ -127,7 +127,7 @@ async def ingest_file(
     return _to_summary(doc)
 
 
-# ─── URL Ingestion ────────────────────────────────────────────────────────────
+# URL ingestion
 
 @router.post("/projects/{project_id}/ingest-url", status_code=201, response_model=DocumentSummary)
 async def ingest_url(
@@ -148,7 +148,7 @@ async def ingest_url(
     raw_text = result["text"]
     content_hash = compute_content_hash(raw_text)
 
-    # ── Deduplication check ──
+    # Dedup check
     existing = await _check_duplicate(project_id, content_hash, db)
     if existing is not None:
         return _to_summary(existing, is_duplicate=True)
@@ -172,7 +172,7 @@ async def ingest_url(
     return _to_summary(doc)
 
 
-# ─── Repository Ingestion ─────────────────────────────────────────────────────
+# Repository ingestion
 
 @router.post("/projects/{project_id}/ingest-repo", status_code=201, response_model=DocumentSummary)
 async def ingest_repo(
@@ -196,7 +196,7 @@ async def ingest_repo(
     raw_text = result["text"]
     content_hash = compute_content_hash(raw_text)
 
-    # ── Deduplication check ──
+    # Dedup check
     existing = await _check_duplicate(project_id, content_hash, db)
     if existing is not None:
         return _to_summary(existing, is_duplicate=True)
@@ -220,7 +220,7 @@ async def ingest_repo(
     return _to_summary(doc)
 
 
-# ─── List & Get Documents ─────────────────────────────────────────────────────
+# List and retrieve documents
 
 @router.get("/projects/{project_id}/documents", response_model=list[DocumentSummary])
 async def list_documents(project_id: str, db: AsyncSession = Depends(get_db)):
