@@ -32,3 +32,7 @@ jobs:
       - name: Run Layer 1 tests
         working-directory: backend
         run: python tests/test_layer1.py
+
+      - name: Run Layer 2 tests
+        working-directory: backend
+        run: python tests/test_layer2.py
