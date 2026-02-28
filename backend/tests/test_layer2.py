@@ -10,6 +10,7 @@ Usage:
 """
 
 import sys
+import uuid
 import httpx
 from pathlib import Path
 
@@ -43,7 +44,7 @@ def run_tests():
 
     try:
         # Create Project
-        r = httpx.post(f"{BASE}/projects", json={"name": "Layer 2 Chunking Test", "description": "Testing chunking systems."})
+        r = httpx.post(f"{BASE}/projects", json={"name": f"Layer 2 Chunking Test {uuid.uuid4().hex[:6]}", "description": "Testing chunking systems."})
         r.raise_for_status()
         pid = r.json()["id"]
 
