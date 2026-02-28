@@ -40,7 +40,7 @@ API documentation is available at `/docs` once the server is running.
 | :--- | :--- | :--- |
 | 0 | Complete | Project Contract & Data Schema |
 | 1 | Complete | Hardened Ingestion Pipeline |
-| 2 | Pending | Reversible Chunking System |
+| 2 | In Progress | Reversible SOTA Chunking System |
 | 3 | Pending | Versioned Vector Embeddings |
 | 4 | Pending | Retrieval Pipeline |
 | 5 | Pending | Grounded Answering System |

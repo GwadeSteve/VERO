@@ -23,6 +23,7 @@ from app.utils import compute_content_hash
 from app.schema import (
     DocumentDetail,
     DocumentSummary,
+    ChunkResponse,
     IngestRepoRequest,
     IngestURLRequest,
     SourceType,
@@ -257,3 +258,90 @@ async def get_document(doc_id: str, db: AsyncSession = Depends(get_db)):
         metadata=json.loads(doc.metadata_json) if doc.metadata_json else {},
         created_at=doc.created_at,
     )
+
+
+# Chunking endpoints
+
+@router.post("/documents/{doc_id}/chunk", status_code=201, response_model=list[ChunkResponse])
+async def generate_chunks(
+    doc_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate chunks for a given document using the SOTA auto-selected strategy based on its SourceType.
+    Re-chunking will overwrite existing chunks for the document.
+    """
+    # 1. Fetch the document
+    result = await db.execute(
+        select(DocumentModel).where(DocumentModel.id == doc_id)
+    )
+    doc = result.scalar_one_or_none()
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # 2. Delete existing chunks for this document (Reversible Chunking)
+    from app.models import ChunkModel
+    await db.execute(ChunkModel.__table__.delete().where(ChunkModel.doc_id == doc_id))
+
+    # 3. Get the best chunker for this document type
+    from app.chunks import get_chunker_for_source
+    chunker = get_chunker_for_source(doc.source_type)
+
+    # 4. Generate chunks
+    chunk_responses = chunker.chunk(text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id)
+    
+    # 5. Store them in the DB
+    new_chunks = []
+    for cr in chunk_responses:
+        c_model = ChunkModel(
+            id=cr.id,
+            doc_id=cr.doc_id,
+            project_id=cr.project_id,
+            text=cr.text,
+            start_char=cr.start_char,
+            end_char=cr.end_char,
+            token_count=cr.token_count,
+            strategy=cr.strategy,
+            metadata_json=json.dumps(cr.metadata)
+        )
+        new_chunks.append(c_model)
+        db.add(c_model)
+
+    await db.commit()
+
+    # 6. Return response
+    return chunk_responses
+
+
+@router.get("/documents/{doc_id}/chunks", response_model=list[ChunkResponse])
+async def list_chunks(doc_id: str, db: AsyncSession = Depends(get_db)):
+    """Retrieve all chunks for a document to visually verify the strategy works."""
+    from app.models import ChunkModel
+    
+    # Ensure document exists
+    result = await db.execute(
+        select(DocumentModel).where(DocumentModel.id == doc_id)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Retrieve chunks
+    chunk_result = await db.execute(
+        select(ChunkModel).where(ChunkModel.doc_id == doc_id).order_by(ChunkModel.start_char.asc())
+    )
+    chunks = chunk_result.scalars().all()
+
+    return [
+        ChunkResponse(
+            id=c.id,
+            doc_id=c.doc_id,
+            project_id=c.project_id,
+            text=c.text,
+            start_char=c.start_char,
+            end_char=c.end_char,
+            token_count=c.token_count,
+            strategy=c.strategy,
+            metadata=json.loads(c.metadata_json) if c.metadata_json else {}
+        )
+        for c in chunks
+    ]

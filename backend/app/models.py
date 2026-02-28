@@ -45,6 +45,7 @@ class DocumentModel(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     project = relationship("ProjectModel", back_populates="documents")
+    chunks = relationship("ChunkModel", back_populates="document", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("project_id", "content_hash", name="uq_project_content"),
@@ -52,3 +53,23 @@ class DocumentModel(Base):
 
     def __repr__(self):
         return f"<Document {self.title!r} ({self.source_type})>"
+
+
+class ChunkModel(Base):
+    __tablename__ = "chunks"
+
+    id = Column(String, primary_key=True, default=_new_id)
+    doc_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    text = Column(Text, nullable=False)
+    start_char = Column(Integer, nullable=False)
+    end_char = Column(Integer, nullable=False)
+    token_count = Column(Integer, nullable=False)
+    strategy = Column(String, nullable=False)
+    metadata_json = Column(Text, default="{}")
+    created_at = Column(DateTime, default=_utcnow)
+
+    document = relationship("DocumentModel", back_populates="chunks")
+
+    def __repr__(self):
+        return f"<Chunk {self.id} strategy={self.strategy}>"
