@@ -142,3 +142,17 @@ class DocumentDetail(BaseModel):
     confidence_level: int
     metadata: Dict[str, Any]
     created_at: datetime
+
+
+class ChunkResponse(BaseModel):
+    id: str
+    doc_id: str
+    project_id: str
+    text: str
+    start_char: int
+    end_char: int
+    token_count: int
+    strategy: str
+    metadata: dict
+
+    model_config = {"from_attributes": True}

@@ -17,7 +17,7 @@ def get_chunker_for_source(source_type: SourceType | str, token_limit: int = 500
     
     # Markdown files and GitHub repositories are rich in headers. 
     # The MarkdownChunker perfectly preserves their context hierarchy.
-    if stype in [SourceType.MARKDOWN.value, SourceType.REPOSITORY.value]:
+    if stype in [SourceType.MARKDOWN.value, SourceType.REPO.value]:
         return MarkdownChunker(token_limit=token_limit)
         
     # Web articles and PDFs are unstructured visually but have strong grammatical bounds.
