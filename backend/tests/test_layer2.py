@@ -71,9 +71,10 @@ def run_tests():
         # Ingest Web Profile
         rc_web = httpx.post(
             f"{BASE}/projects/{pid}/ingest-url",
-            json={"url": "https://example.com", "title": "Example Domain"},
+            json={"url": "https://fastapi.tiangolo.com/", "title": "FastAPI"},
             timeout=HTTP_TIMEOUT
         )
+        rc_web.raise_for_status()
         doc_web = rc_web.json()
         doc_web_id = doc_web["id"]
 
