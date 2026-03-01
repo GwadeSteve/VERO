@@ -12,6 +12,7 @@ The script exits with code 0 if all tests pass, 1 otherwise.
 """
 
 import sys
+import uuid
 from pathlib import Path
 import httpx
 
@@ -52,15 +53,16 @@ check("GET /health returns 200", r.status_code == 200)
 
 section("2. Projects")
 
-r = httpx.post(f"{BASE}/projects", json={"name": "Layer1 Full Test", "description": "Comprehensive test"})
+project_name = f"Layer1 Full Test {uuid.uuid4().hex[:6]}"
+r = httpx.post(f"{BASE}/projects", json={"name": project_name, "description": "Comprehensive test"})
 check("POST /projects returns 201", r.status_code == 201)
 proj = r.json()
 pid = proj["id"]
 check("Project has id", bool(pid))
-check("Project has name", proj["name"] == "Layer1 Full Test")
+check("Project has name", proj["name"] == project_name)
 
 # Duplicate project name
-r_dup = httpx.post(f"{BASE}/projects", json={"name": "Layer1 Full Test"})
+r_dup = httpx.post(f"{BASE}/projects", json={"name": project_name})
 check("Duplicate project name returns 409", r_dup.status_code == 409)
 
 # List projects
@@ -235,7 +237,7 @@ section("9. Cross-Project Isolation")
 
 try:
     with httpx.Client(base_url=BASE) as client:
-        r_p2 = client.post("/projects", json={"name": "Isolation Test"})
+        r_p2 = client.post("/projects", json={"name": f"Isolation Test {uuid.uuid4().hex[:6]}"})
         pid2 = r_p2.json()["id"]
 
         # Same README in a different project should NOT be dedup'd
