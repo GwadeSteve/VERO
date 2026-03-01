@@ -57,6 +57,7 @@ class Document(BaseModel):
     raw_text: str
     content_hash: str
     confidence_level: int
+    source_url: Optional[str] = None
     metadata: Dict[str, Any] = {}
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -127,6 +128,7 @@ class DocumentSummary(BaseModel):
     char_count: int
     confidence_level: int
     content_hash: str
+    source_url: Optional[str] = None
     is_duplicate: bool = False
     created_at: datetime
 
@@ -140,6 +142,7 @@ class DocumentDetail(BaseModel):
     raw_text: str
     content_hash: str
     confidence_level: int
+    source_url: Optional[str] = None
     metadata: Dict[str, Any]
     created_at: datetime
 

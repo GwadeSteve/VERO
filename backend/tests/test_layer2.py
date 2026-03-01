@@ -76,6 +76,7 @@ def run_tests():
         )
         rc_web.raise_for_status()
         doc_web = rc_web.json()
+        check("source_url is correctly saved", doc_web.get("source_url") == "https://fastapi.tiangolo.com/")
         doc_web_id = doc_web["id"]
 
         # Trigger Chunking

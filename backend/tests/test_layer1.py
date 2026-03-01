@@ -153,6 +153,7 @@ try:
         check("source_type is web", d_url["source_type"] == "web")
         check("confidence_level is 2 (MEDIUM)", d_url["confidence_level"] == 2)
         check("URL doc has content", d_url["char_count"] > 0)
+        check("source_url is correctly saved", d_url.get("source_url") == "https://fastapi.tiangolo.com/")
 
         # Dedup: ingest same URL again
         r_url2 = httpx.post(
@@ -185,6 +186,7 @@ try:
         check("source_type is repository", d_repo["source_type"] == "repository")
         check("confidence_level is 2 (MEDIUM)", d_repo["confidence_level"] == 2)
         check("Repo doc has content", d_repo["char_count"] > 100)
+        check("source_url is correctly saved", d_repo.get("source_url") == "https://github.com/GwadeSteve/VERO")
 
         # Dedup: ingest same repo again
         r_repo2 = httpx.post(

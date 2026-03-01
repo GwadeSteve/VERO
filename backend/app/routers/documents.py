@@ -65,6 +65,7 @@ def _to_summary(doc: DocumentModel, is_duplicate: bool = False) -> DocumentSumma
         char_count=len(doc.raw_text),
         confidence_level=doc.confidence_level,
         content_hash=doc.content_hash,
+        source_url=doc.source_url,
         is_duplicate=is_duplicate,
         created_at=doc.created_at,
     )
@@ -164,6 +165,7 @@ async def ingest_url(
         raw_text=raw_text,
         content_hash=content_hash,
         confidence_level=confidence,
+        source_url=body.url,
         metadata_json=json.dumps(result.get("metadata", {})),
     )
     db.add(doc)
@@ -212,6 +214,7 @@ async def ingest_repo(
         raw_text=raw_text,
         content_hash=content_hash,
         confidence_level=confidence,
+        source_url=body.repo_url,
         metadata_json=json.dumps(result.get("metadata", {})),
     )
     db.add(doc)
@@ -255,6 +258,7 @@ async def get_document(doc_id: str, db: AsyncSession = Depends(get_db)):
         raw_text=doc.raw_text,
         content_hash=doc.content_hash,
         confidence_level=doc.confidence_level,
+        source_url=doc.source_url,
         metadata=json.loads(doc.metadata_json) if doc.metadata_json else {},
         created_at=doc.created_at,
     )

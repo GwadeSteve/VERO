@@ -41,6 +41,7 @@ class DocumentModel(Base):
     raw_text = Column(Text, nullable=False)
     content_hash = Column(String(64), nullable=False, index=True)
     confidence_level = Column(Integer, nullable=False, default=3)
+    source_url = Column(String, nullable=True)
     metadata_json = Column(Text, default="{}")
     created_at = Column(DateTime, default=_utcnow)
 

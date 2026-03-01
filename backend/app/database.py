@@ -31,7 +31,7 @@ async def init_db():
     Will be replaced with Alembic migrations before production.
     """
     async with engine.begin() as conn:
-        from app.models import ProjectModel, DocumentModel  # noqa: F401
+        from app.models import ProjectModel, DocumentModel, ChunkModel  # noqa: F401
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
