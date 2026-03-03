@@ -74,3 +74,23 @@ class ChunkModel(Base):
 
     def __repr__(self):
         return f"<Chunk {self.id} strategy={self.strategy}>"
+
+
+class EmbeddingModel(Base):
+    __tablename__ = "embeddings"
+
+    id = Column(String, primary_key=True, default=_new_id)
+    chunk_id = Column(String, ForeignKey("chunks.id", ondelete="CASCADE"), nullable=False)
+    model_name = Column(String, nullable=False)
+    dimension = Column(Integer, nullable=False)
+    content_hash = Column(String(64), nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+    chunk = relationship("ChunkModel")
+
+    __table_args__ = (
+        UniqueConstraint("chunk_id", "model_name", name="uq_chunk_model"),
+    )
+
+    def __repr__(self):
+        return f"<Embedding chunk={self.chunk_id} model={self.model_name}>"

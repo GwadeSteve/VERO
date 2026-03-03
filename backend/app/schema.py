@@ -159,3 +159,19 @@ class ChunkResponse(BaseModel):
     metadata: dict
 
     model_config = {"from_attributes": True}
+
+
+class EmbedRequest(BaseModel):
+    """Optional request body for embedding customization."""
+    model_name: str = "all-MiniLM-L6-v2"
+
+
+class EmbeddingResponse(BaseModel):
+    """Response for a single chunk's embedding status."""
+    id: str
+    chunk_id: str
+    model_name: str
+    dimension: int
+    is_cached: bool = False
+
+    model_config = {"from_attributes": True}

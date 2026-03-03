@@ -19,7 +19,9 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "python-multipart>=0.0.9",
     "tiktoken>=0.7.0",
-    "langchain-text-splitters>=0.2.0"
+    "langchain-text-splitters>=0.2.0",
+    "sentence-transformers>=3.0",
+    "chromadb>=0.5"
 ]
 
 [project.optional-dependencies]

@@ -24,6 +24,8 @@ from app.schema import (
     DocumentDetail,
     DocumentSummary,
     ChunkResponse,
+    EmbedRequest,
+    EmbeddingResponse,
     IngestRepoRequest,
     IngestURLRequest,
     SourceType,
@@ -348,4 +350,168 @@ async def list_chunks(doc_id: str, db: AsyncSession = Depends(get_db)):
             metadata=json.loads(c.metadata_json) if c.metadata_json else {}
         )
         for c in chunks
+    ]
+
+
+# Embedding endpoints
+
+@router.post("/documents/{doc_id}/embed", status_code=201, response_model=list[EmbeddingResponse])
+async def generate_embeddings(
+    doc_id: str,
+    body: EmbedRequest = EmbedRequest(),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate vector embeddings for all chunks of a document.
+    Uses smart versioning: only re-embeds chunks whose text has changed.
+    """
+    from app.models import ChunkModel, EmbeddingModel
+    from app.embeddings import get_embedder
+    from app.utils import compute_content_hash
+    from app import vectorstore
+
+    # 1. Verify document exists
+    result = await db.execute(
+        select(DocumentModel).where(DocumentModel.id == doc_id)
+    )
+    doc = result.scalar_one_or_none()
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # 2. Fetch all chunks for this document
+    chunk_result = await db.execute(
+        select(ChunkModel).where(ChunkModel.doc_id == doc_id).order_by(ChunkModel.start_char.asc())
+    )
+    chunks = chunk_result.scalars().all()
+    if not chunks:
+        raise HTTPException(status_code=400, detail="No chunks found. Run POST /documents/{id}/chunk first.")
+
+    # 3. Get the embedder
+    try:
+        embedder = get_embedder(body.model_name)
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # 4. Determine which chunks need (re-)embedding via content hash comparison
+    to_embed = []  # (chunk, content_hash)
+    cached = []    # existing EmbeddingModel records that are still valid
+
+    for chunk in chunks:
+        chunk_hash = compute_content_hash(chunk.text)
+
+        # Check for existing embedding record
+        existing = await db.execute(
+            select(EmbeddingModel).where(
+                EmbeddingModel.chunk_id == chunk.id,
+                EmbeddingModel.model_name == body.model_name,
+            )
+        )
+        existing_emb = existing.scalar_one_or_none()
+
+        if existing_emb and existing_emb.content_hash == chunk_hash:
+            cached.append(existing_emb)
+        else:
+            to_embed.append((chunk, chunk_hash, existing_emb))
+
+    # 5. Batch-embed only new/changed chunks
+    responses = []
+
+    if to_embed:
+        texts = [t[0].text for t in to_embed]
+        vectors = embedder.embed(texts)
+
+        chunk_ids_for_chroma = []
+        vectors_for_chroma = []
+        documents_for_chroma = []
+        metadatas_for_chroma = []
+
+        for (chunk, chunk_hash, old_emb), vector in zip(to_embed, vectors):
+            # Remove old embedding record if it exists
+            if old_emb:
+                await db.delete(old_emb)
+
+            # Create new embedding record
+            import uuid
+            emb_id = uuid.uuid4().hex[:12]
+            emb = EmbeddingModel(
+                id=emb_id,
+                chunk_id=chunk.id,
+                model_name=body.model_name,
+                dimension=embedder.dimension,
+                content_hash=chunk_hash,
+            )
+            db.add(emb)
+
+            # Prepare for ChromaDB upsert
+            chunk_ids_for_chroma.append(chunk.id)
+            vectors_for_chroma.append(vector)
+            documents_for_chroma.append(chunk.text)
+            metadatas_for_chroma.append({
+                "doc_id": doc.id,
+                "strategy": chunk.strategy,
+                "start_char": chunk.start_char,
+                "end_char": chunk.end_char,
+            })
+
+            responses.append(EmbeddingResponse(
+                id=emb.id,
+                chunk_id=chunk.id,
+                model_name=body.model_name,
+                dimension=embedder.dimension,
+                is_cached=False,
+            ))
+
+        # Upsert vectors into ChromaDB
+        vectorstore.upsert_embeddings(
+            project_id=doc.project_id,
+            chunk_ids=chunk_ids_for_chroma,
+            vectors=vectors_for_chroma,
+            documents=documents_for_chroma,
+            metadatas=metadatas_for_chroma,
+        )
+
+    # 6. Add cached responses
+    for emb in cached:
+        responses.append(EmbeddingResponse(
+            id=emb.id,
+            chunk_id=emb.chunk_id,
+            model_name=emb.model_name,
+            dimension=emb.dimension,
+            is_cached=True,
+        ))
+
+    await db.commit()
+    return responses
+
+
+@router.get("/documents/{doc_id}/embeddings", response_model=list[EmbeddingResponse])
+async def list_embeddings(doc_id: str, db: AsyncSession = Depends(get_db)):
+    """Retrieve embedding metadata for all chunks of a document."""
+    from app.models import EmbeddingModel, ChunkModel
+
+    # Verify document exists
+    result = await db.execute(
+        select(DocumentModel).where(DocumentModel.id == doc_id)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    emb_result = await db.execute(
+        select(EmbeddingModel).where(
+            EmbeddingModel.chunk_id.in_(
+                select(ChunkModel.id).where(ChunkModel.doc_id == doc_id)
+            )
+        )
+    )
+    embeddings = emb_result.scalars().all()
+
+    return [
+        EmbeddingResponse(
+            id=e.id,
+            chunk_id=e.chunk_id,
+            model_name=e.model_name,
+            dimension=e.dimension,
+            is_cached=True,
+        )
+        for e in embeddings
     ]
