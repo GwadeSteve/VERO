@@ -16,6 +16,8 @@ VERO is built using a layered engineering framework. Each layer must be independ
 * **API**: FastAPI (Async Python)
 * **Database**: SQLite / SQLAlchemy (Asyncio)
 * **Parsers**: PyMuPDF, python-docx, BeautifulSoup4, GitHub REST API
+* **Embeddings**: sentence-transformers (all-MiniLM-L6-v2, local)
+* **Vector Store**: ChromaDB (persistent, local)
 
 ## Getting Started
 
@@ -41,7 +43,7 @@ API documentation is available at `/docs` once the server is running.
 | 0 | Complete | Project Contract & Data Schema |
 | 1 | Complete | Hardened Ingestion Pipeline |
 | 2 | Complete | Reversible SOTA Chunking System |
-| 3 | Pending | Versioned Vector Embeddings |
+| 3 | Complete | Versioned Vector Embeddings |
 | 4 | Pending | Retrieval Pipeline |
 | 5 | Pending | Grounded Answering System |
 | 6 | Pending | Session Management |

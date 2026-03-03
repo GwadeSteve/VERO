@@ -36,3 +36,9 @@ jobs:
       - name: Run Layer 2 tests
         working-directory: backend
         run: python tests/test_layer2.py
+
+      - name: Run Layer 3 tests
+        working-directory: backend
+        env:
+          TF_ENABLE_ONEDNN_OPTS: "0"
+        run: python tests/test_layer3.py

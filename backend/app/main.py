@@ -1,5 +1,9 @@
 """VERO FastAPI Entry Point: Entry point for the backend server."""
 
+import os
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -37,4 +41,4 @@ app.include_router(documents.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "layer": 1}
+    return {"status": "ok", "layer": 3}
