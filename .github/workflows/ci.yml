@@ -42,3 +42,9 @@ jobs:
         env:
           TF_ENABLE_ONEDNN_OPTS: "0"
         run: python tests/test_layer3.py
+
+      - name: Run Layer 4 tests
+        working-directory: backend
+        env:
+          TF_ENABLE_ONEDNN_OPTS: "0"
+        run: python tests/test_layer4.py

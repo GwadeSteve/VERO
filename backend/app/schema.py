@@ -175,3 +175,50 @@ class EmbeddingResponse(BaseModel):
     is_cached: bool = False
 
     model_config = {"from_attributes": True}
+
+
+# Layer 4: Search / Retrieval
+
+class SearchMode(str, Enum):
+    """Search strategy selector."""
+    SEMANTIC = "semantic"   # Vector similarity only
+    KEYWORD = "keyword"     # BM25 keyword match only
+    HYBRID = "hybrid"       # Weighted combination of both
+
+
+class SearchRequest(BaseModel):
+    """Request body for project-level search."""
+    query: str
+    top_k: int = Field(default=5, ge=1, le=50)
+    mode: SearchMode = SearchMode.HYBRID
+
+
+class SearchResultItem(BaseModel):
+    """A single search result with chunk data, score, and document context."""
+    chunk_id: str
+    doc_id: str
+    text: str
+    score: float
+    start_char: int
+    end_char: int
+    strategy: str
+    doc_title: str
+    source_type: str
+    source_url: Optional[str] = None
+    confidence_level: int
+
+
+class SearchResponse(BaseModel):
+    """Full search response with results and metadata."""
+    query: str
+    mode: str
+    total_results: int
+    results: List[SearchResultItem]
+
+
+class ContextWindowResponse(BaseModel):
+    """Formatted context window ready for LLM injection."""
+    query: str
+    mode: str
+    total_chunks: int
+    context: str
