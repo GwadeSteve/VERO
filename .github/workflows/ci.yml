@@ -33,6 +33,7 @@ jobs:
         env:
           TF_ENABLE_ONEDNN_OPTS: "0"
           TF_CPP_MIN_LOG_LEVEL: "3"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           uvicorn app.main:app --host 127.0.0.1 --port 8000 &
           echo "Waiting for server..."
