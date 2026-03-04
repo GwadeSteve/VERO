@@ -44,12 +44,12 @@ def section(title: str):
 def setup_project_with_embeddings():
     """Create a project, ingest README, chunk it, and embed it."""
     project_name = f"Layer 4 Search Test {uuid.uuid4().hex[:6]}"
-    r = httpx.post(f"{BASE}/projects", json={"name": project_name, "description": "Testing search."})
+    r = httpx.post(f"{BASE}/projects", json={"name": project_name, "description": "Testing search."}, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     pid = r.json()["id"]
 
     with open(README, "rb") as f:
-        r_ingest = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)})
+        r_ingest = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)}, timeout=HTTP_TIMEOUT)
     r_ingest.raise_for_status()
     doc_id = r_ingest.json()["id"]
 
