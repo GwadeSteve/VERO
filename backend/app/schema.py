@@ -230,6 +230,7 @@ class AnswerRequest(BaseModel):
     query: str
     top_k: int = Field(default=5, ge=1, le=50)
     mode: str = "hybrid"
+    allow_model_knowledge: bool = False
 
 
 # Layer 6: Conversation Sessions
@@ -257,6 +258,7 @@ class ChatRequest(BaseModel):
     message: str
     top_k: int = Field(default=5, ge=1, le=50)
     mode: str = "hybrid"
+    allow_model_knowledge: bool = False
 
 
 class ChatResponse(BaseModel):

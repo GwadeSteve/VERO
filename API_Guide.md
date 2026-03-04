@@ -182,19 +182,31 @@ Replaces hallucination-prone generation with strict synthesis. The LLM acts pure
   ```json
   {
     "query": "What formats does VERO support?",
-    "top_k": 3
+    "top_k": 3,
+    "allow_model_knowledge": false
   }
   ```
+  - `allow_model_knowledge` (default `false`): When `false`, the LLM is strictly grounded in document evidence only. When `true`, the LLM may supplement with its training knowledge while still prioritizing document citations.
 - **Response `200 OK`**:
   ```json
   {
-    "answer": "VERO supports multiple formats, including PDF, DOCX, and Markdown [Source 1]. It also allows web scraping URL ingestion [Source 2].",
+    "answer": "VERO supports multiple formats, including ...",
     "citations": [
-      { "doc_title": "README.md", "text": "...", "source_url": null }
+      {
+        "chunk_id": "e4f8b2",
+        "doc_id": "a1b2c3",
+        "doc_title": "README.md",
+        "text": "...",
+        "start_char": 450,
+        "end_char": 890,
+        "source_url": null,
+        "score": 0.8412
+      }
     ],
     "found_sufficient_info": true
   }
   ```
+  Each citation includes `doc_id`, `chunk_id`, `start_char`, and `end_char` for precise UI highlighting of exactly which passage in which document was used.
 
 ---
 
@@ -249,7 +261,8 @@ The pinnacle interaction point. Sends a message into an active session. The mode
   {
     "message": "Can I replace the chunking strategy?",
     "top_k": 5,
-    "mode": "hybrid"
+    "mode": "hybrid",
+    "allow_model_knowledge": false
   }
   ```
-- **Response `200 OK`**: Returns a `ChatResponse` identical in format to the Layer 5 Answer endpoint, but securely tied and persisted to the session ID.
+- **Response `200 OK`**: Returns a `ChatResponse` with `answer`, `citations` (including `doc_id`, `chunk_id`, `start_char`, `end_char` for UI highlighting), and `found_sufficient_info`. Citations are tied and persisted to the session.

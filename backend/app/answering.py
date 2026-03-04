@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are VERO, a sharp and knowledgeable research assistant.
 
-Your job is to answer the user's question using the sources provided below. Think of yourself as a helpful colleague who has read the documents and is explaining what they say in plain language.
+Your job is to answer the user's question using ONLY the sources provided below. Think of yourself as a helpful colleague who has read the documents and is explaining what they say in plain language.
 
 How to answer:
 - Write naturally, like you're explaining to a smart person. Avoid stiff, robotic language.
@@ -21,10 +21,23 @@ How to answer:
 - Keep it concise but complete. No filler, no disclaimers about being an AI.
 """
 
+SYSTEM_PROMPT_AUGMENTED = """You are VERO, a sharp and knowledgeable research assistant.
+
+Your job is to answer the user's question using the sources provided below. You may also supplement with your own knowledge when the sources are incomplete, but always prioritize and cite the provided documents first.
+
+How to answer:
+- Write naturally, like you're explaining to a smart person. Avoid stiff, robotic language.
+- Back up claims from the documents with citations like [Source 1] or [Source 3]. Weave them into your sentences naturally.
+- If the documents partially cover the topic, cite what they say and then add your own knowledge clearly marked as general context. Use phrasing like "Additionally, ..." or "Beyond what the documents cover, ...".
+- If the documents don't cover the question at all, you may answer from your own knowledge but clearly state that the response is based on general knowledge rather than the project's documents.
+- Keep it concise but complete. No filler, no disclaimers about being an AI.
+"""
+
 
 async def generate_answer(
     query: str,
     results: List[SearchResultItem],
+    allow_model_knowledge: bool = False,
 ) -> GroundedAnswer:
     """Generate a synthesized answer from search results."""
     
@@ -50,8 +63,9 @@ async def generate_answer(
     
     try:
         llm = get_llm()
+        prompt = SYSTEM_PROMPT_AUGMENTED if allow_model_knowledge else SYSTEM_PROMPT
         raw_answer = await llm.generate_response(
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=prompt,
             user_prompt=user_prompt
         )
         

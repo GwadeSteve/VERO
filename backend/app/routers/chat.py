@@ -30,7 +30,7 @@ router = APIRouter(tags=["chat"])
 
 SYSTEM_PROMPT_WITH_HISTORY = """You are VERO, a sharp and knowledgeable research assistant.
 
-Your job is to answer the user's question using the sources provided below plus any conversation context from earlier in this chat. Think of yourself as a helpful colleague who has read the documents and is continuing a conversation.
+Your job is to answer the user's question using ONLY the sources provided below plus any conversation context from earlier in this chat. Think of yourself as a helpful colleague who has read the documents and is continuing a conversation.
 
 How to answer:
 - Write naturally, like you're explaining to a smart person. Avoid stiff, robotic language.
@@ -38,6 +38,19 @@ How to answer:
 - If the sources cover the topic well, give a thorough answer. Summarize, synthesize, and connect the dots.
 - If the user's question is a follow-up to something you discussed earlier, use the conversation context to give a coherent response.
 - If the sources don't cover the question at all, say something like "I don't have enough information in the provided documents to answer that." Don't guess or make things up.
+- Keep it concise but complete. No filler, no disclaimers about being an AI.
+"""
+
+SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED = """You are VERO, a sharp and knowledgeable research assistant.
+
+Your job is to answer the user's question using the sources provided below plus any conversation context from earlier in this chat. You may also supplement with your own knowledge when the sources are incomplete, but always prioritize and cite the provided documents first.
+
+How to answer:
+- Write naturally, like you're explaining to a smart person. Avoid stiff, robotic language.
+- Back up claims from the documents with citations like [Source 1] or [Source 3]. Weave them into your sentences naturally.
+- If the user's question is a follow-up to something you discussed earlier, use the conversation context to give a coherent response.
+- If the documents partially cover the topic, cite what they say and then add your own knowledge clearly marked as general context.
+- If the documents don't cover the question at all, you may answer from your own knowledge but clearly state that the response is based on general knowledge rather than the project's documents.
 - Keep it concise but complete. No filler, no disclaimers about being an AI.
 """
 
@@ -185,8 +198,9 @@ async def chat(
     # Generate answer
     try:
         llm = get_llm()
+        prompt = SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED if body.allow_model_knowledge else SYSTEM_PROMPT_WITH_HISTORY
         raw_answer = await llm.generate_response(
-            system_prompt=SYSTEM_PROMPT_WITH_HISTORY,
+            system_prompt=prompt,
             user_prompt=user_prompt,
         )
         answer = raw_answer.strip()

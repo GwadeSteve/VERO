@@ -135,6 +135,7 @@ The VERO core API is scoped by "Projects" to ensure data isolation. Below is a h
 
 ### 5. Grounded Answering (Layer 5)
 - **POST `/projects/{id}/answer`**: The complete Retrieval-Augmented Generation (RAG) pipeline. Performs a hybrid search, gathers context, and prompts the LLM to write a comprehensive, strictly cited answer.
+  - Set `"allow_model_knowledge": true` to let the LLM supplement with its own training knowledge when documents are insufficient.
 
 ### 6. Sessions & Chat (Layer 6)
 - **POST `/projects/{id}/sessions`**: Create a named chat session within a project.
@@ -145,7 +146,8 @@ The VERO core API is scoped by "Projects" to ensure data isolation. Below is a h
   {
     "message": "What parsers does VERO support?",
     "top_k": 5,
-    "mode": "hybrid"
+    "mode": "hybrid",
+    "allow_model_knowledge": false
   }
   ```
 

@@ -30,7 +30,7 @@ import sys
 import os
 import httpx
 
-BASE = "http://localhost:8000"
+BASE = "http://127.0.0.1:8000"
 TIMEOUT = 180.0
 current_project = None
 current_project_name = None
@@ -42,14 +42,22 @@ def api(method, path, **kwargs):
     try:
         r = getattr(httpx, method)(f"{BASE}{path}", **kwargs)
         if r.status_code >= 400:
-            print(f"  ERROR {r.status_code}: {r.text[:200]}")
+            detail = r.text[:200]
+            if r.status_code == 500 and "processing_status" in detail:
+                print("  ERROR 500: Database schema is outdated.")
+                print("  FIX: Stop the server, run 'python reset_db.py', then restart.")
+            else:
+                print(f"  ERROR {r.status_code}: {detail}")
             return None
         return r.json()
     except httpx.ConnectError:
         print("  ERROR: Cannot connect to server. Is it running on port 8000?")
         return None
     except httpx.ReadTimeout:
-        print("  ERROR: Request timed out. The server may be busy.")
+        print("  ERROR: Request timed out. The server may be busy processing embeddings.")
+        return None
+    except Exception as e:
+        print(f"  ERROR: {e}")
         return None
 
 
@@ -112,7 +120,9 @@ def cmd_ingest(filepath):
         data = api("post", f"/projects/{current_project}/ingest",
                     files={"file": (filename, f)})
     if data:
+        status = data.get('processing_status', 'unknown')
         print(f"  Done! doc_id={data['id']} | type={data.get('source_type')} | chars={data.get('char_count', '?')}")
+        print(f"  Auto-pipeline status: {status} (auto chunks + embeds in background)")
         return data["id"]
 
 
@@ -142,11 +152,12 @@ def cmd_docs():
         if not data:
             print("  No documents yet. Use 'ingest', 'url', or 'repo'.")
             return
-        print(f"  {'ID':<15} {'Type':<12} {'Title':<35} {'Chars':<8}")
-        print(f"  {'-'*15} {'-'*12} {'-'*35} {'-'*8}")
+        print(f"  {'ID':<15} {'Type':<12} {'Title':<30} {'Status':<10} {'Chars':<8}")
+        print(f"  {'-'*15} {'-'*12} {'-'*30} {'-'*10} {'-'*8}")
         for d in data:
-            title = d['title'][:33] + '..' if len(d['title']) > 35 else d['title']
-            print(f"  {d['id']:<15} {d['source_type']:<12} {title:<35} {d.get('char_count', '?'):<8}")
+            title = d['title'][:28] + '..' if len(d['title']) > 30 else d['title']
+            status = d.get('processing_status', '?')
+            print(f"  {d['id']:<15} {d['source_type']:<12} {title:<30} {status:<10} {d.get('char_count', '?'):<8}")
 
 
 def cmd_pipeline():
@@ -218,12 +229,14 @@ def cmd_context(query):
         print(f"\n  {data['total_chunks']} chunk(s) in context window.")
 
 
-def cmd_answer(query):
+def cmd_answer(query, allow_model_knowledge=False):
     if not require_project():
         return
-    print(f"  Generating answer for: \"{query}\" ...\n")
+    mode_label = "augmented" if allow_model_knowledge else "grounded"
+    print(f"  Generating answer ({mode_label}): \"{query}\" ...\n")
     data = api("post", f"/projects/{current_project}/answer",
-               json={"query": query, "top_k": 5, "mode": "hybrid"})
+               json={"query": query, "top_k": 5, "mode": "hybrid",
+                     "allow_model_knowledge": allow_model_knowledge})
     if data:
         print("─" * 60)
         print(data.get("answer", "No answer provided."))
@@ -244,8 +257,9 @@ def cmd_status():
         return
     docs = api("get", f"/projects/{current_project}/documents")
     n_docs = len(docs) if docs else 0
+    ready = sum(1 for d in docs if d.get('processing_status') == 'ready') if docs else 0
     print(f"  Project: {current_project_name} ({current_project})")
-    print(f"  Documents: {n_docs}")
+    print(f"  Documents: {n_docs} ({ready} ready for search)")
 
 def show_help():
     print("""
@@ -263,8 +277,10 @@ def show_help():
   semantic <query>         Semantic-only search
   keyword <query>          Keyword-only search
   context <query>          Get formatted LLM-ready context window
-  answer <query>           Get AI-generated answer with citations
+  answer <query>           Get AI-generated answer (strict grounding)
+  answer+ <query>          Same, but allow model's own knowledge too
   chat                     Start a multi-turn conversation session
+  chat+ <query>            Same, but allow model's own knowledge too
   sessions                 List conversation sessions
   status                   Show current project info
   help                     Show this help
@@ -275,7 +291,7 @@ def show_help():
 current_session = None
 
 
-def cmd_chat_start():
+def cmd_chat_start(allow_model_knowledge=False):
     if not require_project():
         return
     data = api("post", f"/projects/{current_project}/sessions",
@@ -283,7 +299,8 @@ def cmd_chat_start():
     if data:
         global current_session
         current_session = data["id"]
-        print(f"  Started session: {current_session}")
+        mode_label = "augmented" if allow_model_knowledge else "grounded"
+        print(f"  Started session ({mode_label}): {current_session}")
         print(f"  Type your questions. Type 'end' to exit chat mode.\n")
         
         while True:
@@ -298,7 +315,8 @@ def cmd_chat_start():
             
             print("  Thinking...\n")
             resp = api("post", f"/sessions/{current_session}/chat",
-                       json={"message": msg, "top_k": 5, "mode": "hybrid"})
+                       json={"message": msg, "top_k": 5, "mode": "hybrid",
+                             "allow_model_knowledge": allow_model_knowledge})
             if resp:
                 print("─" * 60)
                 print(f"  {resp.get('answer', 'No answer.')}")
@@ -386,9 +404,13 @@ def main():
         elif cmd == "context":
             cmd_context(arg)
         elif cmd == "answer":
-            cmd_answer(arg)
+            cmd_answer(arg, allow_model_knowledge=False)
+        elif cmd == "answer+":
+            cmd_answer(arg, allow_model_knowledge=True)
         elif cmd == "chat":
-            cmd_chat_start()
+            cmd_chat_start(allow_model_knowledge=False)
+        elif cmd == "chat+":
+            cmd_chat_start(allow_model_knowledge=True)
         elif cmd == "sessions":
             cmd_sessions()
         elif cmd == "status":

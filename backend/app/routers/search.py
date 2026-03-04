@@ -118,6 +118,10 @@ async def generate_grounded_answer(
         mode=body.mode,  # AnswerRequest takes string, not Enum directly to keep it simple
     )
 
-    answer = await generate_answer(query=body.query, results=results)
+    answer = await generate_answer(
+        query=body.query,
+        results=results,
+        allow_model_knowledge=body.allow_model_knowledge,
+    )
     return answer
 
