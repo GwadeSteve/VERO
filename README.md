@@ -11,6 +11,7 @@ VERO is built upon a hardened, layered engineering framework. Every module is in
 3. **Compute-Efficient Local Embedding**: Uses `sentence-transformers` locally to embed documents for zero-cost, fully private semantic retrieval.
 4. **Hybrid Retrieval**: Employs Reciprocal Rank Fusion (RRF) to combine Semantic vector search with BM25 keyword search, followed by a Cross-Encoder reranking stage for state-of-the-art precision.
 5. **Grounded Synthesis**: Leverages LLMs to synthesize answers that are strictly bound to retrieved context, enforcing academic-style source citations.
+6. **Auto-Pipeline & Conversational Memory**: Documents are automatically chunked and embedded upon upload. Multi-turn chat sessions with persistent history enable natural, context-aware research conversations.
 
 ## Technical Stack
 
@@ -19,7 +20,7 @@ VERO is built upon a hardened, layered engineering framework. Every module is in
 - **Data Parsers**: PyMuPDF, python-docx, BeautifulSoup4, GitHub REST API
 - **Embeddings & Reranking**: sentence-transformers (`all-MiniLM-L6-v2` & `ms-marco-MiniLM-L-6-v2`)
 - **Vector Store**: ChromaDB (persistent, local)
-- **Answering Engine**: Google Gemini 2.0 Flash
+- **Answering Engine**: Multi-provider (Groq / Google Gemini / Ollama)
 
 ---
 
@@ -118,6 +119,8 @@ The VERO core API is scoped by "Projects" to ensure data isolation. Below is a h
 - **POST `/documents/{id}/chunk`**: Process the raw document text into optimal, token-aware semantic chunks.
 - **POST `/documents/{id}/embed`**: Generate dense vector embeddings for all document chunks. VERO caches hashes locally to skip unchanged text.
 
+> **Note**: With the Auto-Pipeline (Layer 6), chunking and embedding are now triggered automatically on ingest. These manual endpoints remain available for re-processing or debugging.
+
 ### 4. Search & Retrieval (Layer 4)
 - **POST `/projects/{id}/search`**: Execute a robust hybrid search.
   ```json
@@ -133,25 +136,40 @@ The VERO core API is scoped by "Projects" to ensure data isolation. Below is a h
 ### 5. Grounded Answering (Layer 5)
 - **POST `/projects/{id}/answer`**: The complete Retrieval-Augmented Generation (RAG) pipeline. Performs a hybrid search, gathers context, and prompts the LLM to write a comprehensive, strictly cited answer.
 
+### 6. Sessions & Chat (Layer 6)
+- **POST `/projects/{id}/sessions`**: Create a named chat session within a project.
+- **GET `/projects/{id}/sessions`**: List all sessions in a project.
+- **GET `/sessions/{id}`**: Retrieve a session with its complete message history.
+- **POST `/sessions/{id}/chat`**: Send a message and receive a context-aware, cited answer. History from previous turns is automatically included for multi-turn reasoning.
+  ```json
+  {
+    "message": "What parsers does VERO support?",
+    "top_k": 5,
+    "mode": "hybrid"
+  }
+  ```
+
 ---
 
 ## Development Status
 
-### Layer 1: Hardened Ingestion Pipeline (Complete)
+### Layer 1: Hardened Ingestion Pipeline
 A robust data ingestion pipeline that normalizes diverse inputs into standardized text records. Includes deterministic hashing, multi-format parsers, and auto-assigned source integrity confidence scores.
 
-### Layer 2: Reversible SOTA Chunking System (Complete)
+### Layer 2: Reversible SOTA Chunking System
 A strategy-driven chunking pipeline preparing text for optimal embeddings. Features `tiktoken` limit awareness, markdown header preservation, and strictly reversible character offsets.
 
-### Layer 3: Versioned Vector Embeddings (Complete)
+### Layer 3: Versioned Vector Embeddings
 Compute-efficient local vectorization and persistent storage. Implements local-first embeddings, smart cryptographic versioning to prevent redundant compute, and ChromaDB integration.
 
-### Layer 4: Retrieval Pipeline (Complete)
+### Layer 4: Retrieval Pipeline
 A two-stage hybrid search engine prioritizing accuracy. Over-fetches using Reciprocal Rank Fusion (Vector + BM25) and precisely reranks the top candidates using a Cross-Encoder model.
 
-### Layer 5: Grounded Answering System (Complete)
-An LLM integration layer that synthesizes retrieved knowledge. Enforces strict grounding rules, mandatory source citations (e.g., `[Source 1]`), and automatic contextual refusal logic via Google Gemini 2.0 Flash.
+### Layer 5: Grounded Answering System
+A multi-provider LLM integration layer (Groq / Gemini / Ollama) that synthesizes retrieved knowledge. Enforces strict grounding rules, mandatory source citations, and automatic contextual refusal logic.
+
+### Layer 6: Conversational Intelligence & Auto-Pipeline
+Documents are automatically chunked and embedded upon upload via a non-blocking background pipeline. Persistent multi-turn chat sessions maintain conversation history, enabling the LLM to understand follow-up questions and pronoun references across turns.
 
 ### Future Work
-- **Layer 6: Session Management (Pending)**: Chat history, conversation threading, and cross-turn memory.
 - **Layer 7: UI Implementation (Pending)**: Complete frontend client integration for the VERO backend.

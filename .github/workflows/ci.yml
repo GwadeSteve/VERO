@@ -79,3 +79,15 @@ jobs:
           echo "Checking if server is still alive..."
           curl -s http://127.0.0.1:8000/health || (echo "Server died before Layer 5" && exit 1)
           python tests/test_layer5.py
+
+      - name: Run Layer 6 tests
+        working-directory: backend
+        env:
+          TF_ENABLE_ONEDNN_OPTS: "0"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          VERO_LLM_PROVIDER: "groq"
+        run: |
+          echo "Checking if server is still alive..."
+          curl -s http://127.0.0.1:8000/health || (echo "Server died before Layer 6" && exit 1)
+          python tests/test_layer6.py
