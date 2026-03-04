@@ -88,18 +88,6 @@ class RetrievalResult(BaseModel):
     doc_metadata: Dict[str, Any]
 
 
-class GroundedAnswer(BaseModel):
-    answer: str
-    citations: List["SearchResultItem"]
-    found_sufficient_info: bool
-
-
-class AnswerRequest(BaseModel):
-    query: str
-    top_k: int = Field(default=5, ge=1, le=50)
-    mode: str = "hybrid"   # We will pass this to the internal search
-
-
 # Request and response models
 
 class ProjectCreate(BaseModel):
@@ -228,3 +216,15 @@ class ContextWindowResponse(BaseModel):
     mode: str
     total_chunks: int
     context: str
+
+
+class GroundedAnswer(BaseModel):
+    answer: str
+    citations: List[SearchResultItem]
+    found_sufficient_info: bool
+
+
+class AnswerRequest(BaseModel):
+    query: str
+    top_k: int = Field(default=5, ge=1, le=50)
+    mode: str = "hybrid"   # We will pass this to the internal search

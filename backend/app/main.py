@@ -1,8 +1,9 @@
 """VERO FastAPI Entry Point: Entry point for the backend server."""
 
 import os
+# Must be set before ANY ML imports to suppress TensorFlow/OneDNN warnings
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # 3 = FATAL only (hides WARNING and INFO)
 
 from contextlib import asynccontextmanager
 

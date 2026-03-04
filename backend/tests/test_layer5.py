@@ -15,6 +15,10 @@ import sys
 import uuid
 import httpx
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load from backend/.env if present
+load_dotenv()
 
 BASE = "http://localhost:8000"
 PASS = 0

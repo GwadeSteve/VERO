@@ -8,10 +8,10 @@ from __future__ import annotations
 import logging
 import os
 from abc import ABC, abstractmethod
-
 from dotenv import load_dotenv
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -29,39 +29,35 @@ class BaseLLM(ABC):
 
 
 class GeminiProvider(BaseLLM):
-    """Google Gemini integration using google-generativeai."""
+    """Google Gemini integration using the new google-genai SDK."""
 
-    def __init__(self, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, model_name: str = "gemini-2.5-flash"):
         self.api_key = os.environ.get("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable not set. Please set it in a .env file or environment.")
         
-        genai.configure(api_key=self.api_key)
-        
-        # Configure model with safety settings (permissive for research)
-        self.model = genai.GenerativeModel(
-            model_name=model_name,
-            safety_settings={
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
-        )
+        self.client = genai.Client(api_key=self.api_key)
+        self.model_name = model_name
+
+        # Define permissive safety settings for technical research content
+        self.safety_settings = [
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+            types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+        ]
 
     async def generate_response(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response via Gemini using async generation."""
         try:
-            # Gemini uses a single contents payload, or we can use chat history for system instructions.
-            # Best practice for generative model is to pass system instruction in the model constructor if possible,
-            # or prepend to the user prompt. We will recreate the model here if system instruction is provided.
-            model = genai.GenerativeModel(
-                model_name=self.model.model_name,
-                system_instruction=system_prompt,
-                safety_settings=self.model._safety_settings
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    safety_settings=self.safety_settings,
+                )
             )
-            
-            response = await model.generate_content_async(user_prompt)
             return response.text
         except Exception as e:
             logger.error("Gemini API error: %s", e)
