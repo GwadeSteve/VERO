@@ -90,7 +90,7 @@ class RetrievalResult(BaseModel):
 
 class GroundedAnswer(BaseModel):
     answer: str
-    citations: List[SearchResultItem]
+    citations: List["SearchResultItem"]
     found_sufficient_info: bool
 
 
