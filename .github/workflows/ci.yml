@@ -18,15 +18,28 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install CPU-only PyTorch (skip 3GB CUDA download)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
       - name: Install dependencies
         working-directory: backend
         run: pip install -e .
 
-      - name: Start server
+      - name: Start server and wait for ready
         working-directory: backend
+        env:
+          TF_ENABLE_ONEDNN_OPTS: "0"
+          TF_CPP_MIN_LOG_LEVEL: "2"
         run: |
           uvicorn app.main:app --host 127.0.0.1 --port 8000 &
-          sleep 5
+          echo "Waiting for server..."
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:8000/health > /dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              break
+            fi
+            sleep 2
+          done
           curl --fail http://127.0.0.1:8000/health || exit 1
 
       - name: Run Layer 1 tests
