@@ -12,8 +12,11 @@ from app.schema import (
     SearchRequest,
     SearchResponse,
     ContextWindowResponse,
+    AnswerRequest,
+    GroundedAnswer,
 )
 from app.retrieval import search, build_context_window
+from app.answering import generate_answer
 
 logger = logging.getLogger(__name__)
 
@@ -91,3 +94,30 @@ async def search_context(
         total_chunks=len(results),
         context=context,
     )
+
+
+@router.post("/projects/{project_id}/answer", response_model=GroundedAnswer)
+async def generate_grounded_answer(
+    project_id: str,
+    body: AnswerRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a synthesized answer using an LLM, grounded in search results.
+
+    Performs a hybrid search to find relevant context, then asks the LLM
+    to formulate a professional response citing those specific sources.
+    Requires GEMINI_API_KEY environment variable.
+    """
+    await _verify_project(project_id, db)
+
+    results = await search(
+        db=db,
+        project_id=project_id,
+        query=body.query,
+        top_k=body.top_k,
+        mode=body.mode,  # AnswerRequest takes string, not Enum directly to keep it simple
+    )
+
+    answer = await generate_answer(query=body.query, results=results)
+    return answer
+

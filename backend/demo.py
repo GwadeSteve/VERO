@@ -218,6 +218,26 @@ def cmd_context(query):
         print(f"\n  {data['total_chunks']} chunk(s) in context window.")
 
 
+def cmd_answer(query):
+    if not require_project():
+        return
+    print(f"  Generating answer for: \"{query}\" ...\n")
+    data = api("post", f"/projects/{current_project}/answer",
+               json={"query": query, "top_k": 5, "mode": "hybrid"})
+    if data:
+        print("─" * 60)
+        print(data.get("answer", "No answer provided."))
+        print("─" * 60)
+        citations = data.get("citations", [])
+        if citations:
+            print(f"\n  Citations used:")
+            for i, r in enumerate(citations, 1):
+                title = r.get('doc_title', 'Unknown')[:30]
+                print(f"  [{i}]: {title} (score: {r.get('score', 0):.4f})")
+        else:
+            print("\n  No citations.")
+
+
 def cmd_status():
     if not current_project:
         print("  No project selected.")
@@ -244,6 +264,7 @@ def show_help():
   semantic <query>         Semantic-only search
   keyword <query>          Keyword-only search
   context <query>          Get formatted LLM-ready context window
+  answer <query>           Get AI-generated answer with citations (Layer 5)
   status                   Show current project info
   help                     Show this help
   quit                     Exit
@@ -308,6 +329,8 @@ def main():
             cmd_search(arg, mode="keyword")
         elif cmd == "context":
             cmd_context(arg)
+        elif cmd == "answer":
+            cmd_answer(arg)
         elif cmd == "status":
             cmd_status()
         else:
