@@ -1,9 +1,18 @@
 """VERO FastAPI Entry Point: Entry point for the backend server."""
 
 import os
+import warnings
+import logging
+
 # Must be set before ANY ML imports to suppress TensorFlow/OneDNN warnings
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # 3 = FATAL only (hides WARNING and INFO)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # 3 = FATAL only
+
+# Kill Python-level TF deprecation warnings (tf_keras, etc.)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+logging.getLogger("tensorflow").setLevel(logging.FATAL)
+logging.getLogger("tf_keras").setLevel(logging.FATAL)
 
 from contextlib import asynccontextmanager
 
@@ -43,4 +52,4 @@ app.include_router(search.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "layer": 4}
+    return {"status": "ok", "layer": 5}
