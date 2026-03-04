@@ -93,30 +93,44 @@ def run_tests():
     doc_id = doc["id"]
     check("Response has initial status processing/pending", doc.get("processing_status") in ["pending", "processing"])
 
-    print("  Waiting for background pipeline to complete (max 90s, grabbing embedding models)...", end="", flush=True)
+    print("  Waiting for background pipeline to complete (max 30s)...", end="", flush=True)
     pipeline_ready = False
-    for i in range(90):
+    for i in range(30):
         print(".", end="", flush=True)
-        r_status = httpx.get(f"{BASE}/documents/{doc_id}", timeout=15.0)
-        status = r_status.json().get("processing_status")
-        if status == "ready":
-            pipeline_ready = True
-            print(" Done!")
-            break
-        elif status == "failed":
-            print(" Failed!")
-            break
+        try:
+            r_status = httpx.get(f"{BASE}/documents/{doc_id}", timeout=15.0)
+            status = r_status.json().get("processing_status")
+            if status == "ready":
+                pipeline_ready = True
+                print(" Done!")
+                break
+            elif status == "failed":
+                print(" Failed!")
+                break
+        except Exception:
+            pass  # Connection hiccup during background processing, retry
         time.sleep(1)
+
+    # If loop ended without "ready", do one final check (pipeline may have JUST finished)
+    if not pipeline_ready:
+        try:
+            r_final = httpx.get(f"{BASE}/documents/{doc_id}", timeout=15.0)
+            if r_final.json().get("processing_status") == "ready":
+                pipeline_ready = True
+                print(" Done (late)!")
+        except Exception:
+            pass
     
     check("Pipeline completed successfully (status='ready')", pipeline_ready)
 
     # Verify chunks exist without manual call
-    r_chunks = httpx.get(f"{BASE}/documents/{doc_id}/chunks", timeout=5.0)
+    r_chunks = httpx.get(f"{BASE}/documents/{doc_id}/chunks", timeout=15.0)
     check("Chunks were auto-generated", len(r_chunks.json()) > 0)
     
     # Verify embeddings exist without manual call
-    r_emb = httpx.get(f"{BASE}/documents/{doc_id}/embeddings", timeout=5.0)
+    r_emb = httpx.get(f"{BASE}/documents/{doc_id}/embeddings", timeout=15.0)
     check("Embeddings were auto-generated", len(r_emb.json()) > 0)
+
 
     # ============================================================
     section("2. Sessions API")

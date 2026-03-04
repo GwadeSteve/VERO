@@ -39,13 +39,15 @@ async def auto_pipeline(doc_id: str):
             logger.info("Auto-pipeline: embedding document %s", doc_id)
             await _embed_document(db, doc)
             
-            # Mark as ready
-            doc.processing_status = "ready"
-            await db.commit()
-            logger.info("Auto-pipeline: document %s is ready for search", doc_id)
+            # Mark as ready — re-fetch to avoid stale object after commits
+            doc = await _get_doc(db, doc_id)
+            if doc:
+                doc.processing_status = "ready"
+                await db.commit()
+                logger.info("Auto-pipeline: document %s is ready for search", doc_id)
             
         except Exception as e:
-            logger.error("Auto-pipeline failed for %s: %s", doc_id, e)
+            logger.error("Auto-pipeline failed for %s: %s", doc_id, e, exc_info=True)
             try:
                 doc = await _get_doc(db, doc_id)
                 if doc:

@@ -276,6 +276,7 @@ async def get_document(doc_id: str, db: AsyncSession = Depends(get_db)):
         confidence_level=doc.confidence_level,
         source_url=doc.source_url,
         metadata=json.loads(doc.metadata_json) if doc.metadata_json else {},
+        processing_status=doc.processing_status or "pending",
         created_at=doc.created_at,
     )
 
