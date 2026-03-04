@@ -156,6 +156,7 @@ async def search(
 
     chunks = await _fetch_project_chunks(db, project_id)
     if not chunks:
+        logger.warning(f"Search failed: Project {project_id} has NO chunks in database.")
         return []
 
     doc_map = await _fetch_doc_map(db, project_id)
@@ -175,6 +176,10 @@ async def search(
         sem_scores = _semantic_search(project_id, query, candidate_k)
         kw_scores = _keyword_search(chunks, query, candidate_k)
         final_scores = _reciprocal_rank_fusion(sem_scores, kw_scores)
+
+    if not final_scores:
+        logger.warning(f"Search failed: Stage 1 [{mode}] returned 0 candidates for query '{query[:50]}'")
+        return []
 
     # Sort by Stage 1 score and take candidates
     ranked_candidates = sorted(
