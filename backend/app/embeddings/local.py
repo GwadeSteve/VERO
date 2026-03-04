@@ -25,8 +25,12 @@ def _get_model(model_name: str) -> SentenceTransformer:
     if model_name not in _model_cache:
         with _lock:
             if model_name not in _model_cache:
-                logger.info("Loading embedding model '%s' (first call, may take a moment)...", model_name)
-                _model_cache[model_name] = SentenceTransformer(model_name)
+                try:
+                    logger.info("Loading embedding model '%s' (local files only)...", model_name)
+                    _model_cache[model_name] = SentenceTransformer(model_name, local_files_only=True)
+                except Exception as e:
+                    logger.warning("Local cache missing. Downloading '%s' from HuggingFace...", model_name)
+                    _model_cache[model_name] = SentenceTransformer(model_name, local_files_only=False)
                 logger.info("Model '%s' loaded successfully.", model_name)
     return _model_cache[model_name]
 

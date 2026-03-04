@@ -93,16 +93,18 @@ def run_tests():
     doc_id = doc["id"]
     check("Response has initial status processing/pending", doc.get("processing_status") in ["pending", "processing"])
 
-    print("  Waiting for background pipeline to complete (max 15s)...")
+    print("  Waiting for background pipeline to complete (max 90s, grabbing embedding models)...", end="", flush=True)
     pipeline_ready = False
-    for i in range(15):
-        r_status = httpx.get(f"{BASE}/documents/{doc_id}", timeout=5.0)
+    for i in range(90):
+        print(".", end="", flush=True)
+        r_status = httpx.get(f"{BASE}/documents/{doc_id}", timeout=15.0)
         status = r_status.json().get("processing_status")
         if status == "ready":
             pipeline_ready = True
+            print(" Done!")
             break
         elif status == "failed":
-            print(f"  Pipeline failed!")
+            print(" Failed!")
             break
         time.sleep(1)
     
@@ -137,7 +139,7 @@ def run_tests():
     r_chat1 = httpx.post(
         f"{BASE}/sessions/{session_id}/chat",
         json={"message": "What is VERO?", "top_k": 3, "mode": "hybrid"},
-        timeout=30.0
+        timeout=120.0
     )
     check("POST /chat (Turn 1) returns 200", r_chat1.status_code == 200)
     ans1 = r_chat1.json().get("answer", "").lower()
@@ -148,7 +150,7 @@ def run_tests():
     r_chat2 = httpx.post(
         f"{BASE}/sessions/{session_id}/chat",
         json={"message": "Can I run it locally?", "top_k": 3, "mode": "hybrid"},
-        timeout=30.0
+        timeout=120.0
     )
     check("POST /chat (Turn 2) returns 200", r_chat2.status_code == 200)
     ans2 = r_chat2.json().get("answer", "").lower()

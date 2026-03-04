@@ -5,6 +5,7 @@ import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.database import async_session
 from app.models import DocumentModel, ChunkModel, EmbeddingModel
@@ -68,9 +69,11 @@ async def _chunk_document(db: AsyncSession, doc: DocumentModel):
     # Delete existing chunks
     await db.execute(ChunkModel.__table__.delete().where(ChunkModel.doc_id == doc.id))
     
-    # Generate new chunks
+    # Generate new chunks (CPU-bound)
     chunker = get_chunker_for_source(doc.source_type)
-    chunk_responses = chunker.chunk(text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id)
+    chunk_responses = await run_in_threadpool(
+        chunker.chunk, text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id
+    )
     
     for cr in chunk_responses:
         db.add(ChunkModel(
@@ -106,9 +109,9 @@ async def _embed_document(db: AsyncSession, doc: DocumentModel):
     # Get embedder
     embedder = get_embedder(DEFAULT_EMBED_MODEL)
 
-    # Compute embeddings
+    # Compute embeddings (CPU-bound)
     texts = [c.text for c in chunks]
-    vectors = embedder.embed(texts)
+    vectors = await run_in_threadpool(embedder.embed, texts)
 
     chunk_ids = []
     vectors_for_store = []
@@ -150,8 +153,9 @@ async def _embed_document(db: AsyncSession, doc: DocumentModel):
             "end_char": chunk.end_char,
         })
 
-    # Upsert into vector store
-    vectorstore.upsert_embeddings(
+    # Upsert into vector store (IO-bound / Synchronous)
+    await run_in_threadpool(
+        vectorstore.upsert_embeddings,
         project_id=doc.project_id,
         chunk_ids=chunk_ids,
         vectors=vectors_for_store,
