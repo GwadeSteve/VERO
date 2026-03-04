@@ -17,29 +17,56 @@ The entire VERO backend operates on an explicit pipeline, heavily optimized with
 
 ```mermaid
 flowchart TD
-    %% Styling
-    classDef raw fill:#202020,stroke:#666,stroke-width:1px,color:#fff,rx:5px,ry:5px;
-    classDef ingestion fill:#1a365d,stroke:#2b6cb0,stroke-width:2px,color:#fff,rx:5px,ry:5px;
-    classDef processing fill:#2c5282,stroke:#4299e1,stroke-width:2px,color:#fff,rx:5px,ry:5px;
-    classDef storage fill:#2f855a,stroke:#48bb78,stroke-width:2px,color:#fff,rx:5px,ry:5px;
-    classDef retrieval fill:#744210,stroke:#d69e2e,stroke-width:2px,color:#fff,rx:5px,ry:5px;
-    classDef synthesis fill:#553c9a,stroke:#9f7aea,stroke-width:2px,color:#fff,rx:5px,ry:5px;
-    
-    A[Raw Files / URLs / GitHub]:::raw -->|Layer 1| B(Data Normalization & Hashing):::ingestion
-    B -->|deduplicated| C(Token-Aware SOTA Chunking):::processing
-    C -->|Layer 2| D[(SQLite DB)]:::storage
-    
-    C -->|Layer 3| E(Local Embedder: all-MiniLM):::processing
-    E -->|vectorized| F[(ChromaDB)]:::storage
-    
-    G[User Query]:::raw -->|Layer 4| H(Hybrid RRF Search):::retrieval
-    H -->|BM25 + Semantic| I(Cross-Encoder Reranking):::retrieval
-    I -->|Layer 5| J[Grounded Answering LLM]:::synthesis
-    J -->|Layer 6| K((Context-Aware Chat Memory)):::synthesis
-    
-    F -.-> I
-    D -.-> I
-    K -.->|Sliding Window History| J
+    %% Define Styles
+    classDef client fill:#0f2044,stroke:#4f8ef7,color:#e2e8f0,stroke-width:2px,rx:8px,ry:8px;
+    classDef api fill:#161b2a,stroke:#7c5cfc,color:#e2e8f0,stroke-width:2px,rx:8px,ry:8px;
+    classDef background fill:#1a2a44,stroke:#4299e1,color:#e2e8f0,stroke-width:2px,stroke-dasharray: 4 4,rx:8px,ry:8px;
+    classDef db fill:#0d1117,stroke:#34d399,color:#e2e8f0,stroke-width:2px,rx:8px,ry:8px;
+    classDef ext fill:#111520,stroke:#fbbf24,color:#e2e8f0,stroke-width:2px,rx:8px,ry:8px;
+
+    Client([User / Client]):::client
+
+    subgraph FastAPI Backend
+        Ingest[Layer 1: Ingestion API]:::api
+        Chat[Layer 6: Chat / Answer API]:::api
+        
+        subgraph Background Pipeline
+            Chunk[Layer 2: Token-Aware Chunking]:::background
+            Embed[Layer 3: Local Embeddings]:::background
+        end
+        
+        Retrieve[Layer 4: Hybrid Retrieval]:::background
+        LLM_Answer[Layer 5: LLM Synthesis]:::background
+    end
+
+    subgraph Storage & Models
+        SQ[(SQLite DB\nDocs, Chunks, FTS5, Chat)]:::db
+        CH[(ChromaDB\nVector Store)]:::db
+        LLM[External LLM\nGroq / Gemini]:::ext
+    end
+
+    %% Ingestion Flow
+    Client -- 1. Upload Doc --> Ingest
+    Ingest -- 2. Save Pending Doc --> SQ
+    Ingest -- 3. Trigger Async Task --> Chunk
+    Chunk -- 4. Save Chunks --> SQ
+    Chunk -- 5. Pass to Embedder --> Embed
+    Embed -- 6. Save Vectors --> CH
+
+    %% Chat/Answer Flow
+    Client -- A. User Query --> Chat
+    Chat -- B. Fetch Chat History --> SQ
+    Chat -- C. Invoke Search --> Retrieve
+    Retrieve -- D. BM25 Query --> SQ
+    Retrieve -- E. Vector Query --> CH
+    Retrieve -- F. Reranking --> Retrieve
+    Retrieve -- G. Return Context --> Chat
+    Chat -- H. Combine Hist + Context --> LLM_Answer
+    LLM_Answer -- I. Prompt Generation --> LLM
+    LLM -- J. Streamed Answer --> LLM_Answer
+    LLM_Answer -- K. Format Citations --> Chat
+    Chat -- L. Save Turn Memory --> SQ
+    Chat -- M. Return Answer --> Client
 ```
 
 ---
@@ -138,22 +165,30 @@ The heart of VERO's accuracy. Performs concurrent sparse (keyword) and dense (se
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
     participant API as Search API
-    participant V as ChromaDB (Dense)
-    participant B as SQLite BM25 (Sparse)
+    participant Emb as Local Embedder
+    participant Vec as ChromaDB (Dense)
+    participant SQL as SQLite FTS5 (Sparse)
     participant CE as Cross-Encoder
 
-    C->>API: POST /projects/{id}/search
-    par 
-        API->>V: fetch top N vectors
+    API->>Emb: 1. Vectorize User Query
+    Emb-->>API: Query Embedding
+    
+    par Parallel Search Execution
+        API->>Vec: 2a. Semantic Search (Top N vectors)
+        Vec-->>API: Dense Candidates
     and
-        API->>B: fetch top M keywords
+        API->>SQL: 2b. BM25 Keyword Search (Top M chunks)
+        SQL-->>API: Sparse Candidates
     end
-    API->>API: RRF Fusion (Rank combining)
-    API->>CE: Score combined context candidates
-    CE-->>API: Reordered exact relevance scores
-    API-->>C: Return SearchResults
+
+    API->>API: 3. Reciprocal Rank Fusion (Combine & Deduplicate)
+    
+    API->>CE: 4. Rerank Combined Context Candidates
+    CE-->>API: Exact Relevance Scores
+    
+    API->>API: 5. Sort by Score & Select Top K
+    API-->>Client: Return Grounded SearchResults
 ```
 
 ### `POST /projects/{project_id}/search`
@@ -221,14 +256,30 @@ Uploading a document in Layer 1 triggers a thread-pooled background task. Check 
 The chat history implements a sliding-window retention policy to prevent token overflow.
 
 ```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> Retrieve_History
-    Retrieve_History --> Form_Sliding_Window: Last 10 Messages
-    Form_Sliding_Window --> Retrieve_Context: RRF Hybrid Search
-    Retrieve_Context --> Prompt_LLM: Window + Context + Query
-    Prompt_LLM --> Save_To_DB
-    Save_To_DB --> [*]: Return Answer + Citations
+sequenceDiagram
+    participant Client
+    participant API as Chat API
+    participant SQL as SQLite (Memory)
+    participant Search as Layer 4 (Retrieval)
+    participant LLM as External LLM
+
+    Client->>API: POST /sessions/{id}/chat (Query)
+    
+    API->>SQL: 1. Fetch Session Message History
+    SQL-->>API: Sliding Window (Last 10 Messages)
+    
+    API->>Search: 2. Invoke Hybrid Search with User Query
+    Search-->>API: Formatted Context Block (Citations)
+    
+    API->>API: 3. Construct Payload (System Rules + Context)
+    API->>API: 4. Append Conversation History + Trigger Query
+    
+    API->>LLM: 5. Generate Response
+    LLM-->>API: Synthesized Answer
+    
+    API->>SQL: 6. Persist User Msg & Assistant Msg
+    
+    API-->>Client: Return Answer + Citation Metadata
 ```
 
 ### `POST /projects/{project_id}/sessions`

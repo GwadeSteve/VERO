@@ -1,177 +1,293 @@
-# VERO: Personal Research Workspace
+# VERO: Research Workspace Engine
 
-VERO is an advanced, privacy-first personal research workspace engineered for high-fidelity information retrieval and synthesis. It prioritizes data integrity, deterministic processing, and strict source traceability to provide a rigorous environment for technical literature review and data analysis.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-6B46C1?style=for-the-badge&logo=chroma&logoColor=white)](https://www.trychroma.com/)
+[![Groq](https://img.shields.io/badge/LLM-Groq-orange?style=for-the-badge)](https://groq.com/)
+[![Gemini](https://img.shields.io/badge/LLM-Gemini-blue?style=for-the-badge)](https://ai.google.dev/)
+
+**VERO** is an advanced, privacy-first research workspace engine built for high-fidelity information retrieval and synthesis. It prioritizes data integrity, deterministic processing, and strict source traceability.
+
+> **Interactive docs:** [View the SOTA API Architecture Guide](API_Guide.html)
+
+---
 
 ## Core Architecture
 
-VERO is built upon a hardened, layered engineering framework. Every module is independently verifiable, ensuring zero data loss and perfect contextual preservation from raw document to final LLM synthesis.
+VERO is built on a hardened, 6-layer framework. Every module is independently verifiable, ensuring zero data loss from raw document to final LLM synthesis.
 
-1. **Deterministic Hashing**: All ingested content is normalized and hashed (SHA-256) to guarantee absolute deduplication and prevent redundant compute cycles.
-2. **Reversible Chunking**: Advanced, context-aware chunking (semantic and markdown-aware) mapped strictly to original character offsets.
-3. **Compute-Efficient Local Embedding**: Uses `sentence-transformers` locally to embed documents for zero-cost, fully private semantic retrieval.
-4. **Hybrid Retrieval**: Employs Reciprocal Rank Fusion (RRF) to combine Semantic vector search with BM25 keyword search, followed by a Cross-Encoder reranking stage for state-of-the-art precision.
-5. **Grounded Synthesis**: Leverages LLMs to synthesize answers that are strictly bound to retrieved context, enforcing academic-style source citations.
-6. **Auto-Pipeline & Conversational Memory**: Documents are automatically chunked and embedded upon upload. Multi-turn chat sessions with persistent history enable natural, context-aware research conversations.
+| Layer | Name | Purpose |
+|:-----:|------|---------|
+| **1** | Ingestion | Normalize inputs, SHA-256 deduplication |
+| **2** | Chunking | Token-aware splits, markdown hierarchy preserved |
+| **3** | Embeddings | Local `all-MiniLM-L6-v2` · 384-dim · hash-cached |
+| **4** | Retrieval | BM25 + Semantic → RRF fusion → Cross-Encoder rerank |
+| **5** | Answering | LLM synthesis strictly grounded in retrieved context |
+| **6** | Memory | Persistent sessions with sliding-window history |
+
+---
+
+## System Architecture
+
+VERO handles two independent flows — **document ingestion** and **query answering** — that share the same storage layer.
+
+```mermaid
+flowchart TD
+    subgraph INPUTS[" "]
+        DOC([Document])
+        QUERY([User Query])
+    end
+
+    subgraph INGEST[Ingestion Pipeline — runs on upload]
+        L1[Layer 1 · Ingest\nNormalize + SHA-256 hash]
+        L2[Layer 2 · Chunk\ntiktoken · semantic splits]
+        L3[Layer 3 · Embed\nall-MiniLM-L6-v2 · 384-dim]
+    end
+
+    subgraph STORAGE[Shared Storage]
+        SQ[(SQLite\nDocs · Chunks · Chat)]
+        CH[(ChromaDB\nVectors)]
+    end
+
+    subgraph QUERY_PATH[Query Pipeline — runs on every message]
+        L4[Layer 4 · Retrieve\nBM25 + Semantic → RRF → Rerank]
+        L5[Layer 5 · Synthesize\nLLM · grounded · cited]
+        L6[Layer 6 · Persist\nSave turn to session]
+    end
+
+    OUT([Answer + Citations])
+
+    DOC --> L1
+    L1 --> L2
+    L1 -->|save record| SQ
+    L2 --> L3
+    L2 -->|save chunks + FTS5| SQ
+    L3 -->|upsert vectors| CH
+
+    QUERY --> L4
+    SQ -->|BM25 keyword search| L4
+    CH -->|vector search| L4
+    SQ -->|chat history| L5
+    L4 -->|ranked context| L5
+    L5 --> L6
+    L6 -->|save turn| SQ
+    L6 --> OUT
+```
+
+---
 
 ## Technical Stack
 
-- **API Framework**: FastAPI (Async Python)
-- **Database**: SQLite & SQLAlchemy (Asyncio)
-- **Data Parsers**: PyMuPDF, python-docx, BeautifulSoup4, GitHub REST API
-- **Embeddings & Reranking**: sentence-transformers (`all-MiniLM-L6-v2` & `ms-marco-MiniLM-L-6-v2`)
-- **Vector Store**: ChromaDB (persistent, local)
-- **Answering Engine**: Multi-provider (Groq / Google Gemini / Ollama)
+| Component | Technology |
+|-----------|-----------|
+| API Framework | FastAPI (Async Python) |
+| Database | SQLite + SQLAlchemy (Asyncio) |
+| Parsers | PyMuPDF · python-docx · BeautifulSoup4 · GitHub REST API |
+| Embeddings | `sentence-transformers` — `all-MiniLM-L6-v2` |
+| Reranking | `ms-marco-MiniLM-L-6-v2` Cross-Encoder |
+| Vector Store | ChromaDB (persistent, local) |
+| LLM Providers | Groq · Google Gemini · Ollama |
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
-- Python 3.10 or higher
+- Python 3.10+
 - Git
 
 ### Installation
 
-1. Clone the repository and navigate to the backend directory:
-   ```bash
-   git clone https://github.com/GwadeSteve/VERO.git
-   cd VERO/backend
-   ```
-
-2. Create and activate a virtual environment (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-   ```
-
-3. Install the application and dependencies:
-   ```bash
-   pip install -e .
-   ```
-
-4. Configure the environment:
-   Create a `.env` file in the `backend` directory and add your Google Gemini API key (required for Layer 5 synthesis):
-   ```env
-   GEMINI_API_KEY="your_api_key_here"
-   ```
-
-### Running the Server
-
-Start the FastAPI application with Uvicorn:
 ```bash
-python -m uvicorn app.main:app --reload --port 8000
+# 1. Clone and enter the backend directory
+git clone https://github.com/GwadeSteve/VERO.git
+cd VERO/backend
+
+# 2. Create a virtual environment
+python -m venv venv
+source venv/bin/activate      # Windows: .\venv\Scripts\activate
+
+# 3. Install
+pip install -e .
 ```
-*The interactive API documentation (Swagger UI) will be instantly available at `http://localhost:8000/docs`.*
 
-### Interactive Terminal Client
+**Configure environment** — create a `.env` file in `backend/`:
 
-A robust interactive REPL is included to test the entire pipeline (Ingestion → Chunking → Embedding → Search → Answer) locally without frontend integration:
+```env
+GEMINI_API_KEY="your_key_here"
+GROQ_API_KEY="your_key_here"
+```
+
+### Run
+
 ```bash
+# Start the server (Swagger UI at http://localhost:8000/docs)
+python -m uvicorn app.main:app --reload --port 8000
+
+# Or use the interactive terminal REPL
 python demo.py
 ```
 
 ### LLM Providers
 
-VERO supports multiple LLM backends. Switch between them with a single environment variable.
+Switch providers with a single env variable:
 
-**Groq (Default)** -- 14,400 free requests/day, fastest inference:
-```env
-VERO_LLM_PROVIDER=groq
-GROQ_API_KEY=your_key_here
-VERO_GROQ_MODEL=llama-3.1-8b-instant
-```
+| Provider | Config |
+|----------|--------|
+| **Groq** *(default · fastest)* | `VERO_LLM_PROVIDER=groq` + `GROQ_API_KEY` |
+| **Gemini** | `VERO_LLM_PROVIDER=gemini` + `GEMINI_API_KEY` |
+| **Ollama** *(local · no API key)* | `VERO_LLM_PROVIDER=ollama` + `ollama pull llama3.1` |
 
-**Google Gemini** -- Access to Gemini model family:
-```env
-VERO_LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_key_here
-VERO_GEMINI_MODEL=gemini-2.5-flash-lite
-```
+---
 
-**Ollama (Local)** -- Unlimited, private, no API key needed:
+## API Guide
+
+### Layer 1 — Ingestion
+
+Upload a file and VERO automatically hashes, chunks, and embeds it in the background.
+
 ```bash
-ollama pull llama3.1
-```
-```env
-VERO_LLM_PROVIDER=ollama
-VERO_OLLAMA_MODEL=llama3.1
+POST /projects/{id}/ingest          # Upload file (PDF, DOCX, MD, TXT)
+POST /projects/{id}/ingest-repo     # Pull a GitHub repo's READMEs + docstrings
+GET  /documents/{doc_id}            # Check processing_status: pending → processing → ready
 ```
 
 ---
 
-## API Interaction Guide
+### Layer 4 — Hybrid Retrieval
 
-The VERO core API is scoped by "Projects" to ensure data isolation. Below is a high-level guide to the essential endpoints.
+A two-stage pipeline that combines keyword precision with semantic understanding, then reranks the fused results for maximum accuracy.
 
-### 1. Project Management
-- **POST `/projects`**: Create a new research workspace.
-  ```json
-  { "name": "Quantum Computing Review", "description": "Reviewing 2024 papers." }
-  ```
-- **GET `/projects`**: List all existing projects and their document counts.
+```mermaid
+flowchart TD
+    Q([User Query])
 
-### 2. Document Ingestion (Layer 1)
-- **POST `/projects/{id}/ingest`**: Upload local files (Form-Data: `file`). Supports PDF, DOCX, MD, and TXT.
-- **POST `/projects/{id}/ingest-url`**: Extract and clean the main article body from a webpage.
-- **POST `/projects/{id}/ingest-repo`**: Recursively pull READMEs and Python docstrings from a GitHub repository.
+    subgraph EMBED[Step 1 · Vectorize]
+        E[Embed query\nall-MiniLM-L6-v2]
+    end
 
-### 3. Chunking & Embedding (Layers 2 & 3)
-- **POST `/documents/{id}/chunk`**: Process the raw document text into optimal, token-aware semantic chunks.
-- **POST `/documents/{id}/embed`**: Generate dense vector embeddings for all document chunks. VERO caches hashes locally to skip unchanged text.
+    subgraph SEARCH[Step 2 · Parallel Search]
+        direction LR
+        SEM[Semantic Search\nChromaDB · Top N]
+        KEY[Keyword Search\nSQLite FTS5 · BM25 · Top M]
+    end
 
-> **Note**: With the Auto-Pipeline (Layer 6), chunking and embedding are now triggered automatically on ingest. These manual endpoints remain available for re-processing or debugging.
+    subgraph RANK[Step 3 · Rank & Refine]
+        RRF[RRF Fusion\nCombine + deduplicate]
+        CE[Cross-Encoder Rerank\nexact relevance scores]
+    end
 
-### 4. Search & Retrieval (Layer 4)
-- **POST `/projects/{id}/search`**: Execute a robust hybrid search.
-  ```json
-  {
-    "query": "How is context preserved during chunking?",
-    "top_k": 5,
-    "mode": "hybrid"
-  }
-  ```
-  *(Supported modes: `hybrid`, `semantic`, `keyword`)*
-- **POST `/projects/{id}/search/context`**: Identical to search, but returns a formatted, LLM-ready text block with embedded source headers.
+    OUT([Top K results · ready for LLM])
 
-### 5. Grounded Answering (Layer 5)
-- **POST `/projects/{id}/answer`**: The complete Retrieval-Augmented Generation (RAG) pipeline. Performs a hybrid search, gathers context, and prompts the LLM to write a comprehensive, strictly cited answer.
-  - Set `"allow_model_knowledge": true` to let the LLM supplement with its own training knowledge when documents are insufficient.
+    Q --> E
+    E --> SEM
+    E --> KEY
+    SEM --> RRF
+    KEY --> RRF
+    RRF --> CE
+    CE --> OUT
+```
 
-### 6. Sessions & Chat (Layer 6)
-- **POST `/projects/{id}/sessions`**: Create a named chat session within a project.
-- **GET `/projects/{id}/sessions`**: List all sessions in a project.
-- **GET `/sessions/{id}`**: Retrieve a session with its complete message history.
-- **POST `/sessions/{id}/chat`**: Send a message and receive a context-aware, cited answer. History from previous turns is automatically included for multi-turn reasoning.
-  ```json
-  {
-    "message": "What parsers does VERO support?",
-    "top_k": 5,
-    "mode": "hybrid",
-    "allow_model_knowledge": false
-  }
-  ```
+> **Why two stages?** BM25 catches exact keyword matches that semantic search misses. RRF ensures neither dominates. The Cross-Encoder then gives a precise relevance score per candidate — something fast bi-encoders can't do.
+
+```bash
+POST /projects/{id}/search
+{
+  "query": "How is context preserved during chunking?",
+  "top_k": 5,
+  "mode": "hybrid"    # also: "semantic" | "keyword"
+}
+```
+
+---
+
+### Layer 5 — Grounded Answering
+
+```bash
+POST /projects/{id}/answer
+{
+  "query": "What formats does VERO support?",
+  "top_k": 3,
+  "allow_model_knowledge": false
+}
+```
+
+Set `allow_model_knowledge: true` to let the LLM supplement with training knowledge when documents are insufficient. Default is `false` — answers are **strictly** grounded in your documents.
+
+Each citation includes `doc_id`, `chunk_id`, `start_char`, and `end_char` for precise UI passage highlighting:
+
+```json
+{
+  "answer": "VERO supports PDF, DOCX, Markdown, and TXT...",
+  "citations": [
+    {
+      "doc_id": "a1b2c3",
+      "chunk_id": "e4f8b2",
+      "doc_title": "README.md",
+      "start_char": 450,
+      "end_char": 890,
+      "score": 0.8412
+    }
+  ],
+  "found_sufficient_info": true
+}
+```
+
+---
+
+### Layer 6 — Conversational Memory
+
+Each session keeps a **sliding window of the last 10 messages**. On every turn, VERO fetches history, runs a fresh hybrid search, and builds a grounded prompt — enabling natural follow-ups and pronoun resolution across turns.
+
+```mermaid
+flowchart TD
+    MSG([User Message])
+
+    subgraph LOAD[Step 1 · Load context]
+        direction LR
+        HIST[Fetch chat history\nlast 10 turns]
+        SEARCH[Hybrid search\nfresh per turn]
+    end
+
+    subgraph BUILD[Step 2 · Build prompt]
+        PROMPT[Assemble\nSystem rules + history + context]
+    end
+
+    subgraph GEN[Step 3 · Generate]
+        LLM[LLM · Groq · Gemini · Ollama]
+    end
+
+    subgraph SAVE[Step 4 · Persist]
+        MEM[Save turn to session\nfeeds the next turn's history]
+    end
+
+    OUT([Answer + Citations])
+
+    MSG --> HIST
+    MSG --> SEARCH
+    HIST --> PROMPT
+    SEARCH --> PROMPT
+    PROMPT --> LLM
+    LLM --> MEM
+    MEM --> OUT
+    MEM -.->|available next turn| HIST
+```
+
+```bash
+POST /projects/{id}/sessions        # Create a named session
+POST /sessions/{id}/chat            # Send a message
+GET  /sessions/{id}                 # Retrieve full conversation history
+```
 
 ---
 
 ## Development Status
 
-### Layer 1: Hardened Ingestion Pipeline
-A robust data ingestion pipeline that normalizes diverse inputs into standardized text records. Includes deterministic hashing, multi-format parsers, and auto-assigned source integrity confidence scores.
-
-### Layer 2: Reversible SOTA Chunking System
-A strategy-driven chunking pipeline preparing text for optimal embeddings. Features `tiktoken` limit awareness, markdown header preservation, and strictly reversible character offsets.
-
-### Layer 3: Versioned Vector Embeddings
-Compute-efficient local vectorization and persistent storage. Implements local-first embeddings, smart cryptographic versioning to prevent redundant compute, and ChromaDB integration.
-
-### Layer 4: Retrieval Pipeline
-A two-stage hybrid search engine prioritizing accuracy. Over-fetches using Reciprocal Rank Fusion (Vector + BM25) and precisely reranks the top candidates using a Cross-Encoder model.
-
-### Layer 5: Grounded Answering System
-A multi-provider LLM integration layer (Groq / Gemini / Ollama) that synthesizes retrieved knowledge. Enforces strict grounding rules, mandatory source citations, and automatic contextual refusal logic.
-
-### Layer 6: Conversational Intelligence & Auto-Pipeline
-Documents are automatically chunked and embedded upon upload via a non-blocking background pipeline. Persistent multi-turn chat sessions maintain conversation history, enabling the LLM to understand follow-up questions and pronoun references across turns.
-
-### Future Work
-- **Layer 7: UI Implementation (Pending)**: Complete frontend client integration for the VERO backend.
+- [x] **Layer 1** — Hardened Ingestion: SHA-256 dedup, multi-format parsers, integrity scores
+- [x] **Layer 2** — Reversible Chunking: `tiktoken` limits, markdown header preservation
+- [x] **Layer 3** — Versioned Embeddings: local-first, cryptographic hash versioning
+- [x] **Layer 4** — Hybrid Retrieval: Vector + BM25 via RRF, Cross-Encoder reranking
+- [x] **Layer 5** — Grounded Answering: multi-provider LLM, mandatory citations, refusal logic
+- [x] **Layer 6** — Conversational Memory: background auto-pipeline, persistent sessions
+- [ ] **Layer 7** — UI Implementation (pending)
