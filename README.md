@@ -69,6 +69,33 @@ A robust interactive REPL is included to test the entire pipeline (Ingestion →
 python demo.py
 ```
 
+### LLM Providers
+
+VERO supports multiple LLM backends. Switch between them with a single environment variable.
+
+**Groq (Default)** -- 14,400 free requests/day, fastest inference:
+```env
+VERO_LLM_PROVIDER=groq
+GROQ_API_KEY=your_key_here
+VERO_GROQ_MODEL=llama-3.1-8b-instant
+```
+
+**Google Gemini** -- Access to Gemini model family:
+```env
+VERO_LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_key_here
+VERO_GEMINI_MODEL=gemini-2.5-flash-lite
+```
+
+**Ollama (Local)** -- Unlimited, private, no API key needed:
+```bash
+ollama pull llama3.1
+```
+```env
+VERO_LLM_PROVIDER=ollama
+VERO_OLLAMA_MODEL=llama3.1
+```
+
 ---
 
 ## API Interaction Guide

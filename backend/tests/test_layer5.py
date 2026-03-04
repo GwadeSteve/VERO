@@ -47,19 +47,47 @@ def section(title: str):
     print(f"{'='*60}")
 
 
+def wait_for_server():
+    """Wait for the server to be ready before running tests."""
+    import time
+    print("  Checking server health...")
+    for i in range(10):
+        try:
+            r = httpx.get(f"{BASE}/health", timeout=5.0)
+            if r.status_code == 200:
+                print(f"  Server is healthy.")
+                return True
+        except Exception:
+            pass
+        print(f"  Waiting for server... (attempt {i+1}/10)")
+        time.sleep(2)
+    return False
+
+
 def setup_project_with_embeddings():
     """Create a project, ingest README, chunk it, and embed it."""
     project_name = f"Layer 5 Answers {uuid.uuid4().hex[:6]}"
-    r = httpx.post(f"{BASE}/projects", json={"name": project_name, "description": "Testing answers."})
+    r = httpx.post(
+        f"{BASE}/projects",
+        json={"name": project_name, "description": "Testing answers."},
+        timeout=HTTP_TIMEOUT,
+    )
     r.raise_for_status()
     pid = r.json()["id"]
 
     with open(README, "rb") as f:
-        r_ingest = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)})
+        r_ingest = httpx.post(
+            f"{BASE}/projects/{pid}/ingest",
+            files={"file": ("README.md", f)},
+            timeout=HTTP_TIMEOUT,
+        )
     r_ingest.raise_for_status()
     doc_id = r_ingest.json()["id"]
 
-    httpx.post(f"{BASE}/documents/{doc_id}/chunk").raise_for_status()
+    httpx.post(
+        f"{BASE}/documents/{doc_id}/chunk",
+        timeout=HTTP_TIMEOUT,
+    ).raise_for_status()
     
     httpx.post(
         f"{BASE}/documents/{doc_id}/embed",
@@ -73,12 +101,25 @@ def setup_project_with_embeddings():
 def run_tests():
     global PASS, FAIL
     
-    if not os.environ.get("GEMINI_API_KEY"):
-        print("\n  SKIP: GEMINI_API_KEY is not set. Layer 5 tests cannot run.")
-        print("  To test: export GEMINI_API_KEY=your_key && python tests/test_layer5.py\n")
+    provider = os.environ.get("VERO_LLM_PROVIDER", "groq").lower()
+    
+    if provider == "groq" and not os.environ.get("GROQ_API_KEY"):
+        print("\n  SKIP: GROQ_API_KEY is not set. Layer 5 tests cannot run.")
+        print("  To test: set GROQ_API_KEY in .env or export it.")
         sys.exit(0)
+    elif provider == "gemini" and not os.environ.get("GEMINI_API_KEY"):
+        print("\n  SKIP: GEMINI_API_KEY is not set. Layer 5 tests cannot run.")
+        print("  To test: set GEMINI_API_KEY in .env or export it.")
+        sys.exit(0)
+    
+    print(f"  Using LLM provider: {provider}")
 
     try:
+        if not wait_for_server():
+            print("\n  FATAL: Server not reachable at", BASE)
+            print("  Start it with: uvicorn app.main:app --reload --port 8000")
+            sys.exit(1)
+
         print("  Setting up project for LLM tests (one-time)...")
         pid, doc_id = setup_project_with_embeddings()
         print(f"  Setup complete: project={pid}, doc={doc_id}\n")
@@ -123,10 +164,21 @@ def run_tests():
         check("POST /answer (refusal) returns 200", r_refuse.status_code == 200)
         
         data_refuse = r_refuse.json()
+        if not data_refuse.get("found_sufficient_info") is False:
+            print(f"  DEBUG: Refusal Response: {data_refuse}")
+
         check("found_sufficient_info is False", data_refuse["found_sufficient_info"] is False)
         
         ans_refuse: str = data_refuse["answer"].lower()
-        check("Answer contains refusal phasing", "cannot answer" in ans_refuse or "do not know" in ans_refuse)
+        # Different LLMs phrase refusals differently
+        refusal_phrases = [
+            "cannot answer", "do not know", "don't know",
+            "not enough information", "no relevant information",
+            "insufficient", "unable to answer", "not found",
+            "cannot find", "no information", "not contain",
+        ]
+        has_refusal = any(phrase in ans_refuse for phrase in refusal_phrases)
+        check("Answer contains refusal phrasing", has_refusal, f"Answer: {ans_refuse[:100]}...")
 
         # ============================================================
         section("RESULTS")
