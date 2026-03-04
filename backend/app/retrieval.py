@@ -137,7 +137,10 @@ async def search(
     top_k: int = 5,
     mode: str = "hybrid",
 ) -> list[SearchResultItem]:
-    """Execute a search and return ranked results.
+    """Execute a two-stage search with cross-encoder reranking.
+
+    Stage 1: Fast candidate retrieval (semantic, keyword, or hybrid).
+    Stage 2: Cross-encoder reranking for precision.
 
     Args:
         db: Database session.
@@ -147,8 +150,10 @@ async def search(
         mode: "semantic", "keyword", or "hybrid".
 
     Returns:
-        List of SearchResultItem, sorted by relevance.
+        List of SearchResultItem, sorted by cross-encoder relevance.
     """
+    from app.reranker import rerank
+
     chunks = await _fetch_project_chunks(db, project_id)
     if not chunks:
         return []
@@ -158,47 +163,70 @@ async def search(
     # Build chunk lookup
     chunk_map = {c.id: c for c in chunks}
 
-    # Get scores based on mode
+    # Stage 1: Over-fetch candidates (4x top_k for reranking headroom)
+    candidate_k = min(top_k * 4, len(chunks))
+
     if mode == "semantic":
-        final_scores = _semantic_search(project_id, query, top_k * 2)
+        final_scores = _semantic_search(project_id, query, candidate_k)
     elif mode == "keyword":
-        final_scores = _keyword_search(chunks, query, top_k * 2)
+        final_scores = _keyword_search(chunks, query, candidate_k)
     else:
         # Hybrid: combine both using RRF
-        sem_scores = _semantic_search(project_id, query, top_k * 3)
-        kw_scores = _keyword_search(chunks, query, top_k * 3)
+        sem_scores = _semantic_search(project_id, query, candidate_k)
+        kw_scores = _keyword_search(chunks, query, candidate_k)
         final_scores = _reciprocal_rank_fusion(sem_scores, kw_scores)
 
-    # Sort by final score and take top_k
-    ranked = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+    # Sort by Stage 1 score and take candidates
+    ranked_candidates = sorted(
+        final_scores.items(), key=lambda x: x[1], reverse=True
+    )[:candidate_k]
 
-    # Build response items
-    results: list[SearchResultItem] = []
-    for chunk_id, score in ranked:
+    # Build candidate dicts for the reranker
+    candidate_dicts: list[dict] = []
+    for chunk_id, stage1_score in ranked_candidates:
         chunk = chunk_map.get(chunk_id)
         if not chunk:
             continue
         doc = doc_map.get(chunk.doc_id)
         if not doc:
             continue
+        candidate_dicts.append({
+            "chunk_id": chunk.id,
+            "doc_id": doc.id,
+            "text": chunk.text,
+            "start_char": chunk.start_char,
+            "end_char": chunk.end_char,
+            "strategy": chunk.strategy,
+            "doc_title": doc.title,
+            "source_type": doc.source_type,
+            "source_url": doc.source_url,
+            "confidence_level": doc.confidence_level,
+            "stage1_score": stage1_score,
+        })
 
+    # Stage 2: Cross-encoder reranking
+    reranked = rerank(query, candidate_dicts, top_k=top_k)
+
+    # Build response items with reranked scores
+    results: list[SearchResultItem] = []
+    for item in reranked:
         results.append(SearchResultItem(
-            chunk_id=chunk.id,
-            doc_id=doc.id,
-            text=chunk.text,
-            score=round(score, 6),
-            start_char=chunk.start_char,
-            end_char=chunk.end_char,
-            strategy=chunk.strategy,
-            doc_title=doc.title,
-            source_type=doc.source_type,
-            source_url=doc.source_url,
-            confidence_level=doc.confidence_level,
+            chunk_id=item["chunk_id"],
+            doc_id=item["doc_id"],
+            text=item["text"],
+            score=round(item["rerank_score"], 6),
+            start_char=item["start_char"],
+            end_char=item["end_char"],
+            strategy=item["strategy"],
+            doc_title=item["doc_title"],
+            source_type=item["source_type"],
+            source_url=item.get("source_url"),
+            confidence_level=item["confidence_level"],
         ))
 
     logger.info(
-        "Search [%s] in project %s: query='%s' returned %d results.",
-        mode, project_id, query[:50], len(results),
+        "Search [%s+rerank] in project %s: query='%s' → %d candidates → %d results.",
+        mode, project_id, query[:50], len(candidate_dicts), len(results),
     )
     return results
 

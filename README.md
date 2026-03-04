@@ -18,6 +18,7 @@ VERO is built using a layered engineering framework. Each layer must be independ
 * **Parsers**: PyMuPDF, python-docx, BeautifulSoup4, GitHub REST API
 * **Embeddings**: sentence-transformers (all-MiniLM-L6-v2, local)
 * **Vector Store**: ChromaDB (persistent, local)
+* **Search**: Hybrid retrieval (Semantic + BM25 + Cross-Encoder Reranking via RRF)
 
 ## Getting Started
 
@@ -44,7 +45,7 @@ API documentation is available at `/docs` once the server is running.
 | 1 | Complete | Hardened Ingestion Pipeline |
 | 2 | Complete | Reversible SOTA Chunking System |
 | 3 | Complete | Versioned Vector Embeddings |
-| 4 | Pending | Retrieval Pipeline |
+| 4 | Complete | Hybrid Retrieval Pipeline |
 | 5 | Pending | Grounded Answering System |
 | 6 | Pending | Session Management |
 | 7 | Pending | UI Implementation |
