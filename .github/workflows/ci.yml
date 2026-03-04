@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install CPU-only PyTorch (skip 3GB CUDA download)
+      - name: Install CPU-only PyTorch
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
