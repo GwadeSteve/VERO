@@ -31,7 +31,7 @@ async def init_db():
     --reload and restarts without losing data.
     """
     async with engine.begin() as conn:
-        from app.models import ProjectModel, DocumentModel, ChunkModel, EmbeddingModel  # noqa: F401
+        from app.models import ProjectModel, DocumentModel, ChunkModel, EmbeddingModel, SessionModel, SessionMessageModel  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
 
 

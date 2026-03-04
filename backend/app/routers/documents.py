@@ -10,7 +10,7 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,6 +69,7 @@ def _to_summary(doc: DocumentModel, is_duplicate: bool = False) -> DocumentSumma
         content_hash=doc.content_hash,
         source_url=doc.source_url,
         is_duplicate=is_duplicate,
+        processing_status=doc.processing_status or "pending",
         created_at=doc.created_at,
     )
 
@@ -78,6 +79,7 @@ def _to_summary(doc: DocumentModel, is_duplicate: bool = False) -> DocumentSumma
 @router.post("/projects/{project_id}/ingest", status_code=201, response_model=DocumentSummary)
 async def ingest_file(
     project_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
@@ -128,6 +130,10 @@ async def ingest_file(
     await db.commit()
     await db.refresh(doc)
 
+    # Auto-pipeline: chunk + embed in background
+    from app.pipeline import auto_pipeline
+    background_tasks.add_task(auto_pipeline, doc.id)
+
     return _to_summary(doc)
 
 
@@ -137,6 +143,7 @@ async def ingest_file(
 async def ingest_url(
     project_id: str,
     body: IngestURLRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -174,6 +181,9 @@ async def ingest_url(
     await db.commit()
     await db.refresh(doc)
 
+    from app.pipeline import auto_pipeline
+    background_tasks.add_task(auto_pipeline, doc.id)
+
     return _to_summary(doc)
 
 
@@ -183,6 +193,7 @@ async def ingest_url(
 async def ingest_repo(
     project_id: str,
     body: IngestRepoRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -222,6 +233,9 @@ async def ingest_repo(
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
+
+    from app.pipeline import auto_pipeline
+    background_tasks.add_task(auto_pipeline, doc.id)
 
     return _to_summary(doc)
 

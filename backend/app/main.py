@@ -20,7 +20,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import projects, documents, search
+from app.routers import projects, documents, search, chat
 
 
 @asynccontextmanager
@@ -48,8 +48,9 @@ app.add_middleware(
 app.include_router(projects.router)
 app.include_router(documents.router)
 app.include_router(search.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "layer": 5}
+    return {"status": "ok", "layer": 6}

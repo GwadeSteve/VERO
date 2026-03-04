@@ -247,7 +247,6 @@ def cmd_status():
     print(f"  Project: {current_project_name} ({current_project})")
     print(f"  Documents: {n_docs}")
 
-
 def show_help():
     print("""
   VERO Interactive Pipeline Tester
@@ -255,25 +254,82 @@ def show_help():
   new                      Create a new project
   use <id_or_name>         Switch to existing project
   projects                 List all projects
-  ingest <filepath>        Ingest a local file (PDF, DOCX, MD, TXT)
-  url <url>                Ingest a web page
-  repo <github_url>        Ingest a GitHub repo
+  ingest <filepath>        Ingest a local file (auto chunks + embeds)
+  url <url>                Ingest a web page (auto chunks + embeds)
+  repo <github_url>        Ingest a GitHub repo (auto chunks + embeds)
   docs                     List documents in current project
-  pipeline                 Run chunk + embed on ALL documents
+  pipeline                 Run chunk + embed on ALL documents (manual)
   search <query>           Hybrid search (Semantic + BM25 + Reranking)
   semantic <query>         Semantic-only search
   keyword <query>          Keyword-only search
   context <query>          Get formatted LLM-ready context window
-  answer <query>           Get AI-generated answer with citations (Layer 5)
+  answer <query>           Get AI-generated answer with citations
+  chat                     Start a multi-turn conversation session
+  sessions                 List conversation sessions
   status                   Show current project info
   help                     Show this help
   quit                     Exit
 """)
 
 
+current_session = None
+
+
+def cmd_chat_start():
+    if not require_project():
+        return
+    data = api("post", f"/projects/{current_project}/sessions",
+               json={"title": "Demo Chat"})
+    if data:
+        global current_session
+        current_session = data["id"]
+        print(f"  Started session: {current_session}")
+        print(f"  Type your questions. Type 'end' to exit chat mode.\n")
+        
+        while True:
+            try:
+                msg = input("  You > ").strip()
+            except (KeyboardInterrupt, EOFError):
+                print()
+                break
+            if not msg or msg.lower() == "end":
+                print("  Chat session ended.\n")
+                break
+            
+            print("  Thinking...\n")
+            resp = api("post", f"/sessions/{current_session}/chat",
+                       json={"message": msg, "top_k": 5, "mode": "hybrid"})
+            if resp:
+                print("─" * 60)
+                print(f"  {resp.get('answer', 'No answer.')}")
+                print("─" * 60)
+                citations = resp.get("citations", [])
+                if citations:
+                    print(f"\n  Citations:")
+                    for i, c in enumerate(citations, 1):
+                        title = c.get("doc_title", "Unknown")[:30]
+                        print(f"    [{i}] {title} (score: {c.get('score', 0):.4f})")
+                print()
+
+
+def cmd_sessions():
+    if not require_project():
+        return
+    data = api("get", f"/projects/{current_project}/sessions")
+    if data is not None:
+        if not data:
+            print("  No sessions yet. Use 'chat' to start one.")
+            return
+        print(f"  {'ID':<15} {'Title':<40} {'Created'}")
+        print(f"  {'-'*15} {'-'*40} {'-'*20}")
+        for s in data:
+            title = s['title'][:38] + '..' if len(s['title']) > 40 else s['title']
+            print(f"  {s['id']:<15} {title:<40} {s['created_at'][:19]}")
+
+
 def main():
     print("\n  ╔══════════════════════════════════════╗")
-    print("  ║     VERO Pipeline Tester v1.0        ║")
+    print("  ║     VERO Pipeline Tester v2.0        ║")
     print("  ╠══════════════════════════════════════╣")
     print("  ║  Type 'help' for available commands  ║")
     print("  ╚══════════════════════════════════════╝\n")
@@ -331,6 +387,10 @@ def main():
             cmd_context(arg)
         elif cmd == "answer":
             cmd_answer(arg)
+        elif cmd == "chat":
+            cmd_chat_start()
+        elif cmd == "sessions":
+            cmd_sessions()
         elif cmd == "status":
             cmd_status()
         else:

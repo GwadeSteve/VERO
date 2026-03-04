@@ -43,6 +43,7 @@ class DocumentModel(Base):
     confidence_level = Column(Integer, nullable=False, default=3)
     source_url = Column(String, nullable=True)
     metadata_json = Column(Text, default="{}")
+    processing_status = Column(String, nullable=False, default="pending")  # pending → processing → ready → failed
     created_at = Column(DateTime, default=_utcnow)
 
     project = relationship("ProjectModel", back_populates="documents")
@@ -94,3 +95,33 @@ class EmbeddingModel(Base):
 
     def __repr__(self):
         return f"<Embedding chunk={self.chunk_id} model={self.model_name}>"
+
+
+class SessionModel(Base):
+    __tablename__ = "sessions"
+
+    id = Column(String, primary_key=True, default=_new_id)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, default="New Conversation")
+    created_at = Column(DateTime, default=_utcnow)
+
+    project = relationship("ProjectModel")
+    messages = relationship("SessionMessageModel", back_populates="session", cascade="all, delete-orphan", order_by="SessionMessageModel.created_at")
+
+    def __repr__(self):
+        return f"<Session {self.id} project={self.project_id}>"
+
+
+class SessionMessageModel(Base):
+    __tablename__ = "session_messages"
+
+    id = Column(String, primary_key=True, default=_new_id)
+    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String, nullable=False)  # "user" or "assistant"
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+    session = relationship("SessionModel", back_populates="messages")
+
+    def __repr__(self):
+        return f"<Message {self.role} in session={self.session_id}>"

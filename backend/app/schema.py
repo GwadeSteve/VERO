@@ -124,6 +124,7 @@ class DocumentSummary(BaseModel):
     content_hash: str
     source_url: Optional[str] = None
     is_duplicate: bool = False
+    processing_status: str = "pending"
     created_at: datetime
 
 
@@ -138,6 +139,7 @@ class DocumentDetail(BaseModel):
     confidence_level: int
     source_url: Optional[str] = None
     metadata: Dict[str, Any]
+    processing_status: str = "pending"
     created_at: datetime
 
 
@@ -227,4 +229,38 @@ class GroundedAnswer(BaseModel):
 class AnswerRequest(BaseModel):
     query: str
     top_k: int = Field(default=5, ge=1, le=50)
-    mode: str = "hybrid"   # We will pass this to the internal search
+    mode: str = "hybrid"
+
+
+# Layer 6: Conversation Sessions
+
+class SessionCreate(BaseModel):
+    title: Optional[str] = "New Conversation"
+
+
+class MessageResponse(BaseModel):
+    id: str
+    role: str
+    content: str
+    created_at: datetime
+
+
+class SessionResponse(BaseModel):
+    id: str
+    project_id: str
+    title: str
+    created_at: datetime
+    messages: List[MessageResponse] = []
+
+
+class ChatRequest(BaseModel):
+    message: str
+    top_k: int = Field(default=5, ge=1, le=50)
+    mode: str = "hybrid"
+
+
+class ChatResponse(BaseModel):
+    session_id: str
+    answer: str
+    citations: List[SearchResultItem]
+    found_sufficient_info: bool

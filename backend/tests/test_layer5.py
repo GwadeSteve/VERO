@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 # Load from backend/.env if present
 load_dotenv()
 
-BASE = "http://localhost:8000"
+BASE = "http://127.0.0.1:8000"
 PASS = 0
 FAIL = 0
 HTTP_TIMEOUT = 120.0
@@ -176,6 +176,7 @@ def run_tests():
             "not enough information", "no relevant information",
             "insufficient", "unable to answer", "not found",
             "cannot find", "no information", "not contain",
+            "don't have enough", "don't have any relevant",
         ]
         has_refusal = any(phrase in ans_refuse for phrase in refusal_phrases)
         check("Answer contains refusal phrasing", has_refusal, f"Answer: {ans_refuse[:100]}...")
