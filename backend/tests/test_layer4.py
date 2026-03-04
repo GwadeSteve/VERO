@@ -25,20 +25,25 @@ PROJECT_ROOT = TEST_DIR.parent.parent
 README = PROJECT_ROOT / "README.md"
 
 
+# Professional Logging Utilities
+GREEN = "\033[32m"
+RED = "\033[31m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+
 def check(name: str, condition: bool, detail: str = ""):
     global PASS, FAIL
     if condition:
         PASS += 1
-        print(f"  PASS  {name}")
+        print(f"  {GREEN}✓{RESET} {name}")
     else:
         FAIL += 1
-        print(f"  FAIL  {name}  {detail}")
-
+        print(f"  {RED}✗{RESET} {name} {DIM}({detail}){RESET}")
 
 def section(title: str):
-    print(f"\n{'='*60}")
-    print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"\n{BOLD}{title.upper()}{RESET}")
+    print(f"{DIM}{'─' * 40}{RESET}")
 
 
 def setup_project_with_embeddings():
@@ -165,12 +170,15 @@ def run_tests():
 
         # ============================================================
         section("RESULTS")
-        # ============================================================
-        print(f"\n  {PASS}/{PASS+FAIL} passed, {FAIL} failed")
+        total = PASS + FAIL
+        color = GREEN if FAIL == 0 else RED
+        print(f"\n  {color}Report: {PASS}/{total} assertions passed{RESET}\n")
+
         if FAIL == 0:
-            print("\n  LAYER 4 VERIFICATION COMPLETE")
+            print(f"  {GREEN}{BOLD}LAYER 4 VERIFICATION COMPLETE{RESET}")
             sys.exit(0)
         else:
+            print(f"  {RED}{BOLD}LAYER 4 VERIFICATION FAILED{RESET}")
             sys.exit(1)
 
     except Exception as e:

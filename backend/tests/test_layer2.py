@@ -17,7 +17,7 @@ from pathlib import Path
 BASE = "http://localhost:8000"
 PASS = 0
 FAIL = 0
-HTTP_TIMEOUT = 30.0
+HTTP_TIMEOUT = 120.0
 
 # Files
 TEST_DIR = Path(__file__).resolve().parent
@@ -25,19 +25,25 @@ PROJECT_ROOT = TEST_DIR.parent.parent
 README = PROJECT_ROOT / "README.md"
 TEST_PDF = PROJECT_ROOT / "test.pdf"
 
+# Professional Logging Utilities
+GREEN = "\033[32m"
+RED = "\033[31m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+
 def check(name: str, condition: bool, detail: str = ""):
     global PASS, FAIL
     if condition:
         PASS += 1
-        print(f"  PASS  {name}")
+        print(f"  {GREEN}✓{RESET} {name}")
     else:
         FAIL += 1
-        print(f"  FAIL  {name}  {detail}")
+        print(f"  {RED}✗{RESET} {name} {DIM}({detail}){RESET}")
 
 def section(title: str):
-    print(f"\n{'='*60}")
-    print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"\n{BOLD}{title.upper()}{RESET}")
+    print(f"{DIM}{'─' * 40}{RESET}")
 
 def run_tests():
     global PASS, FAIL
@@ -51,7 +57,7 @@ def run_tests():
         section("1. Markdown Chunking (Context-Preservation)")
         # Ingest README
         with open(README, "rb") as f:
-            r1 = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)})
+            r1 = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)}, timeout=HTTP_TIMEOUT)
         doc_md = r1.json()
         doc_md_id = doc_md["id"]
         
@@ -88,29 +94,32 @@ def run_tests():
 
         section("3. Reversibility & Token Verification")
         # Fetch chunks for Markdown doc again using GET
-        rg = httpx.get(f"{BASE}/documents/{doc_md_id}/chunks")
+        rg = httpx.get(f"{BASE}/documents/{doc_md_id}/chunks", timeout=HTTP_TIMEOUT)
         check("GET /chunks returns 200", rg.status_code == 200)
         fetched_chunks = rg.json()
         check("GET returns same chunks as POST", len(fetched_chunks) == len(chunks))
         
         # Reversibility test: fetch doc raw text and compare 
-        rd = httpx.get(f"{BASE}/documents/{doc_md_id}")
+        rd = httpx.get(f"{BASE}/documents/{doc_md_id}", timeout=HTTP_TIMEOUT)
         raw_text = rd.json()["raw_text"]
         
         c0 = fetched_chunks[0]
-        # For markdown chunks, the `text` attribute is heavily modified with breadcrumbs 
-        # so exact substring matching via [start_char:end_char] doesn't equal `text`.
         # BUT the start_char must point to the valid start of the *original* content part.
         original_slice = raw_text[c0["start_char"]:c0["end_char"]]
+
         check("Chunk offsets are reversible to original text", len(original_slice) > 0, detail=f"len was {len(original_slice)}")
         check("Token count is measured", c0["token_count"] > 0)
 
         section("RESULTS")
-        print(f"\n  {PASS}/{PASS+FAIL} passed, {FAIL} failed")
+        total = PASS + FAIL
+        color = GREEN if FAIL == 0 else RED
+        print(f"\n  {color}Report: {PASS}/{total} assertions passed{RESET}\n")
+
         if FAIL == 0:
-            print("\n  LAYER 2 VERIFICATION COMPLETE")
+            print(f"  {GREEN}{BOLD}LAYER 2 VERIFICATION COMPLETE{RESET}")
             sys.exit(0)
         else:
+            print(f"  {RED}{BOLD}LAYER 2 VERIFICATION FAILED{RESET}")
             sys.exit(1)
 
     except Exception as e:

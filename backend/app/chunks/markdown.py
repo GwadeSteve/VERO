@@ -49,12 +49,38 @@ class MarkdownChunker(BaseChunker):
             # The search index will get this full context
             contextualized_text = f"[{breadcrumbs}]\n{chunk_text}"
             
-            # calculate char offsets (approximate based on text find vs raw original string is tricky 
-            # with multiple overlapping structures, but since we modify text with breadcrumbs, 
-            # offset maps to original text start if possible, otherwise -1)
-            # Find the starting character in the ORIGINAL text
-            start_idx = text.find(chunk_text[:50]) # find first 50 chars to locate start
-            end_idx = start_idx + len(chunk_text) if start_idx != -1 else -1
+            # Step 3: Find the starting character in the ORIGINAL text.
+            # Robust mapping: LangChain modifies internal whitespace/newlines.
+            # We use a dual-anchor approach: match the first line to find start, match the last line to find end.
+            norm_text = text.replace("\r\n", "\n")
+            lines = [line.strip() for line in chunk_text.strip().split("\n") if line.strip()]
+            
+            if lines:
+                first_line = lines[0][:60]
+                start_idx_norm = norm_text.find(first_line)
+                
+                if start_idx_norm != -1:
+                    # Find end anchor using the last line
+                    last_line = lines[-1][-60:]
+                    end_idx_norm_search = norm_text.find(last_line, start_idx_norm)
+                    
+                    if end_idx_norm_search != -1:
+                        end_idx_norm = end_idx_norm_search + len(last_line)
+                    else:
+                        end_idx_norm = start_idx_norm + len(chunk_text) # Fallback
+
+                    # Map back to original indices counting \r\n expansion
+                    prefix_norm = norm_text[:start_idx_norm]
+                    start_idx = start_idx_norm + (prefix_norm.count("\n") if "\r\n" in text else 0)
+                    
+                    text_up_to_end_norm = norm_text[:end_idx_norm]
+                    end_idx = end_idx_norm + (text_up_to_end_norm.count("\n") if "\r\n" in text else 0)
+                else:
+                    start_idx = -1
+                    end_idx = -1
+            else:
+                start_idx = -1
+                end_idx = -1
 
             response_chunks.append(ChunkResponse(
                 id=uuid.uuid4().hex[:12],
