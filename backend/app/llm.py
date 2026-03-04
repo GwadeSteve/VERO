@@ -31,7 +31,7 @@ class BaseLLM(ABC):
 class GeminiProvider(BaseLLM):
     """Google Gemini integration using the new google-genai SDK."""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, model_name: str = "gemini-2.0-flash"):
         self.api_key = os.environ.get("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable not set. Please set it in a .env file or environment.")
