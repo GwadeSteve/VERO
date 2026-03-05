@@ -9,8 +9,6 @@
 
 **VERO** is an advanced, privacy-first research workspace engine built for high-fidelity information retrieval and synthesis. It prioritizes data integrity, deterministic processing, and strict source traceability.
 
-> **Interactive docs:** [View the SOTA API Architecture Guide](API_Guide.html)
-
 ---
 
 ## Core Architecture
