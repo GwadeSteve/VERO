@@ -95,10 +95,10 @@ export default function Sidebar({
   };
 
   const quickActions = [
-    { id: 'new', icon: Plus, label: 'New Chat', action: onNewSession, primary: true },
-    { id: 'library', icon: BookOpen, label: 'Library', action: () => onNavigate('/') },
-    { id: 'discovery', icon: Compass, label: 'Discovery', action: () => toast?.('Global Discovery coming soon', 'info') },
-    { id: 'activity', icon: Activity, label: 'Activity', action: () => toast?.('Activity monitoring coming soon', 'info') },
+    { id: 'new', icon: Plus, label: 'New Chat', action: onNewSession, primary: true, isActive: false },
+    { id: 'library', icon: BookOpen, label: 'Library', action: () => onNavigate('/'), isActive: currentPath === '/' },
+    { id: 'discovery', icon: Compass, label: 'Discovery', action: () => toast?.('Global Discovery coming soon', 'info'), isActive: false },
+    { id: 'activity', icon: Activity, label: 'Activity', action: () => toast?.('Activity monitoring coming soon', 'info'), isActive: false },
   ];
 
   return (
@@ -163,6 +163,7 @@ export default function Sidebar({
           {quickActions.map((action, i) => {
             const Icon = action.icon;
             const isPrimary = action.primary;
+            const isActive = action.isActive;
             return (
               <button
                 key={i}
@@ -172,23 +173,23 @@ export default function Sidebar({
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: collapsed ? '10px 0' : (isPrimary ? '10px 14px' : '8px 12px'),
                   justifyContent: collapsed ? 'center' : 'flex-start',
-                  background: isPrimary ? '#FFFFFF' : 'transparent',
-                  color: isPrimary ? '#000000' : 'var(--text-2)',
+                  background: isPrimary ? '#FFFFFF' : (isActive ? 'var(--bg-3)' : 'transparent'),
+                  color: isPrimary ? '#000000' : (isActive ? 'var(--text)' : 'var(--text-2)'),
                   border: '1px solid transparent',
                   borderRadius: 8, cursor: 'pointer', fontSize: 13,
-                  fontWeight: isPrimary ? 600 : 500,
+                  fontWeight: isPrimary ? 600 : (isActive ? 600 : 500),
                   width: '100%',
                   boxShadow: 'none',
                   marginBottom: isPrimary ? 8 : 0
                 }}
                 onMouseEnter={e => {
-                  if (!isPrimary) {
+                  if (!isPrimary && !isActive) {
                     e.currentTarget.style.background = 'var(--bg-hover)';
                     e.currentTarget.style.color = 'var(--text)';
                   }
                 }}
                 onMouseLeave={e => {
-                  if (!isPrimary) {
+                  if (!isPrimary && !isActive) {
                     e.currentTarget.style.background = 'transparent';
                     e.currentTarget.style.color = 'var(--text-2)';
                   }
@@ -311,14 +312,14 @@ export default function Sidebar({
                                     padding: '6px 10px', borderRadius: 6, cursor: 'pointer',
                                     fontSize: 13, minHeight: 34,
                                     color: isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-3)'),
-                                    background: isActive ? 'var(--bg-1)' : (isHovered ? 'var(--bg-hover)' : 'transparent'),
+                                    background: isActive ? 'var(--bg-3)' : (isHovered ? 'var(--bg-hover)' : 'transparent'),
                                     position: 'relative',
                                   }}
                                 >
                                   {isActive && <div style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 3, background: 'var(--accent)', borderRadius: '0 4px 4px 0' }} />}
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                                    <MessageSquare size={13} color={isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-4)')} fill={isActive ? 'var(--bg-1)' : 'transparent'} />
+                                    <MessageSquare size={13} color={isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-4)')} fill={isActive ? 'var(--bg-3)' : 'transparent'} />
                                     <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isActive ? 500 : 400 }}>
                                       {s.title || "Untitled Session"}
                                     </span>
