@@ -52,6 +52,13 @@ body {
   line-height: 1.5;
 }
 
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 #root {
   height: 100vh;
   display: flex;

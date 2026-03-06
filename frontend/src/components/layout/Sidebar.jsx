@@ -70,7 +70,7 @@ export default function Sidebar({
     }
   };
 
-  const w = collapsed ? 64 : 260;
+  const w = collapsed ? 72 : 260;
 
   const DropdownItemStyle = {
     background: 'transparent', border: 'none', color: 'var(--text-2)',
@@ -109,11 +109,12 @@ export default function Sidebar({
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden', flexShrink: 0,
       position: 'relative',
+      transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
     }}>
       {/* 1. Header: Logo & Toggle */}
       <div
         style={{
-          padding: '16px 16px',
+          padding: collapsed ? '16px 0' : '16px 16px',
           display: 'flex', alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
           height: 60, flexShrink: 0,
@@ -144,22 +145,24 @@ export default function Sidebar({
         <button
           onClick={(e) => { e.stopPropagation(); setCollapsed(c => !c); }}
           style={{
-            background: 'transparent', border: 'none',
-            width: 30, height: 30, borderRadius: 6,
+            background: 'var(--bg-2)', border: '1px solid var(--border)',
+            width: 32, height: 32, borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--text-4)', cursor: 'pointer',
+            color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            transition: 'background 0.2s ease, border-color 0.2s ease, color 0.2s ease'
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'var(--bg-hover)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-3)'; e.currentTarget.style.borderColor = 'var(--accent-dim)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.borderColor = 'var(--border)' }}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingTop: 16 }}>
         {/* 2. Quick Actions */}
-        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 32 }}>
+        <div style={{ padding: collapsed ? '0 12px' : '0 16px', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 32 }}>
           {quickActions.map((action, i) => {
             const Icon = action.icon;
             const isPrimary = action.primary;
@@ -171,7 +174,7 @@ export default function Sidebar({
                 title={collapsed ? action.label : undefined}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
-                  padding: collapsed ? '10px 0' : (isPrimary ? '10px 14px' : '8px 12px'),
+                  padding: collapsed ? '12px 0' : (isPrimary ? '10px 14px' : '8px 12px'),
                   justifyContent: collapsed ? 'center' : 'flex-start',
                   background: isPrimary ? '#FFFFFF' : (isActive ? 'var(--bg-3)' : 'transparent'),
                   color: isPrimary ? '#000000' : (isActive ? 'var(--text)' : 'var(--text-2)'),
@@ -180,7 +183,8 @@ export default function Sidebar({
                   fontWeight: isPrimary ? 600 : (isActive ? 600 : 500),
                   width: '100%',
                   boxShadow: 'none',
-                  marginBottom: isPrimary ? 8 : 0
+                  marginBottom: isPrimary ? 8 : 0,
+                  transition: 'padding 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, color 0.15s ease'
                 }}
                 onMouseEnter={e => {
                   if (!isPrimary && !isActive) {
@@ -195,8 +199,10 @@ export default function Sidebar({
                   }
                 }}
               >
-                <Icon size={16} strokeWidth={isPrimary ? 2.5 : 2} color={isPrimary ? '#000000' : undefined} />
-                {!collapsed && <span>{action.label}</span>}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, flexShrink: 0 }}>
+                  <Icon size={18} strokeWidth={isPrimary ? 2.5 : 2} color={isPrimary ? '#000000' : undefined} />
+                </div>
+                {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>{action.label}</span>}
               </button>
             );
           })}
@@ -272,7 +278,7 @@ export default function Sidebar({
                             overflow: 'hidden'
                           }}
                         >
-                          <Folder size={14} color={isProjectActive ? 'var(--accent)' : (isHoveredProject ? 'var(--text)' : 'var(--text-3)')} fill={isProjectActive ? 'var(--accent-dim)' : 'transparent'} />
+                          <Folder size={14} color={isProjectActive ? 'var(--accent)' : (isHoveredProject ? 'var(--text)' : 'var(--text-3)')} fill={isProjectActive ? 'var(--accent-dim)' : 'transparent'} style={{ flexShrink: 0 }} />
                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {p.name}
                           </span>
@@ -319,7 +325,7 @@ export default function Sidebar({
                                   {isActive && <div style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 3, background: 'var(--accent)', borderRadius: '0 4px 4px 0' }} />}
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                                    <MessageSquare size={13} color={isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-4)')} fill={isActive ? 'var(--bg-3)' : 'transparent'} />
+                                    <MessageSquare size={13} color={isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-4)')} fill={isActive ? 'var(--bg-3)' : 'transparent'} style={{ flexShrink: 0 }} />
                                     <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isActive ? 500 : 400 }}>
                                       {s.title || "Untitled Session"}
                                     </span>
@@ -378,11 +384,12 @@ export default function Sidebar({
       }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12,
-          padding: collapsed ? '8px 0' : '10px 12px',
+          padding: collapsed ? '12px 0' : '10px 12px',
           justifyContent: collapsed ? 'center' : 'flex-start',
           borderRadius: 12, cursor: 'pointer', position: 'relative',
           background: profileMenuOpen ? 'var(--bg-hover)' : 'transparent',
           border: profileMenuOpen ? '1px solid var(--border)' : '1px solid transparent',
+          transition: 'padding 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease'
         }}
           onClick={() => !collapsed && setProfileMenuOpen(!profileMenuOpen)}
           onMouseEnter={e => !profileMenuOpen && (e.currentTarget.style.background = 'var(--bg-hover)')}
@@ -407,7 +414,7 @@ export default function Sidebar({
               </div>
             </div>
           )}
-          {!collapsed && <div style={{ color: 'var(--text-4)' }}><MoreHorizontal size={14} /></div>}
+          {!collapsed && <div style={{ color: 'var(--text-4)', flexShrink: 0 }}><MoreHorizontal size={14} /></div>}
 
           {/* Profile Dropdown */}
           {profileMenuOpen && !collapsed && (
