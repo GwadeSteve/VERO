@@ -8,7 +8,7 @@ import {
     X, ChevronRight, FileArchive, Sparkles, Wand2, Info
 } from 'lucide-react';
 
-export default function WorkspacePage({ projectId, activeSessionId, setSessions }) {
+export default function WorkspacePage({ projectId, activeSessionId, setSessions, onRefreshProjects }) {
     // Project info
     const [project, setProject] = useState(null);
 
@@ -38,9 +38,20 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
     // Load project & docs on PID change
     useEffect(() => {
         if (projectId) {
+            // Reset chat state immediately on project switch
+            setMessages([]);
+            setTraceResults([]);
+            setStreamingText('');
+            setIsStreaming(false);
+            setSearching(false);
+
             loadProject();
             fetchDocs();
         }
+        return () => {
+            setSearching(false);
+            setIsStreaming(false);
+        };
     }, [projectId]);
 
     // Load session messages on SID change
@@ -79,7 +90,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
             setActiveCitation(null);
         } catch (err) {
             toast?.('Failed to load conversation history.', 'error');
-            setActiveSessionId(null);
+            navigate(`/p/${projectId}`);
         }
     };
 
@@ -144,6 +155,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
             if (fileRef.current) fileRef.current.value = '';
             await fetchDocs();
             pollStatus(doc.title);
+            onRefreshProjects?.();
         } catch (err) { toast?.('Import failed.', 'error'); }
         finally { setIngesting(false); }
     };
@@ -170,6 +182,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
             setUrl(''); setShowUrl(false);
             await fetchDocs();
             pollStatus(doc.title);
+            onRefreshProjects?.();
         } catch (err) { toast?.('Import failed', 'error'); }
         finally { setIngesting(false); }
     };
@@ -192,6 +205,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
                 sid = s.id;
                 navigate(`/p/${projectId}/c/${sid}`, { replace: true });
                 if (setSessions) setSessions(prev => [s, ...prev]);
+                onRefreshProjects?.();
             }
 
             // 1. Semantic Retrieval
@@ -200,6 +214,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
 
             // 2. LLM Chat
             const cr = await api.chat(sid, q, modelKnowledge);
+            onRefreshProjects?.(); // Re-sort project list on activity
 
             setSearching(false);
             streamText(cr.answer, (fullText) => {
@@ -268,7 +283,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
                             background: showUrl ? 'var(--accent-dim)' : 'var(--bg-2)',
                             color: showUrl ? 'var(--accent)' : 'var(--text-2)',
                             border: showUrl ? '1px solid var(--accent-border)' : '1px solid var(--border)',
-                            cursor: 'pointer', transition: 'all 0.2s',
+                            cursor: 'pointer',
                         }}>
                             <Globe size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Resource Link
                         </button>
@@ -368,7 +383,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
                                                             padding: '6px 14px', background: 'var(--bg-2)', border: '1px solid var(--border)',
                                                             borderRadius: 8, fontSize: 12, color: 'var(--text-3)', cursor: 'pointer',
                                                             display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600,
-                                                            transition: 'all 0.2s', borderStyle: 'dashed'
+                                                            borderStyle: 'dashed'
                                                         }}
                                                             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
                                                             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)'; }}
@@ -429,7 +444,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
                         borderRadius: 20, padding: 8, paddingLeft: 16,
                         display: 'flex', alignItems: 'center', gap: 12,
                         boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-                        transition: 'border-color 0.2s',
+                        borderWidth: 1,
                         ...(docs.length === 0 ? { opacity: 0.6 } : {})
                     }}
                         onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--accent-border)'}
@@ -452,7 +467,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
                                 width: 44, height: 44, borderRadius: 16, border: 'none',
                                 background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--bg-3)' : 'var(--accent)',
                                 color: 'var(--bg-0)', cursor: 'pointer', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s',
+                                alignItems: 'center', justifyContent: 'center',
                             }}>
                             <ArrowUp size={22} strokeWidth={3} />
                         </button>
@@ -479,7 +494,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
                         borderColor: dragOver ? 'var(--accent)' : 'var(--border)',
                         background: dragOver ? 'var(--accent-dim)' : 'var(--bg-2)',
                         display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+                        textAlign: 'center', cursor: 'pointer',
                         position: 'relative', overflow: 'hidden'
                     }}>
                     <UploadCloud size={32} color={ingesting ? 'var(--accent)' : 'var(--text-4)'} style={{ marginBottom: 12 }} />
@@ -549,7 +564,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions 
                                                             padding: 10, borderRadius: 8, fontSize: 12, lineHeight: 1.5,
                                                             background: activeCitation === r.index ? 'var(--accent-dim)' : 'var(--bg-0)',
                                                             border: '1px solid', borderColor: activeCitation === r.index ? 'var(--accent-border)' : 'var(--border)',
-                                                            color: 'var(--text-3)', cursor: 'pointer', transition: 'all 0.1s'
+                                                            color: 'var(--text-3)', cursor: 'pointer'
                                                         }}>
                                                             <div style={{ fontSize: 10, fontWeight: 750, color: activeCitation === r.index ? 'var(--accent)' : 'var(--text-4)', marginBottom: 4 }}>
                                                                 [{r.index + 1}] • {Math.round(r.score * 100)}% Match

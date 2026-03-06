@@ -103,7 +103,7 @@ export default function ProjectsPage() {
                         fontSize: 13, fontWeight: 500, fontFamily: 'var(--font)',
                         background: 'var(--accent)', color: 'var(--bg-0)',
                         border: 'none', borderRadius: 'var(--r)',
-                        cursor: 'pointer', transition: 'all 0.15s',
+                        cursor: 'pointer',
                     }}
                         onMouseEnter={e => { e.currentTarget.style.opacity = 0.9; }}
                         onMouseLeave={e => { e.currentTarget.style.opacity = 1; }}
@@ -143,7 +143,7 @@ export default function ProjectsPage() {
                         <button type="submit" disabled={creating || !name.trim()} style={{
                             padding: '10px 24px', background: 'var(--accent)', color: 'var(--bg-0)',
                             border: 'none', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13,
-                            fontWeight: 600, fontFamily: 'var(--font)', opacity: (creating || !name.trim()) ? 0.4 : 1, transition: 'all 0.15s'
+                            fontWeight: 600, fontFamily: 'var(--font)', opacity: (creating || !name.trim()) ? 0.4 : 1
                         }}>
                             {creating ? <Loader2 size={14} className="spin" /> : 'Create'}
                         </button>
@@ -209,15 +209,14 @@ export default function ProjectsPage() {
                                         display: 'flex', alignItems: 'center',
                                         padding: '14px 20px', borderBottom: '1px solid var(--border)',
                                         cursor: 'pointer',
-                                        background: isSelected ? 'var(--accent-dim)' : hovered === p.id ? 'var(--bg-hover)' : projectId === p.id ? 'var(--bg-2)' : 'transparent',
-                                        transition: 'background 0.1s',
+                                        background: isSelected ? 'var(--accent-dim)' : hovered === p.id ? 'var(--bg-hover)' : 'transparent',
+                                        background: hovered === p.id ? 'var(--bg-hover)' : 'transparent',
                                     }}
                                 >
                                     <div onClick={e => toggleSelect(e, p.id)} style={{ width: 36, display: 'flex', color: isSelected ? 'var(--accent)' : 'var(--text-4)', cursor: 'pointer' }}>
                                         {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
                                     </div>
                                     <div style={{ flex: 1.5, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        {projectId === p.id && <div className="dot dot-ready" />}
                                         <span style={{ fontWeight: 500, fontSize: 14 }}>{p.name}</span>
                                     </div>
                                     <div style={{ flex: 2, color: 'var(--text-3)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 20 }}>
@@ -230,7 +229,7 @@ export default function ProjectsPage() {
                                         <FileText size={14} color="var(--text-4)" /> {p.document_count ?? 0}
                                     </div>
                                     <div style={{ width: 60, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                                        <ArrowRight size={16} color={hovered === p.id ? 'var(--accent)' : 'var(--text-4)'} style={{ transition: 'color 0.1s' }} />
+                                        <ArrowRight size={16} color={hovered === p.id ? 'var(--accent)' : 'var(--text-4)'} />
                                     </div>
                                 </div>
                             );

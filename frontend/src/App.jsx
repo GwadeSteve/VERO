@@ -4,10 +4,12 @@ import { api } from './api';
 import Sidebar from './components/layout/Sidebar';
 import ProjectsPage from './pages/ProjectsPage';
 import WorkspacePage from './pages/WorkspacePage';
+import { useToast } from './components/ui/Toast';
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
 
   const match = matchPath("/p/:projectId/c/:sessionId", location.pathname) || matchPath("/p/:projectId", location.pathname);
   const projectId = match?.params?.projectId || null;
@@ -16,41 +18,57 @@ function App() {
   const [projectName, setProjectName] = useState('');
   const [collapsed, setCollapsed] = useState(false);
   const [sessions, setSessions] = useState([]);
+  const [isFetchingSessions, setIsFetchingSessions] = useState(false);
+  const [refreshToggle, setRefreshToggle] = useState(false);
 
   // Load project info
   useEffect(() => {
     if (projectId) {
+      setSessions([]);
+      setIsFetchingSessions(true);
       api.getProject(projectId).then(p => setProjectName(p.name)).catch(() => {
         // If project not found, redirect to home
         navigate('/');
       });
-      api.getSessions(projectId).then(setSessions).catch(() => setSessions([]));
+      api.getSessions(projectId).then(s => {
+        setSessions(s);
+        setIsFetchingSessions(false);
+      }).catch(() => {
+        setSessions([]);
+        setIsFetchingSessions(false);
+      });
     } else {
       setProjectName('');
       setSessions([]);
+      setIsFetchingSessions(false);
     }
   }, [projectId, navigate]);
 
   const handleNewSession = async () => {
-    if (!projectId) return;
+    if (!projectId) {
+      toast?.('Please select or create a project first.', 'info');
+      navigate('/');
+      return;
+    }
     try {
       const s = await api.createSession(projectId);
       setSessions(prev => [s, ...prev]);
+      setRefreshToggle(t => !t); // Move to top of recent projects
       navigate(`/p/${projectId}/c/${s.id}`);
     } catch { }
   };
 
-  const handleSelectSession = async (sid) => {
+  const handleSelectSession = async (sid, pid = projectId) => {
     if (!sid) {
-      navigate(`/p/${projectId}`);
+      navigate(`/p/${pid}`);
     } else {
-      navigate(`/p/${projectId}/c/${sid}`);
+      navigate(`/p/${pid}/c/${sid}`);
     }
   };
 
   // Refresh sessions when navigating to workspace
   useEffect(() => {
-    if (location.pathname === '/workspace' && projectId) {
+    if (location.pathname.startsWith('/p/') && projectId) {
       api.getSessions(projectId).then(setSessions).catch(() => { });
     }
   }, [location.pathname, projectId]);
@@ -68,12 +86,16 @@ function App() {
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
         projectName={projectName}
+        projectId={projectId}
+        onRefreshProjects={() => setRefreshToggle(t => !t)}
+        refreshToggle={refreshToggle}
+        isFetchingSessions={isFetchingSessions}
       />
       <main style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <Routes location={location}>
           <Route path="/" element={<ProjectsPage />} />
-          <Route path="/p/:projectId" element={<WorkspacePage projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} />} />
-          <Route path="/p/:projectId/c/:sessionId" element={<WorkspacePage projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} />} />
+          <Route path="/p/:projectId" element={<WorkspacePage projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
+          <Route path="/p/:projectId/c/:sessionId" element={<WorkspacePage projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
         </Routes>
       </main>
     </div>
