@@ -210,7 +210,6 @@ export default function ProjectsPage() {
                                         padding: '14px 20px', borderBottom: '1px solid var(--border)',
                                         cursor: 'pointer',
                                         background: isSelected ? 'var(--accent-dim)' : hovered === p.id ? 'var(--bg-hover)' : 'transparent',
-                                        background: hovered === p.id ? 'var(--bg-hover)' : 'transparent',
                                     }}
                                 >
                                     <div onClick={e => toggleSelect(e, p.id)} style={{ width: 36, display: 'flex', color: isSelected ? 'var(--accent)' : 'var(--text-4)', cursor: 'pointer' }}>
