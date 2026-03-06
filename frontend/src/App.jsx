@@ -26,12 +26,15 @@ function App() {
     if (projectId) {
       setSessions([]);
       setIsFetchingSessions(true);
-      api.getProject(projectId).then(p => setProjectName(p.name)).catch(() => {
+      api.getProject(projectId).then(p => {
+        if (!p) throw new Error('Not found');
+        setProjectName(p.name);
+      }).catch(() => {
         // If project not found, redirect to home
         navigate('/');
       });
       api.getSessions(projectId).then(s => {
-        setSessions(s);
+        setSessions(s || []);
         setIsFetchingSessions(false);
       }).catch(() => {
         setSessions([]);
@@ -66,12 +69,12 @@ function App() {
     }
   };
 
-  // Refresh sessions when navigating to workspace
+  // Refresh sessions only when projectId actually changes (not every pathname shift)
   useEffect(() => {
-    if (location.pathname.startsWith('/p/') && projectId) {
-      api.getSessions(projectId).then(setSessions).catch(() => { });
+    if (projectId) {
+      api.getSessions(projectId).then(s => setSessions(s || [])).catch(() => { });
     }
-  }, [location.pathname, projectId]);
+  }, [projectId]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
@@ -94,8 +97,7 @@ function App() {
       <main style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <Routes location={location}>
           <Route path="/" element={<ProjectsPage />} />
-          <Route path="/p/:projectId" element={<WorkspacePage projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
-          <Route path="/p/:projectId/c/:sessionId" element={<WorkspacePage projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
+          <Route path="/p/:projectId/*" element={<WorkspacePage key={projectId} projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
         </Routes>
       </main>
     </div>

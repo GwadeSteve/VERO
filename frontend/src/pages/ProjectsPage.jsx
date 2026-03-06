@@ -228,7 +228,30 @@ export default function ProjectsPage() {
                                         <FileText size={14} color="var(--text-4)" /> {p.document_count ?? 0}
                                     </div>
                                     <div style={{ width: 60, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                                        <ArrowRight size={16} color={hovered === p.id ? 'var(--accent)' : 'var(--text-4)'} />
+                                        <button
+                                            title="Delete Workspace"
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (window.confirm(`Delete workspace "${p.name}"? This cannot be undone.`)) {
+                                                    try {
+                                                        await api.deleteProject(p.id);
+                                                        fetchProjects(); // need to re-fetch
+                                                        toast?.('Workspace deleted.', 'success');
+                                                    } catch { toast?.('Failed to delete workspace.', 'error'); }
+                                                }
+                                            }}
+                                            style={{
+                                                width: 28, height: 28, borderRadius: 6, border: 'none',
+                                                background: 'transparent', color: 'var(--text-4)',
+                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                transition: 'all 0.15s ease', opacity: hovered === p.id ? 1 : 0
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--bg-0)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                        <ArrowRight size={16} color={hovered === p.id ? 'var(--accent)' : 'var(--text-4)'} style={{ flexShrink: 0 }} />
                                     </div>
                                 </div>
                             );

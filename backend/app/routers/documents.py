@@ -284,6 +284,21 @@ async def get_document(doc_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.delete("/documents/{doc_id}", status_code=204)
+async def delete_document(doc_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete a single document and all its associated chunks and embeddings."""
+    result = await db.execute(
+        select(DocumentModel).where(DocumentModel.id == doc_id)
+    )
+    doc = result.scalar_one_or_none()
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await db.delete(doc)
+    await db.commit()
+    return None
+
+
 # Chunking endpoints
 
 @router.post("/documents/{doc_id}/chunk", status_code=201, response_model=list[ChunkResponse])

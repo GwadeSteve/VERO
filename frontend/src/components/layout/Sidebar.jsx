@@ -51,7 +51,7 @@ export default function Sidebar({
     setLoadingProjectIds(prev => new Set(prev).add(pid));
     try {
       const s = await api.getSessions(pid);
-      setCachedSessions(prev => ({ ...prev, [pid]: { data: s, timestamp: Date.now() } }));
+      setCachedSessions(prev => ({ ...prev, [pid]: { data: s || [], timestamp: Date.now() } }));
     } catch { }
     setLoadingProjectIds(prev => {
       const n = new Set(prev);

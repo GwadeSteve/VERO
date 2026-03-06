@@ -26,6 +26,7 @@ export const api = {
     },
     ingestUrl: (pid, url) =>
         fetch(`${BASE_URL}/projects/${pid}/ingest-url`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(handle),
+    deleteDocument: (docId) => fetch(`${BASE_URL}/documents/${docId}`, { method: 'DELETE' }).then(handle),
 
     // ── Sessions ──────────────────────────────────────
     getSessions: (pid) => fetch(`${BASE_URL}/projects/${pid}/sessions`).then(handle),
