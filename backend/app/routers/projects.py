@@ -33,6 +33,7 @@ async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)
         name=project.name,
         description=project.description,
         created_at=project.created_at,
+        updated_at=project.updated_at,
         document_count=0,
     )
 
@@ -47,6 +48,7 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
         )
         .outerjoin(DocumentModel)
         .group_by(ProjectModel.id)
+        .order_by(ProjectModel.updated_at.desc())
     )
     results = await db.execute(stmt)
     rows = results.all()
@@ -57,6 +59,7 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
             name=proj.name,
             description=proj.description,
             created_at=proj.created_at,
+            updated_at=proj.updated_at,
             document_count=doc_count,
         )
         for proj, doc_count in rows
@@ -87,5 +90,20 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
         name=proj.name,
         description=proj.description,
         created_at=proj.created_at,
+        updated_at=proj.updated_at,
         document_count=doc_count,
     )
+
+
+@router.delete("/{project_id}", status_code=204)
+async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete a project and all its associated data (documents, chunks, embeddings, sessions)."""
+    result = await db.execute(select(ProjectModel).where(ProjectModel.id == project_id))
+    project = result.scalar_one_or_none()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await db.delete(project)
+    await db.commit()
+    return None
+

@@ -1,0 +1,243 @@
+import { useState, useEffect } from 'react';
+import { Plus, ArrowRight, Folder, Clock, Trash2, Loader2, FileText, CheckSquare, Square, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../api';
+import { useToast } from '../components/ui/Toast';
+
+export default function ProjectsPage() {
+    const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [name, setName] = useState('');
+    const [desc, setDesc] = useState('');
+    const [creating, setCreating] = useState(false);
+
+    // Selection
+    const [selected, setSelected] = useState(new Set());
+    const [hovered, setHovered] = useState(null);
+
+    const navigate = useNavigate();
+    const toast = useToast();
+
+    useEffect(() => { load(); }, []);
+
+    const load = async () => {
+        try { setProjects(await api.getProjects()); }
+        catch { toast?.('Failed to load projects', 'error'); }
+        finally { setLoading(false); }
+    };
+
+    const create = async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setCreating(true);
+        try {
+            const p = await api.createProject(name, desc);
+            setProjects(prev => [...prev, p]);
+            setShowForm(false); setName(''); setDesc('');
+            toast?.(`Project "${p.name}" successfully created!`, 'success');
+            select(p.id);
+        } catch (err) { toast?.(err.message, 'error'); }
+        finally { setCreating(false); }
+    };
+
+    const select = (id) => { navigate(`/p/${id}`); };
+
+    // ── Deletion logic ────────────────────────────────
+    const deleteSelected = async () => {
+        if (selected.size === 0) return;
+        const count = selected.size;
+        if (!window.confirm(`Are you sure you want to delete ${count} project${count > 1 ? 's' : ''}?`)) return;
+
+        const toDelete = Array.from(selected);
+
+        // Optimistic UI update
+        setProjects(prev => prev.filter(p => !toDelete.includes(p.id)));
+        setSelected(new Set());
+
+
+
+        let failed = 0;
+        for (const id of toDelete) {
+            try { await api.deleteProject(id); }
+            catch (err) { failed++; }
+        }
+
+        if (failed === 0) {
+            toast?.(`Successfully deleted ${count} project${count > 1 ? 's' : ''}.`, 'success');
+        } else {
+            toast?.(`Failed deleting ${failed} project${failed > 1 ? 's' : ''}.`, 'error');
+            load(); // Reload to restore failed ones
+        }
+    };
+
+    const toggleSelect = (e, id) => {
+        e.stopPropagation();
+        const next = new Set(selected);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        setSelected(next);
+    };
+
+    const toggleAll = (e) => {
+        e.stopPropagation();
+        if (selected.size === projects.length && projects.length > 0) {
+            setSelected(new Set());
+        } else {
+            setSelected(new Set(projects.map(p => p.id)));
+        }
+    };
+
+    return (
+        <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg-0)' }}>
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 40px' }}>
+
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 40 }}>
+                    <div>
+                        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>Projects</h1>
+                        <p style={{ color: 'var(--text-3)', fontSize: 14 }}>Each project is an isolated knowledge base with its own documents, embeddings, and chat history.</p>
+                    </div>
+                    <button onClick={() => setShowForm(f => !f)} style={{
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
+                        fontSize: 13, fontWeight: 500, fontFamily: 'var(--font)',
+                        background: 'var(--accent)', color: 'var(--bg-0)',
+                        border: 'none', borderRadius: 'var(--r)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = 0.9; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = 1; }}
+                    >
+                        <Plus size={15} /> New Project
+                    </button>
+                </div>
+
+                {/* Create Form */}
+                {showForm && (
+                    <form onSubmit={create} style={{
+                        display: 'flex', gap: 12, marginBottom: 32,
+                        padding: 24, background: 'var(--bg-1)', borderRadius: 'var(--r-lg)',
+                        border: '1px solid var(--border)', alignItems: 'flex-end',
+                        animation: 'fadeIn 0.2s ease both',
+                    }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Project Name</label>
+                            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Q4 Financial Reports"
+                                style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
+                                onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
+                                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'}
+                            />
+                        </div>
+                        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description (Optional)</label>
+                            <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="What is this workspace for?"
+                                style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
+                                onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
+                                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'}
+                            />
+                        </div>
+                        <button type="button" onClick={() => setShowForm(false)} style={{
+                            padding: '10px 16px', background: 'none', border: '1px solid var(--border)',
+                            color: 'var(--text-3)', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font)',
+                        }}>Cancel</button>
+                        <button type="submit" disabled={creating || !name.trim()} style={{
+                            padding: '10px 24px', background: 'var(--accent)', color: 'var(--bg-0)',
+                            border: 'none', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13,
+                            fontWeight: 600, fontFamily: 'var(--font)', opacity: (creating || !name.trim()) ? 0.4 : 1, transition: 'all 0.15s'
+                        }}>
+                            {creating ? <Loader2 size={14} className="spin" /> : 'Create'}
+                        </button>
+                    </form>
+                )}
+
+                {/* Action Bar (When selected) */}
+                {selected.size > 0 && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 20px', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
+                        borderRadius: 'var(--r-lg)', marginBottom: 20, animation: 'fadeIn 0.15s ease both'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', display: 'flex' }}><X size={16} /></button>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--accent)' }}>{selected.size} project{selected.size > 1 ? 's' : ''} selected</span>
+                        </div>
+                        <button onClick={deleteSelected} style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--r)',
+                            padding: '6px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                        }}><Trash2 size={14} /> Delete Selected</button>
+                    </div>
+                )}
+
+                {/* Table-style List */}
+                {loading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 64 }} />)}
+                    </div>
+                ) : projects.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '80px 40px', background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)' }}>
+                        <Folder size={40} color="var(--text-4)" style={{ marginBottom: 16 }} />
+                        <h3 style={{ fontSize: 18, marginBottom: 8 }}>No workspaces yet</h3>
+                        <p style={{ color: 'var(--text-3)', fontSize: 13, marginBottom: 24 }}>Create your first isolated project to start importing documents.</p>
+                        <button onClick={() => setShowForm(true)} style={{
+                            padding: '10px 22px', background: 'var(--accent)', color: 'var(--bg-0)',
+                            border: 'none', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)',
+                        }}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Create Project</button>
+                    </div>
+                ) : (
+                    <div style={{ background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        {/* Table header */}
+                        <div style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>
+                            <div onClick={toggleAll} style={{ width: 36, cursor: 'pointer', display: 'flex', color: selected.size === projects.length ? 'var(--accent)' : 'var(--text-4)' }}>
+                                {selected.size === projects.length ? <CheckSquare size={16} /> : <Square size={16} />}
+                            </div>
+                            <div style={{ flex: 1.5 }}>Name</div>
+                            <div style={{ flex: 2 }}>Description</div>
+                            <div style={{ width: 140 }}>Last Activity</div>
+                            <div style={{ width: 100 }}>Documents</div>
+                            <div style={{ width: 60 }}></div>
+                        </div>
+                        {/* Rows */}
+                        {projects.map(p => {
+                            const isSelected = selected.has(p.id);
+                            return (
+                                <div key={p.id}
+                                    onClick={() => select(p.id)}
+                                    onMouseEnter={() => setHovered(p.id)}
+                                    onMouseLeave={() => setHovered(null)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center',
+                                        padding: '14px 20px', borderBottom: '1px solid var(--border)',
+                                        cursor: 'pointer',
+                                        background: isSelected ? 'var(--accent-dim)' : hovered === p.id ? 'var(--bg-hover)' : projectId === p.id ? 'var(--bg-2)' : 'transparent',
+                                        transition: 'background 0.1s',
+                                    }}
+                                >
+                                    <div onClick={e => toggleSelect(e, p.id)} style={{ width: 36, display: 'flex', color: isSelected ? 'var(--accent)' : 'var(--text-4)', cursor: 'pointer' }}>
+                                        {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                                    </div>
+                                    <div style={{ flex: 1.5, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        {projectId === p.id && <div className="dot dot-ready" />}
+                                        <span style={{ fontWeight: 500, fontSize: 14 }}>{p.name}</span>
+                                    </div>
+                                    <div style={{ flex: 2, color: 'var(--text-3)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 20 }}>
+                                        {p.description || 'No description'}
+                                    </div>
+                                    <div style={{ width: 140, fontSize: 12, color: 'var(--text-4)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Clock size={14} /> {new Date(p.updated_at).toLocaleDateString()}
+                                    </div>
+                                    <div style={{ width: 100, fontSize: 13, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <FileText size={14} color="var(--text-4)" /> {p.document_count ?? 0}
+                                    </div>
+                                    <div style={{ width: 60, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                                        <ArrowRight size={16} color={hovered === p.id ? 'var(--accent)' : 'var(--text-4)'} style={{ transition: 'color 0.1s' }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

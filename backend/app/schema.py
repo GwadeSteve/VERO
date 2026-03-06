@@ -100,6 +100,7 @@ class ProjectResponse(BaseModel):
     name: str
     description: Optional[str]
     created_at: datetime
+    updated_at: datetime
     document_count: int = 0
 
 

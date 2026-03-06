@@ -43,6 +43,9 @@ async def _verify_project(project_id: str, db: AsyncSession) -> ProjectModel:
     project = result.scalar_one_or_none()
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    from datetime import datetime, timezone
+    project.updated_at = datetime.now(timezone.utc)
     return project
 
 

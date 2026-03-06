@@ -24,6 +24,7 @@ class ProjectModel(Base):
     name = Column(String, nullable=False, unique=True)
     description = Column(Text, default="")
     created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     documents = relationship("DocumentModel", back_populates="project", cascade="all, delete-orphan")
 
@@ -45,6 +46,7 @@ class DocumentModel(Base):
     metadata_json = Column(Text, default="{}")
     processing_status = Column(String, nullable=False, default="pending")  # pending → processing → ready → failed
     created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     project = relationship("ProjectModel", back_populates="documents")
     chunks = relationship("ChunkModel", back_populates="document", cascade="all, delete-orphan")

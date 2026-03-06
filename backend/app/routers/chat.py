@@ -64,10 +64,14 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
 ):
     """Start a new conversation session in a project."""
-    # Verify project exists
+    # Verify project exists and update its activity
     result = await db.execute(select(ProjectModel).where(ProjectModel.id == project_id))
-    if result.scalar_one_or_none() is None:
+    project = result.scalar_one_or_none()
+    if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    from datetime import datetime, timezone
+    project.updated_at = datetime.now(timezone.utc)
 
     session = SessionModel(
         project_id=project_id,
@@ -135,6 +139,19 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
             for m in session.messages
         ],
     )
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete a conversation session."""
+    result = await db.execute(select(SessionModel).where(SessionModel.id == session_id))
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    await db.delete(session)
+    await db.commit()
+    return None
 
 
 @router.post("/sessions/{session_id}/chat", response_model=ChatResponse)
@@ -238,6 +255,13 @@ async def chat(
     # Auto-title on first message
     if len(session.messages) <= 1:
         session.title = body.message[:50] + ("..." if len(body.message) > 50 else "")
+
+    # Touch project activity
+    result = await db.execute(select(ProjectModel).where(ProjectModel.id == session.project_id))
+    proj = result.scalar_one_or_none()
+    if proj:
+        from datetime import datetime, timezone
+        proj.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
 
