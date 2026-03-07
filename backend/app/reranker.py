@@ -8,6 +8,7 @@ accurate relevance scores than independent vector comparisons.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from typing import Optional
 
@@ -59,11 +60,11 @@ def rerank(
     pairs = [(query, c["text"]) for c in chunks]
 
     # Score all pairs at once (batch inference)
-    scores = model.predict(pairs)
+    raw_scores = model.predict(pairs)
 
-    # Attach scores and sort descending
-    for chunk, score in zip(chunks, scores):
-        chunk["rerank_score"] = float(score)
+    # Normalize raw logits to [0, 1] via sigmoid so min_score thresholds work correctly
+    for chunk, raw in zip(chunks, raw_scores):
+        chunk["rerank_score"] = 1.0 / (1.0 + math.exp(-float(raw)))
 
     reranked = sorted(chunks, key=lambda x: x["rerank_score"], reverse=True)
 

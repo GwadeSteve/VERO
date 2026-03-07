@@ -188,6 +188,7 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = Field(default=5, ge=1, le=50)
     mode: SearchMode = SearchMode.HYBRID
+    min_score: float = Field(default=0.01, ge=0.0, le=1.0)
 
 
 class SearchResultItem(BaseModel):
@@ -231,6 +232,7 @@ class AnswerRequest(BaseModel):
     query: str
     top_k: int = Field(default=5, ge=1, le=50)
     mode: str = "hybrid"
+    min_score: float = Field(default=0.01, ge=0.0, le=1.0)
     allow_model_knowledge: bool = False
 
 
@@ -244,6 +246,7 @@ class MessageResponse(BaseModel):
     id: str
     role: str
     content: str
+    citations: List[Dict[str, Any]] = []
     created_at: datetime
 
 
@@ -260,6 +263,7 @@ class ChatRequest(BaseModel):
     message: str
     top_k: int = Field(default=5, ge=1, le=50)
     mode: str = "hybrid"
+    min_score: float = Field(default=0.01, ge=0.0, le=1.0)
     allow_model_knowledge: bool = False
 
 

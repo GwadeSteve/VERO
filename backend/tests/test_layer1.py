@@ -199,6 +199,20 @@ def run_tests():
             FAIL += 2
             print(f"  FAIL  Cross-project isolation tests failed: {e}")
 
+        # 10. Resource Deletion
+        section("10. Resource Deletion")
+        r_del_doc = httpx.delete(f"{BASE}/documents/{d1['id']}", timeout=HTTP_TIMEOUT)
+        check("DELETE /documents/{id} returns 204", r_del_doc.status_code == 204)
+        
+        r_check_doc = httpx.get(f"{BASE}/documents/{d1['id']}", timeout=HTTP_TIMEOUT)
+        check("GET deleted document returns 404", r_check_doc.status_code == 404)
+
+        r_del_proj = httpx.delete(f"{BASE}/projects/{pid}", timeout=HTTP_TIMEOUT)
+        check("DELETE /projects/{id} returns 204", r_del_proj.status_code == 204)
+        
+        r_check_proj = httpx.get(f"{BASE}/projects/{pid}", timeout=HTTP_TIMEOUT)
+        check("GET deleted project returns 404", r_check_proj.status_code == 404)
+
         # Summary
         section("RESULTS")
         total = PASS + FAIL

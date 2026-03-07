@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Home, Search, MessageSquare, Plus, PanelLeftClose, PanelLeftOpen,
   Layers, X, MoreHorizontal, ChevronDown, ChevronRight, User, Settings, LogOut, Folder,
-  Compass, Activity, BookOpen, Edit2, Pin, Trash2
+  Compass, Activity, BookOpen, Edit2, Pin, Trash2, FolderPlus
 } from 'lucide-react';
 import { api } from '../../api';
 import { useToast } from '../ui/Toast';
@@ -265,8 +265,8 @@ export default function Sidebar({
 
             <div style={{ display: projectsListOpen ? 'flex' : 'none', flexDirection: 'column', gap: 6, padding: '0 16px' }}>
               {recentProjects.length === 0 ? (
-                <div style={{ padding: '12px', color: 'var(--text-4)', fontSize: 12, textAlign: 'center' }}>
-                  No recent projects.
+                <div style={{ padding: '16px 12px', color: 'var(--text-4)', fontSize: 12, textAlign: 'center', opacity: 0.8 }}>
+                  No projects yet.
                 </div>
               ) : (
                 recentProjects.map(p => {

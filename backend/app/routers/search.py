@@ -55,6 +55,7 @@ async def search_project(
         query=body.query,
         top_k=body.top_k,
         mode=body.mode.value,
+        min_score=body.min_score,
     )
 
     return SearchResponse(
@@ -84,6 +85,7 @@ async def search_context(
         query=body.query,
         top_k=body.top_k,
         mode=body.mode.value,
+        min_score=body.min_score,
     )
 
     context = build_context_window(body.query, results)
@@ -116,6 +118,7 @@ async def generate_grounded_answer(
         query=body.query,
         top_k=body.top_k,
         mode=body.mode,  # AnswerRequest takes string, not Enum directly to keep it simple
+        min_score=body.min_score,
     )
 
     answer = await generate_answer(

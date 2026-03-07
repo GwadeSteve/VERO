@@ -184,6 +184,15 @@ def run_tests():
         check("History maintains order", history[0]["role"] == "user" and history[1]["role"] == "assistant")
 
     # ============================================================
+    section("4. Session Deletion")
+    # ============================================================
+    r_del = httpx.delete(f"{BASE}/sessions/{session_id}", timeout=5.0)
+    check("DELETE /sessions/{id} returns 204", r_del.status_code == 204)
+
+    r_verify_del = httpx.get(f"{BASE}/sessions/{session_id}", timeout=5.0)
+    check("GET deleted session returns 404", r_verify_del.status_code == 404)
+
+    # ============================================================
     section("RESULTS")
     total = PASS + FAIL
     color = GREEN if FAIL == 0 else RED

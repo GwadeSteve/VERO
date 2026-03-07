@@ -1,32 +1,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg-0: #0b0d10;
-  --bg-1: #0f1115;
-  --bg-2: #151820;
-  --bg-3: #1c2029;
-  --bg-hover: rgba(255, 255, 255, 0.04);
-  --bg-active: rgba(255, 255, 255, 0.06);
+  /* True Black & Professional Zinc Hierarchy */
+  --bg-0: #000000;
+  --bg-1: #09090b;
+  --bg-2: #18181b;
+  --bg-3: #27272a;
+  
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.1);
 
-  --border: rgba(255, 255, 255, 0.07);
-  --border-light: rgba(255, 255, 255, 0.12);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.18);
 
-  --text: #e8eaed;
-  --text-2: #9aa0a6;
-  --text-3: #5f6368;
-  --text-4: #3c4043;
+  --text: #ffffff;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+  --text-4: #52525b;
 
-  /* Accent: a calm blue-teal — the main UI color */
-  --accent: #4fc3f7;
-  --accent-dim: rgba(79, 195, 247, 0.12);
-  --accent-border: rgba(79, 195, 247, 0.25);
+  /* Accent: Stark, pure high-contrast neutral for a sleek "tool" aesthetic */
+  --accent: #ffffff;
+  --accent-dim: rgba(255, 255, 255, 0.1);
+  --accent-border: rgba(255, 255, 255, 0.25);
 
-  --green: #34d399;
-  --green-dim: rgba(52, 211, 153, 0.12);
-  --amber: #fbbf24;
-  --amber-dim: rgba(251, 191, 36, 0.12);
-  --red: #f87171;
-  --red-dim: rgba(248, 113, 113, 0.12);
+  /* Status Colors */
+  --green: #10b981;
+  --green-dim: rgba(16, 185, 129, 0.15);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245, 158, 11, 0.15);
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.15);
 
   --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --mono: 'JetBrains Mono', monospace;
@@ -189,8 +192,7 @@ h4 {
 /* ─── Toast ────────────────────────────────── */
 .toast-wrap {
   position: fixed;
-  top: 24px;
-  /* Higher up than previous 16px */
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -225,18 +227,19 @@ h4 {
   align-items: center;
   gap: 12px;
   padding: 10px 20px;
-  background: rgba(15, 17, 21, 0.85);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--border);
   border-radius: 9999px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
   box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  animation: slideDownToast 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .toast-item.exiting {

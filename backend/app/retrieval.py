@@ -136,6 +136,7 @@ async def search(
     query: str,
     top_k: int = 5,
     mode: str = "hybrid",
+    min_score: float = 0.01,
 ) -> list[SearchResultItem]:
     """Execute a two-stage search with cross-encoder reranking.
 
@@ -146,8 +147,9 @@ async def search(
         db: Database session.
         project_id: Project to search within.
         query: User's natural language query.
-        top_k: Number of results to return.
+        top_k: Maximum number of results to return.
         mode: "semantic", "keyword", or "hybrid".
+        min_score: The absolute minimum rerank score (0-1) to be considered relevant.
 
     Returns:
         List of SearchResultItem, sorted by cross-encoder relevance.
@@ -212,14 +214,18 @@ async def search(
     # Stage 2: Cross-encoder reranking
     reranked = rerank(query, candidate_dicts, top_k=top_k)
 
-    # Build response items with reranked scores
+    # Build response items with reranked scores, filtering out irrelevant noise
     results: list[SearchResultItem] = []
     for item in reranked:
+        score = round(item["rerank_score"], 6)
+        if score < min_score:
+            continue
+            
         results.append(SearchResultItem(
             chunk_id=item["chunk_id"],
             doc_id=item["doc_id"],
             text=item["text"],
-            score=round(item["rerank_score"], 6),
+            score=score,
             start_char=item["start_char"],
             end_char=item["end_char"],
             strategy=item["strategy"],

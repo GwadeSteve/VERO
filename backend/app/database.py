@@ -36,13 +36,20 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
         # ── Lightweight column migrations ──
-        # Add updated_at to sessions if missing (added in Phase 20)
         import sqlalchemy as sa
+        
+        # Add updated_at to sessions if missing (added in Phase 20)
         result = await conn.execute(sa.text("PRAGMA table_info(sessions)"))
         columns = [row[1] for row in result.fetchall()]
         if "updated_at" not in columns:
             await conn.execute(sa.text("ALTER TABLE sessions ADD COLUMN updated_at DATETIME"))
             await conn.execute(sa.text("UPDATE sessions SET updated_at = created_at WHERE updated_at IS NULL"))
+            
+        # Add citations_json to session_messages if missing (added in Phase 21)
+        result_msgs = await conn.execute(sa.text("PRAGMA table_info(session_messages)"))
+        columns_msgs = [row[1] for row in result_msgs.fetchall()]
+        if "citations_json" not in columns_msgs:
+            await conn.execute(sa.text("ALTER TABLE session_messages ADD COLUMN citations_json TEXT DEFAULT '[]'"))
 
 
 async def get_db():

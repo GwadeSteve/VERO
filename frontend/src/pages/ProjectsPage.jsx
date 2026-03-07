@@ -98,18 +98,20 @@ export default function ProjectsPage() {
                         <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>Projects</h1>
                         <p style={{ color: 'var(--text-3)', fontSize: 14 }}>Each project is an isolated knowledge base with its own documents, embeddings, and chat history.</p>
                     </div>
-                    <button onClick={() => setShowForm(f => !f)} style={{
-                        display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
-                        fontSize: 13, fontWeight: 500, fontFamily: 'var(--font)',
-                        background: 'var(--accent)', color: 'var(--bg-0)',
-                        border: 'none', borderRadius: 'var(--r)',
-                        cursor: 'pointer',
-                    }}
-                        onMouseEnter={e => { e.currentTarget.style.opacity = 0.9; }}
-                        onMouseLeave={e => { e.currentTarget.style.opacity = 1; }}
-                    >
-                        <Plus size={15} /> New Project
-                    </button>
+                    {projects.length > 0 && (
+                        <button onClick={() => setShowForm(f => !f)} style={{
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
+                            fontSize: 13, fontWeight: 500, fontFamily: 'var(--font)',
+                            background: 'var(--accent)', color: 'var(--bg-0)',
+                            border: 'none', borderRadius: 'var(--r)',
+                            cursor: 'pointer',
+                        }}
+                            onMouseEnter={e => { e.currentTarget.style.opacity = 0.9; }}
+                            onMouseLeave={e => { e.currentTarget.style.opacity = 1; }}
+                        >
+                            <Plus size={15} /> New Project
+                        </button>
+                    )}
                 </div>
 
                 {/* Create Form */}
@@ -175,14 +177,73 @@ export default function ProjectsPage() {
                         {[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 64 }} />)}
                     </div>
                 ) : projects.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '80px 40px', background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)' }}>
-                        <Folder size={40} color="var(--text-4)" style={{ marginBottom: 16 }} />
-                        <h3 style={{ fontSize: 18, marginBottom: 8 }}>No workspaces yet</h3>
-                        <p style={{ color: 'var(--text-3)', fontSize: 13, marginBottom: 24 }}>Create your first isolated project to start importing documents.</p>
+                    <div style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        padding: '120px 40px', background: 'var(--bg-1)',
+                        borderRadius: 'var(--r-lg)', border: '1px solid var(--border)',
+                        position: 'relative', overflow: 'hidden',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                    }}>
+                        {/* Subtle Ambient Accent Glow */}
+                        <div style={{
+                            position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
+                            width: 400, height: 400, background: 'var(--accent)', opacity: 0.05,
+                            filter: 'blur(80px)', borderRadius: '50%', pointerEvents: 'none'
+                        }} />
+
+                        {/* Minimal Icon Container */}
+                        <div style={{
+                            width: 72, height: 72, borderRadius: 20, marginBottom: 28,
+                            background: 'var(--bg-2)', border: '1px solid var(--border)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                            position: 'relative',
+                        }}>
+                            <div style={{
+                                position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
+                                width: 24, height: 24, background: 'var(--accent)', opacity: 0.15,
+                                filter: 'blur(10px)', borderRadius: '50%'
+                            }} />
+                            <Folder size={32} color="var(--text)" strokeWidth={1.5} />
+                        </div>
+
+                        {/* Crisp Typography */}
+                        <h3 style={{
+                            fontSize: 28, fontWeight: 700, marginBottom: 12, letterSpacing: '-0.02em',
+                            color: 'var(--text)', textAlign: 'center'
+                        }}>
+                            No workspaces yet
+                        </h3>
+                        <p style={{
+                            fontSize: 15, color: 'var(--text-3)', lineHeight: 1.6, textAlign: 'center',
+                            maxWidth: 420, marginBottom: 40
+                        }}>
+                            Your knowledge architecture begins here. Create your first isolated intelligent project to start syncing and querying documents.
+                        </p>
+
+                        {/* Coherent SOTA Button */}
                         <button onClick={() => setShowForm(true)} style={{
-                            padding: '10px 22px', background: 'var(--accent)', color: 'var(--bg-0)',
-                            border: 'none', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)',
-                        }}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Create Project</button>
+                            padding: '12px 28px', borderRadius: 'var(--r)', fontSize: 14, fontWeight: 600,
+                            fontFamily: 'var(--font)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                            background: 'var(--text)', color: 'var(--bg-0)', border: 'none',
+                            boxShadow: '0 4px 12px rgba(255,255,255,0.1)',
+                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                            position: 'relative',
+                        }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,255,255,0.15)';
+                                e.currentTarget.style.background = '#FFFFFF';
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,255,255,0.1)';
+                                e.currentTarget.style.background = 'var(--text)';
+                            }}
+                        >
+                            <Plus size={16} strokeWidth={2.5} />
+                            Create Project
+                        </button>
                     </div>
                 ) : (
                     <div style={{ background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>

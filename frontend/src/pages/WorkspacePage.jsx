@@ -5,7 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import {
     Send, Search, Loader2, FileText, ArrowUp,
     RefreshCw, User, Bot, CheckCircle2, UploadCloud, Globe,
-    X, ChevronRight, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2,
+    X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2,
     FileType, AlignLeft, FileCode, Github, Link, Plus
 } from 'lucide-react';
 
@@ -30,7 +30,22 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     const [traceResults, setTraceResults] = useState([]);
     const [activeCitationDoc, setActiveCitationDoc] = useState(null);
     const [activeCitationChunk, setActiveCitationChunk] = useState(null); // { srcNum, text, doc_title }
+    const [openCitations, setOpenCitations] = useState(new Set()); // Message indices that have their citations accordion open
     const [modelKnowledge, setModelKnowledge] = useState(false);
+    const [loadingText, setLoadingText] = useState('Analyzing sources...');
+
+    // Cycle loading text
+    useEffect(() => {
+        if (!searching) return;
+        const texts = ['Analyzing sources...', 'Cross-referencing docs...', 'Synthesizing insights...', 'Formulating response...'];
+        let i = 0;
+        setLoadingText(texts[0]);
+        const iv = setInterval(() => {
+            i = (i + 1) % texts.length;
+            setLoadingText(texts[i]);
+        }, 1500);
+        return () => clearInterval(iv);
+    }, [searching]);
 
     const chatEndRef = useRef(null);
     const fileRef = useRef(null);
@@ -93,7 +108,12 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         try {
             const s = await api.getSession(sid);
             if (!s) throw new Error("Session not found");
-            setMessages((s.messages || []).map(m => ({ role: m.role, text: m.content })));
+            setMessages((s.messages || []).map(m => ({
+                role: m.role,
+                text: m.content,
+                traces: m.citations || [],
+                citations: m.citations || [],
+            })));
             // Reset trace/citations when switching sessions
             setTraceResults([]);
             setActiveCitationDoc(null);
@@ -117,22 +137,22 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     };
 
     // ── Streaming simulation ─────────────────────────
-    const streamText = (fullText, onDone) => {
+    const streamText = (fullText, onChunk, onDone) => {
         setIsStreaming(true);
-        setStreamingText('');
         const words = fullText.split(' ');
+        let currentText = '';
         let i = 0;
         const iv = setInterval(() => {
             if (i < words.length) {
-                setStreamingText(prev => prev + (i > 0 ? ' ' : '') + words[i]);
+                currentText += (i > 0 ? ' ' : '') + words[i];
+                if (onChunk) onChunk(currentText);
                 i++;
             } else {
                 clearInterval(iv);
                 setIsStreaming(false);
-                setStreamingText('');
-                onDone(fullText);
+                if (onDone) onDone(fullText);
             }
-        }, 25);
+        }, 30);
     };
 
     const pollStatus = (docTitle) => {
@@ -142,7 +162,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 const allDocs = await api.getDocuments(projectId);
                 setDocs(allDocs);
                 const doc = allDocs.find(d => d.title === docTitle);
-                
+
                 if (doc && doc.processing_status !== lastStatus) {
                     lastStatus = doc.processing_status;
                     if (doc.processing_status === 'ready') {
@@ -162,8 +182,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     };
 
     // ── Ingestion ────────────────────────────────────
-    const ingestFile = async (file) => {
-        if (!file || !projectId) return;
+    const handleFiles = async (files) => {
+        if (!files || files.length === 0 || !projectId) return;
 
         const allowedTypes = [
             'application/pdf',
@@ -173,34 +193,50 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             'text/csv'
         ];
 
-        if (!allowedTypes.includes(file.type) && !file.name.endsWith('.md') && !file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
-            toast?.(`Unsupported file format: ${file.name}. Please upload PDF, DOCX, TXT, MD, or CSV.`, 'error');
-            return;
+        const validFiles = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (!allowedTypes.includes(file.type) && !file.name.endsWith('.md') && !file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
+                toast?.(`Unsupported format: ${file.name}. Skipping.`, 'error');
+                continue;
+            }
+            if (docs.some(d => d.title === file.name)) {
+                toast?.(`"${file.name}" is already in this project. Skipping.`, 'info');
+                continue;
+            }
+            validFiles.push(file);
         }
 
-        if (docs.some(d => d.title === file.name)) {
-            toast?.(`"${file.name}" has already been uploaded to this project.`, 'info');
-            return;
-        }
+        if (validFiles.length === 0) return;
 
         setIngesting(true);
-        const shortName = file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name;
-        toast?.(`File ${shortName} processing...`, 'info');
+        if (validFiles.length > 1) {
+            toast?.(`Uploading ${validFiles.length} files...`, 'info');
+        } else {
+            const shortName = validFiles[0].name.length > 20 ? validFiles[0].name.substring(0, 20) + '...' : validFiles[0].name;
+            toast?.(`Uploading ${shortName}...`, 'info');
+        }
+
         try {
-            const doc = await api.ingestFile(projectId, file);
+            const uploadedDocs = [];
+            for (const file of validFiles) {
+                const doc = await api.ingestFile(projectId, file);
+                uploadedDocs.push(doc);
+            }
             if (fileRef.current) fileRef.current.value = '';
             await fetchDocs();
-            pollStatus(doc.title);
+            uploadedDocs.forEach(doc => pollStatus(doc.title));
             onRefreshProjects?.();
-        } catch (err) { toast?.('Import failed.', 'error'); }
+        } catch (err) { toast?.('Import failed for some documents.', 'error'); }
         finally { setIngesting(false); }
     };
 
     const handleDrop = useCallback((e) => {
         e.preventDefault(); setDragOver(false);
-        const f = e.dataTransfer.files?.[0];
-        if (f) ingestFile(f);
-    }, [projectId]);
+        if (e.dataTransfer.files?.length > 0) {
+            handleFiles(e.dataTransfer.files);
+        }
+    }, [projectId, docs]);
 
     const handleUrlIngest = async (e) => {
         e.preventDefault();
@@ -257,7 +293,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
             // 2. LLM Chat
             const cr = await api.chat(sid, q, modelKnowledge);
-            
+
             if (setSessions) {
                 setSessions(prev => {
                     const idx = prev.findIndex(s => s.id === sid);
@@ -272,14 +308,32 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             onRefreshProjects?.(); // Re-sort project list on activity
 
             setSearching(false);
-            streamText(cr?.answer || "No response generated.", (fullText) => {
-                setMessages(prev => [...prev, {
-                    role: 'assistant', text: fullText,
-                    citations: cr?.citations || [],
-                    traces: searchResults, // Store traces with this message
-                    sufficient: cr?.found_sufficient_info,
-                }]);
-            });
+            
+            // Push an empty streaming message first
+            setMessages(prev => [...prev, {
+                role: 'assistant', text: '',
+                citations: cr?.citations || [],
+                traces: searchResults, // Store traces with this message
+                sufficient: cr?.found_sufficient_info,
+                isStreaming: true
+            }]);
+
+            streamText(cr?.answer || "No response generated.", 
+                (chunk) => {
+                    setMessages(prev => {
+                        const next = [...prev];
+                        if (next.length > 0) next[next.length - 1] = { ...next[next.length - 1], text: chunk };
+                        return next;
+                    });
+                },
+                (fullText) => {
+                    setMessages(prev => {
+                        const next = [...prev];
+                        if (next.length > 0) next[next.length - 1] = { ...next[next.length - 1], text: fullText, isStreaming: false };
+                        return next;
+                    });
+                }
+            );
         } catch (err) {
             setMessages(prev => [...prev, { role: 'error', text: 'Issues connecting to VERO intelligence.' }]);
             setSearching(false);
@@ -343,49 +397,76 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         docTraces[r.doc_title].push({ ...r, index: i });
     });
 
-    // ── Inline [Source N] parser ─────────────────────
+    // ── Aggressive Inline Citation Parser ────────────────
     const renderTextWithSources = (text, traces) => {
         if (!text || !traces?.length) return text;
-        const parts = text.split(/(\[Source \d+\])/gi);
-        return parts.map((part, i) => {
-            const match = part.match(/^\[Source (\d+)\]$/i);
-            if (match) {
-                const num = parseInt(match[1]);
-                const trace = traces[num - 1];
-                const isChunkActive = activeCitationChunk?.srcNum === num;
-                return (
-                    <span key={i}
-                        onClick={() => {
-                            if (trace) {
-                                // Toggle the chunk drill-down
+        
+        // This regex aggressively looks for bracketed numbers like [Source 1], [1], [Sources 1, 2], [1 and 2]
+        const citationPattern = /\[(?:Sources?\s*)?((?:\d+(?:,\s*|\s+and\s+)*)+)\]/gi;
+        
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = citationPattern.exec(text)) !== null) {
+            // Push text before the match
+            if (match.index > lastIndex) {
+                parts.push(text.substring(lastIndex, match.index));
+            }
+
+            // Extract all numbers within the matched bracket
+            const numbers = match[1].match(/\d+/g);
+            if (numbers) {
+                const chips = numbers.map((n, idx) => {
+                    const num = parseInt(n);
+                    const trace = traces[num - 1]; // traces are 0-indexed
+                    if (!trace) return <span key={`raw-${n}`}>{n}</span>;
+
+                    const isChunkActive = activeCitationChunk?.srcNum === num;
+                    
+                    return (
+                        <span key={`cite-${match.index}-${num}`}
+                            onClick={() => {
                                 setActiveCitationChunk(isChunkActive ? null : { srcNum: num, text: trace.text, doc_title: trace.doc_title, score: trace.score });
                                 setActiveCitationDoc(trace.doc_title);
                                 setTimeout(() => {
                                     const el = document.getElementById(`doc-${trace.doc_title}`);
                                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                 }, 50);
-                            }
-                        }}
-                        title={trace ? `From: ${trace.doc_title}` : `Source ${num}`}
-                        style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            padding: '0 7px', margin: '0 2px', borderRadius: 5, minWidth: 20,
-                            background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
-                            border: '1px solid var(--accent-border)',
-                            color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
-                            fontSize: 11, fontWeight: 800,
-                            cursor: trace ? 'pointer' : 'default', lineHeight: '20px',
-                            verticalAlign: 'middle', transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={e => { if (trace && !isChunkActive) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'var(--bg-0)'; } }}
-                        onMouseLeave={e => { if (trace && !isChunkActive) { e.currentTarget.style.background = 'var(--accent-dim)'; e.currentTarget.style.color = 'var(--accent)'; } }}
-                    >
-                        {num}
-                    </span>
-                );
+                            }}
+                            title={`From: ${trace.doc_title}`}
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                padding: '0 7px', margin: '0 3px', borderRadius: 5, minWidth: 20,
+                                background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
+                                border: '1px solid var(--accent-border)',
+                                color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
+                                fontSize: 11, fontWeight: 800,
+                                cursor: 'pointer', lineHeight: '20px',
+                                verticalAlign: 'middle', transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'var(--bg-0)'; } }}
+                            onMouseLeave={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent-dim)'; e.currentTarget.style.color = 'var(--accent)'; } }}
+                        >
+                            {num}
+                        </span>
+                    );
+                });
+                
+                parts.push(<span key={`group-${match.index}`} style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap' }}>{chips}</span>);
+            } else {
+                parts.push(match[0]); // fallback if no numbers extracted
             }
-            return part;
-        });
+            
+            lastIndex = match.index + match[0].length;
+        }
+
+        // Push remaining text
+        if (lastIndex < text.length) {
+            parts.push(text.substring(lastIndex));
+        }
+
+        return parts;
     };
 
     return (
@@ -468,7 +549,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 border: '1px solid var(--accent-border)', marginBottom: 24,
                                 animation: 'pulse 3s infinite ease-in-out'
                             }}>
-                                <Layers size={40} color="var(--accent)" />
+                                <img src="/vero.svg" alt="VERO" style={{ width: 44, height: 44, objectFit: 'contain' }} />
                             </div>
                             <h3 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>
                                 AI Knowledge Hub
@@ -503,89 +584,131 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                         <div style={{ display: 'flex', gap: 20, maxWidth: '100%' }}>
                                             <div style={{
                                                 width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                                                background: 'var(--accent)', color: 'var(--bg-0)',
+                                                background: 'var(--text)', color: 'var(--bg-0)',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                boxShadow: '0 4px 12px var(--accent-dim)'
+                                                boxShadow: '0 4px 12px rgba(255,255,255,0.1)'
                                             }}>
-                                                <Layers size={16} strokeWidth={2.5} />
+                                                <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain', filter: 'brightness(0)' }} />
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
-                                                <div style={{
+                                                <div className={m.isStreaming ? "streaming-cursor" : ""} style={{
                                                     fontSize: 15, lineHeight: 1.7, color: m.role === 'error' ? 'var(--red)' : 'var(--text)',
                                                     whiteSpace: 'pre-wrap', fontWeight: 400
                                                 }}>
                                                     {m.traces?.length > 0 ? renderTextWithSources(m.text, m.traces) : m.text}
                                                 </div>
 
-                                                {/* Grouped Source Documents */}
-                                                {m.traces?.length > 0 && (() => {
+                                                {/* Grouped Source Documents (Collapsible Accordion) */}
+                                                {!m.isStreaming && m.traces?.length > 0 && (() => {
                                                     const grouped = {};
                                                     m.traces.forEach((t, idx) => {
                                                         if (!grouped[t.doc_title]) grouped[t.doc_title] = { title: t.doc_title, items: [] };
                                                         grouped[t.doc_title].items.push({ ...t, srcNum: idx + 1 });
                                                     });
                                                     const docList = Object.values(grouped);
+                                                    const isAccordionOpen = openCitations.has(i);
+
                                                     return (
-                                                        <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
-                                                            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                                                                Sources Referenced
-                                                            </div>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                                                {docList.map((doc, di) => {
-                                                                    const isActive = activeCitationDoc === doc.title;
-                                                                    return (
-                                                                        <div key={di} onClick={() => {
-                                                                            setActiveCitationDoc(isActive ? null : doc.title);
-                                                                            if (!isActive) setTimeout(() => {
-                                                                                const el = document.getElementById(`doc-${doc.title}`);
-                                                                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                            }, 50);
-                                                                        }} style={{
-                                                                            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                                                                            borderRadius: 10, cursor: 'pointer',
-                                                                            background: isActive ? 'var(--accent-dim)' : 'var(--bg-1)',
-                                                                            border: isActive ? '1px solid var(--accent-border)' : '1px solid transparent',
-                                                                            transition: 'all 0.2s ease'
-                                                                        }}
-                                                                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-                                                                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-1)'; }}
-                                                                        >
-                                                                            <FileText size={14} color={isActive ? 'var(--accent)' : 'var(--text-4)'} />
-                                                                            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: isActive ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                                {doc.title}
-                                                                            </span>
-                                                                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                                                                {doc.items.map(item => {
-                                                                                    const isChunkActive = activeCitationChunk?.srcNum === item.srcNum;
-                                                                                    return (
-                                                                                        <span key={item.srcNum}
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                setActiveCitationChunk(isChunkActive ? null : { srcNum: item.srcNum, text: item.text, doc_title: item.doc_title, score: item.score });
-                                                                                                setActiveCitationDoc(item.doc_title);
-                                                                                                if (!isChunkActive) setTimeout(() => {
-                                                                                                    const el = document.getElementById(`doc-${item.doc_title}`);
-                                                                                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                                                }, 50);
-                                                                                            }}
-                                                                                            style={{
-                                                                                                fontSize: 10, fontWeight: 800, width: 20, height: 20,
-                                                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                                                borderRadius: 5, cursor: 'pointer',
-                                                                                                background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
-                                                                                                color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
-                                                                                                border: '1px solid var(--accent-border)',
-                                                                                                transition: 'all 0.15s ease'
-                                                                                            }}
-                                                                                        >
-                                                                                            {item.srcNum}
-                                                                                        </span>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                        </div>
-                                                                    );
+                                                        <div style={{ marginTop: 20 }}>
+                                                            {/* Accordion Toggle */}
+                                                            <div
+                                                                onClick={() => setOpenCitations(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(i)) next.delete(i); else next.add(i);
+                                                                    return next;
                                                                 })}
+                                                                style={{
+                                                                    display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px 6px 8px',
+                                                                    background: isAccordionOpen ? 'var(--bg-2)' : 'var(--bg-1)',
+                                                                    border: '1px solid', borderColor: isAccordionOpen ? 'var(--border)' : 'transparent',
+                                                                    borderRadius: 100, cursor: 'pointer', userSelect: 'none',
+                                                                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                                                                }}
+                                                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                                                                onMouseLeave={e => { e.currentTarget.style.background = isAccordionOpen ? 'var(--bg-2)' : 'var(--bg-1)'; e.currentTarget.style.borderColor = isAccordionOpen ? 'var(--border)' : 'transparent'; }}
+                                                            >
+                                                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+                                                                    <BookOpen size={12} strokeWidth={2.5} />
+                                                                </div>
+                                                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>
+                                                                    {m.traces.length} {m.traces.length === 1 ? 'Source' : 'Sources'} Cited
+                                                                </span>
+                                                                <ChevronDown size={14} color="var(--text-4)" style={{ marginLeft: 4, transform: isAccordionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }} />
+                                                            </div>
+
+                                                            {/* Accordion Content (CSS Grid Animation) */}
+                                                            <div style={{
+                                                                display: 'grid', gridTemplateRows: isAccordionOpen ? '1fr' : '0fr',
+                                                                transition: 'grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                                                            }}>
+                                                                <div style={{ overflow: 'hidden' }}>
+                                                                    <div style={{
+                                                                        marginTop: 12, padding: '14px 16px', borderRadius: 12,
+                                                                        background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                                                                        display: 'flex', flexDirection: 'column', gap: 6,
+                                                                        opacity: isAccordionOpen ? 1 : 0, transform: isAccordionOpen ? 'translateY(0)' : 'translateY(-10px)',
+                                                                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                                                    }}>
+                                                                        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                                                                            Extracted References
+                                                                        </div>
+                                                                        {docList.map((doc, di) => {
+                                                                            const isActive = activeCitationDoc === doc.title;
+                                                                            return (
+                                                                                <div key={di} onClick={() => {
+                                                                                    setActiveCitationDoc(isActive ? null : doc.title);
+                                                                                    if (!isActive) setTimeout(() => {
+                                                                                        const el = document.getElementById(`doc-${doc.title}`);
+                                                                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                                    }, 50);
+                                                                                }} style={{
+                                                                                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                                                                                    borderRadius: 10, cursor: 'pointer',
+                                                                                    background: isActive ? 'var(--accent-dim)' : 'var(--bg-1)',
+                                                                                    border: isActive ? '1px solid var(--accent-border)' : '1px solid transparent',
+                                                                                    transition: 'all 0.2s ease'
+                                                                                }}
+                                                                                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                                                                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-1)'; }}
+                                                                                >
+                                                                                    <FileText size={14} color={isActive ? 'var(--accent)' : 'var(--text-4)'} />
+                                                                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: isActive ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                                        {doc.title}
+                                                                                    </span>
+                                                                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                                                                        {doc.items.map(item => {
+                                                                                            const isChunkActive = activeCitationChunk?.srcNum === item.srcNum;
+                                                                                            return (
+                                                                                                <span key={item.srcNum}
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        setActiveCitationChunk(isChunkActive ? null : { srcNum: item.srcNum, text: item.text, doc_title: item.doc_title, score: item.score });
+                                                                                                        setActiveCitationDoc(item.doc_title);
+                                                                                                        if (!isChunkActive) setTimeout(() => {
+                                                                                                            const el = document.getElementById(`doc-${item.doc_title}`);
+                                                                                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                                                        }, 50);
+                                                                                                    }}
+                                                                                                    style={{
+                                                                                                        fontSize: 10, fontWeight: 800, width: 20, height: 20,
+                                                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                                                        borderRadius: 5, cursor: 'pointer',
+                                                                                                        background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
+                                                                                                        color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
+                                                                                                        border: '1px solid var(--accent-border)',
+                                                                                                        transition: 'all 0.15s ease'
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {item.srcNum}
+                                                                                                </span>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );
@@ -606,23 +729,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 </div>
                             ))}
 
-                            {isStreaming && (
-                                <div style={{ padding: '0 32px 32px', maxWidth: 840, margin: '0 auto', display: 'flex', gap: 20 }}>
-                                    <div style={{
-                                        width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                                        background: 'var(--accent)', color: 'var(--bg-0)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        boxShadow: '0 4px 12px var(--accent-dim)'
-                                    }}>
-                                        <Layers size={16} strokeWidth={2.5} />
-                                    </div>
-                                    <div style={{ flex: 1, paddingTop: 4 }}>
-                                        <div className="streaming-cursor" style={{ fontSize: 15, lineHeight: 1.7, whiteSpace: 'pre-wrap', fontWeight: 400 }}>
-                                            {streamingText}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+
 
                             {searching && !isStreaming && (
                                 <div style={{ padding: '0 32px 32px', maxWidth: 840, margin: '0 auto', display: 'flex', gap: 20, alignItems: 'center' }}>
@@ -631,7 +738,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                     </div>
                                     <div>
                                         <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            Synthesizing...
+                                            {loadingText}
                                         </span>
                                     </div>
                                 </div>
@@ -775,7 +882,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             }}
                         >
                             <UploadCloud size={14} /> {ingesting ? 'Processing...' : 'File'}
-                            <input ref={fileRef} type="file" multiple onChange={e => ingestFile(e.target.files[0])} style={{ display: 'none' }} accept=".pdf,.txt,.md,.docx,.csv" />
+                            <input ref={fileRef} type="file" multiple onChange={e => handleFiles(e.target.files)} style={{ display: 'none' }} accept=".pdf,.txt,.md,.docx,.csv" />
                         </label>
                         <div style={{ flex: 1.5, display: 'flex', gap: 4 }}>
                             <form onSubmit={handleUrlIngest} style={{ display: 'flex', flex: 1, gap: 4 }}>
@@ -823,11 +930,15 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 {activeCitationChunk.doc_title}
                             </span>
                             <button onClick={() => setActiveCitationChunk(null)} style={{
-                                width: 20, height: 20, borderRadius: 4, border: 'none',
-                                background: 'var(--bg-3)', color: 'var(--text-3)', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <X size={12} />
+                                width: 22, height: 22, borderRadius: 6, border: 'none',
+                                background: 'transparent', color: 'var(--text-4)', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                            }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-dim)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
+                            >
+                                <X size={14} />
                             </button>
                         </div>
                         <div style={{

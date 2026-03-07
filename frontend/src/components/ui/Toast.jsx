@@ -33,7 +33,7 @@ export function ToastProvider({ children }) {
                     if (t.type === 'error') { Icon = AlertCircle; color = 'var(--red)'; }
 
                     return (
-                        <div key={t.id} className={`toast-item ${t.exiting ? 'exiting' : ''}`} style={{ borderLeft: `3px solid ${color}` }}>
+                        <div key={t.id} className={`toast-item ${t.exiting ? 'exiting' : ''}`}>
                             <Icon size={16} color={color} style={{ marginRight: 4 }} />
                             <span style={{ flex: 1, fontWeight: 500 }}>{t.msg}</span>
                             <button onClick={() => remove(t.id)}

@@ -104,11 +104,20 @@ Uploads binary files (PDF, DOCX, MD, TXT). Uses `multipart/form-data`.
 Recursively clones a public GitHub repo, extracting all READMEs and Python docstrings.
 - **Body**:
   ```json
+  ```json
   {
     "repo_url": "https://github.com/GwadeSteve/VERO",
     "title": "Optional Override Title"
   }
   ```
+
+### `DELETE /projects/{project_id}`
+Permanently deletes a project, cascading the deletion to all associated documents, chunks, vectors (ChromaDB), and chat sessions.
+- **Response `204 No Content`**
+
+### `DELETE /documents/{doc_id}`
+Deletes a specific ingested document, removing its chunks and vectors from storage.
+- **Response `204 No Content`**
 
 ---
 
@@ -197,10 +206,11 @@ sequenceDiagram
   {
     "query": "How is context preserved during chunking?",
     "top_k": 5,
-    "mode": "hybrid" 
+    "mode": "hybrid",
+    "min_score": 0.01
   }
   ```
-  *(Modes: `hybrid`, `semantic`, `keyword`)*
+  *(Modes: `hybrid`, `semantic`, `keyword`. `min_score` sets absolute relevance threshold.)*
 
 ### `POST /projects/{project_id}/search/context`
 A specialized search endpoint that bundles the returned chunks into an optimal prompt-ready format for direct LLM injection.
@@ -218,6 +228,7 @@ Replaces hallucination-prone generation with strict synthesis. The LLM acts pure
   {
     "query": "What formats does VERO support?",
     "top_k": 3,
+    "min_score": 0.01,
     "allow_model_knowledge": false
   }
   ```
@@ -313,7 +324,12 @@ The pinnacle interaction point. Sends a message into an active session. The mode
     "message": "Can I replace the chunking strategy?",
     "top_k": 5,
     "mode": "hybrid",
+    "min_score": 0.01,
     "allow_model_knowledge": false
   }
   ```
 - **Response `200 OK`**: Returns a `ChatResponse` with `answer`, `citations` (including `doc_id`, `chunk_id`, `start_char`, `end_char` for UI highlighting), and `found_sufficient_info`. Citations are tied and persisted to the session.
+
+### `DELETE /sessions/{session_id}`
+Permanently deletes a chat session and all its associated messages.
+- **Response `204 No Content`**

@@ -122,6 +122,7 @@ class SessionMessageModel(Base):
     session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, nullable=False)  # "user" or "assistant"
     content = Column(Text, nullable=False)
+    citations_json = Column(Text, default="[]")
     created_at = Column(DateTime, default=_utcnow)
 
     session = relationship("SessionModel", back_populates="messages")

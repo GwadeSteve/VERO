@@ -22,24 +22,30 @@ async def auto_pipeline(doc_id: str):
     """
     async with async_session() as db:
         try:
-            # Mark as processing
+            # Mark as chunking
             doc = await _get_doc(db, doc_id)
             if doc is None:
                 logger.error("Auto-pipeline: document %s not found", doc_id)
                 return
             
-            doc.processing_status = "processing"
+            doc.processing_status = "chunking"
             await db.commit()
             
             # Step 1: Chunk
             logger.info("Auto-pipeline: chunking document %s (%s)", doc_id, doc.title)
             await _chunk_document(db, doc)
             
-            # Step 2: Embed
-            logger.info("Auto-pipeline: embedding document %s", doc_id)
-            await _embed_document(db, doc)
+            # Mark as embedding
+            doc = await _get_doc(db, doc_id)
+            if doc:
+                doc.processing_status = "embedding"
+                await db.commit()
+                
+                # Step 2: Embed
+                logger.info("Auto-pipeline: embedding document %s", doc_id)
+                await _embed_document(db, doc)
             
-            # Mark as ready — re-fetch to avoid stale object after commits
+            # Mark as ready
             doc = await _get_doc(db, doc_id)
             if doc:
                 doc.processing_status = "ready"
