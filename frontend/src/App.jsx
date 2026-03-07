@@ -24,7 +24,6 @@ function App() {
   // Load project info
   useEffect(() => {
     if (projectId) {
-      setSessions([]);
       setIsFetchingSessions(true);
       api.getProject(projectId).then(p => {
         if (!p) throw new Error('Not found');
@@ -69,12 +68,7 @@ function App() {
     }
   };
 
-  // Refresh sessions only when projectId actually changes (not every pathname shift)
-  useEffect(() => {
-    if (projectId) {
-      api.getSessions(projectId).then(s => setSessions(s || [])).catch(() => { });
-    }
-  }, [projectId]);
+
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>

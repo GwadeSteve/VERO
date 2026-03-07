@@ -136,16 +136,25 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     };
 
     const pollStatus = (docTitle) => {
+        let lastStatus = '';
         const iv = setInterval(async () => {
             try {
                 const allDocs = await api.getDocuments(projectId);
                 setDocs(allDocs);
                 const doc = allDocs.find(d => d.title === docTitle);
-                if (doc?.processing_status === 'ready') {
-                    toast?.(`"${docTitle}" is ready for chat.`, 'success');
-                    clearInterval(iv);
-                } else if (doc?.processing_status === 'error') {
-                    clearInterval(iv);
+                
+                if (doc && doc.processing_status !== lastStatus) {
+                    lastStatus = doc.processing_status;
+                    if (doc.processing_status === 'ready') {
+                        toast?.(`"${docTitle}" is ready for chat.`, 'success');
+                        clearInterval(iv);
+                    } else if (doc.processing_status === 'error') {
+                        toast?.(`Failed to process "${docTitle}".`, 'error');
+                        clearInterval(iv);
+                    } else if (doc.processing_status.includes('/')) {
+                        // Show progress steps like 1/3, 2/3...
+                        toast?.(`Processing "${docTitle}": Step ${doc.processing_status}`, 'info');
+                    }
                 }
             } catch { clearInterval(iv); }
         }, 2500);
@@ -166,6 +175,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
         if (!allowedTypes.includes(file.type) && !file.name.endsWith('.md') && !file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
             toast?.(`Unsupported file format: ${file.name}. Please upload PDF, DOCX, TXT, MD, or CSV.`, 'error');
+            return;
+        }
+
+        if (docs.some(d => d.title === file.name)) {
+            toast?.(`"${file.name}" has already been uploaded to this project.`, 'info');
             return;
         }
 
@@ -196,6 +210,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         const prefix = isRepo ? 'Repo' : 'Web';
         const cleanUrl = url.replace(/https?:\/\/(www\.)?/, '');
         const shortUrl = cleanUrl.length > 25 ? cleanUrl.substring(0, 25) + '...' : cleanUrl;
+
+        if (docs.some(d => d.title === url || d.title.includes(cleanUrl))) {
+            toast?.(`This link has already been added to this project.`, 'info');
+            return;
+        }
 
         setIngesting(true);
         toast?.(`${prefix} ${shortUrl} processing...`, 'info');
@@ -238,6 +257,18 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
             // 2. LLM Chat
             const cr = await api.chat(sid, q, modelKnowledge);
+            
+            if (setSessions) {
+                setSessions(prev => {
+                    const idx = prev.findIndex(s => s.id === sid);
+                    if (idx >= 0) {
+                        const next = [...prev];
+                        next[idx] = { ...next[idx], updated_at: new Date().toISOString() };
+                        return next;
+                    }
+                    return prev;
+                });
+            }
             onRefreshProjects?.(); // Re-sort project list on activity
 
             setSearching(false);
@@ -715,23 +746,37 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         {ingesting && <Loader2 size={14} className="spin" color="var(--accent)" />}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <button
+                        <label
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                             onDragLeave={() => setDragOver(false)}
                             onDrop={handleDrop}
-                            onClick={() => fileRef.current?.click()}
+                            title="Click or drag & drop files here (PDF, DOCX, TXT, MD, CSV)"
                             style={{
                                 flex: 1, height: 36, borderRadius: 8,
-                                border: dragOver ? '1px solid var(--accent)' : '1px dashed var(--border)',
-                                background: dragOver ? 'var(--accent-dim)' : 'var(--bg-2)',
-                                color: 'var(--text-3)', fontSize: 12, fontWeight: 600,
+                                border: `1px ${dragOver ? 'solid' : 'dashed'} ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
+                                background: dragOver ? 'var(--bg-hover)' : 'var(--bg-2)',
+                                color: dragOver ? 'var(--accent)' : 'var(--text-3)', fontSize: 12, fontWeight: 600,
                                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                                transition: 'all 0.15s ease'
+                                transition: 'all 0.15s ease', margin: 0
+                            }}
+                            onMouseEnter={e => {
+                                if (!dragOver) {
+                                    e.currentTarget.style.borderColor = 'var(--accent-dim)';
+                                    e.currentTarget.style.background = 'var(--bg-hover)';
+                                    e.currentTarget.style.color = 'var(--text)';
+                                }
+                            }}
+                            onMouseLeave={e => {
+                                if (!dragOver) {
+                                    e.currentTarget.style.borderColor = 'var(--border)';
+                                    e.currentTarget.style.background = 'var(--bg-2)';
+                                    e.currentTarget.style.color = 'var(--text-3)';
+                                }
                             }}
                         >
                             <UploadCloud size={14} /> {ingesting ? 'Processing...' : 'File'}
-                        </button>
-                        <input ref={fileRef} type="file" multiple onChange={e => ingestFile(e.target.files[0])} hidden />
+                            <input ref={fileRef} type="file" multiple onChange={e => ingestFile(e.target.files[0])} style={{ display: 'none' }} accept=".pdf,.txt,.md,.docx,.csv" />
+                        </label>
                         <div style={{ flex: 1.5, display: 'flex', gap: 4 }}>
                             <form onSubmit={handleUrlIngest} style={{ display: 'flex', flex: 1, gap: 4 }}>
                                 <input

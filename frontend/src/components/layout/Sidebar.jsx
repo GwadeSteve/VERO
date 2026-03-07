@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Home, Search, MessageSquare, Plus, PanelLeftClose, PanelLeftOpen,
   Layers, X, MoreHorizontal, ChevronDown, ChevronRight, User, Settings, LogOut, Folder,
-  Compass, Activity, BookOpen
+  Compass, Activity, BookOpen, Edit2, Pin, Trash2
 } from 'lucide-react';
 import { api } from '../../api';
 import { useToast } from '../ui/Toast';
@@ -19,8 +19,22 @@ export default function Sidebar({
   const [hoveredSessionId, setHoveredSessionId] = useState(null);
   const [hoveredProjectId, setHoveredProjectId] = useState(null);
   const [openSessionMenuId, setOpenSessionMenuId] = useState(null);
+  const [openProjectMenuId, setOpenProjectMenuId] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const toast = useToast();
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (openSessionMenuId) setOpenSessionMenuId(null);
+      if (openProjectMenuId) setOpenProjectMenuId(null);
+      if (profileMenuOpen) setProfileMenuOpen(false);
+    };
+    
+    // We bind to document down instead of click because mouse down feels more responsive
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openSessionMenuId, openProjectMenuId, profileMenuOpen]);
 
   // Update cache when active project sessions change
   useEffect(() => {
@@ -72,11 +86,35 @@ export default function Sidebar({
 
   const w = collapsed ? 72 : 260;
 
-  const DropdownItemStyle = {
-    background: 'transparent', border: 'none', color: 'var(--text-2)',
-    padding: '6px 8px', borderRadius: 4, cursor: 'pointer',
-    fontSize: 13, display: 'flex', alignItems: 'center',
-    width: '100%', textAlign: 'left',
+  const DropdownItem = ({ icon: Icon, label, onClick, danger }) => (
+    <button
+      onClick={onClick}
+      style={{
+        background: 'transparent', border: 'none', padding: '8px 12px', borderRadius: 6,
+        cursor: 'pointer', fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 10,
+        width: '100%', textAlign: 'left', color: danger ? 'var(--red)' : 'var(--text-2)',
+        transition: 'background 0.1s ease, color 0.1s ease'
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-hover)'; e.currentTarget.style.color = danger ? 'var(--red)' : 'var(--text)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = danger ? 'var(--red)' : 'var(--text-2)'; }}
+    >
+      <Icon size={14} /> {label}
+    </button>
+  );
+
+  const handleDeleteProject = async (pid) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) return;
+    try {
+      await api.deleteProject(pid);
+      if (projectId === pid) {
+        onNavigate('/');
+      }
+      onRefreshProjects();
+      toast?.('Project removed.', 'success');
+    } catch (err) {
+      toast?.('Failed removing project.', 'error');
+    }
+    setOpenProjectMenuId(null);
   };
 
   const handleDeleteSession = async (sid) => {
@@ -148,12 +186,9 @@ export default function Sidebar({
             background: 'var(--bg-2)', border: '1px solid var(--border)',
             width: 32, height: 32, borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0,
+            color: 'var(--text)', cursor: 'pointer', flexShrink: 0,
             boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-            transition: 'background 0.2s ease, border-color 0.2s ease, color 0.2s ease'
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-3)'; e.currentTarget.style.borderColor = 'var(--accent-dim)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.borderColor = 'var(--border)' }}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
@@ -267,6 +302,7 @@ export default function Sidebar({
                               onNavigate(`/p/${p.id}`);
                               expandAndFetchProject(p.id);
                             } else {
+                              onNavigate(`/p/${p.id}`); // Always navigate to blank workspace
                               toggleProject(p.id);
                             }
                           }}
@@ -283,6 +319,43 @@ export default function Sidebar({
                             {p.name}
                           </span>
                         </div>
+
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 24, height: 24, justifyContent: 'center', flexShrink: 0, marginRight: 6 }}>
+                          {(isHoveredProject || openProjectMenuId === p.id) && (
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpenProjectMenuId(openProjectMenuId === p.id ? null : p.id); }}
+                              onMouseDown={(e) => e.stopPropagation()} // Prevent global click-outside from closing immediately
+                              style={{
+                                background: openProjectMenuId === p.id ? 'var(--bg-2)' : 'none',
+                                border: 'none', color: isHoveredProject ? 'var(--text)' : 'var(--text-4)', cursor: 'pointer', padding: 4, borderRadius: 6,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24, width: 24,
+                                transition: 'background 0.1s ease, color 0.1s ease',
+                                outline: 'none'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-2)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = openProjectMenuId === p.id ? 'var(--bg-2)' : 'transparent'; }}
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+                          )}
+                          
+                          {openProjectMenuId === p.id && (
+                            <div 
+                              onMouseDown={(e) => e.stopPropagation()} // Keep menu open when clicking inside it
+                              style={{
+                              position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                              background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 8,
+                              padding: '6px', display: 'flex', flexDirection: 'column', gap: 2,
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 60, minWidth: 160,
+                              backdropFilter: 'blur(10px)'
+                            }}>
+                              <DropdownItem icon={Edit2} label="Rename" onClick={(e) => { e.stopPropagation(); toast?.('Rename not yet implemented', 'info'); setOpenProjectMenuId(null); }} />
+                              <DropdownItem icon={Pin} label="Pin" onClick={(e) => { e.stopPropagation(); toast?.('Pin not yet implemented', 'info'); setOpenProjectMenuId(null); }} />
+                              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                              <DropdownItem icon={Trash2} label="Delete" danger onClick={(e) => { e.stopPropagation(); handleDeleteProject(p.id); }} />
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {expandedProjectIds.has(p.id) && (
@@ -290,7 +363,7 @@ export default function Sidebar({
                           {(() => {
                             const cachedEntry = cachedSessions[p.id];
                             const pSessions = isProjectActive ? sessions : (cachedEntry?.data || []);
-                            const isLoading = loadingProjectIds.has(p.id) || (isProjectActive && isFetchingSessions);
+                            const isLoading = loadingProjectIds.has(p.id) || (isProjectActive && isFetchingSessions && pSessions.length === 0);
 
                             if (isLoading) {
                               return [1, 2, 3].map(k => (
@@ -303,7 +376,15 @@ export default function Sidebar({
                             if (pSessions.length === 0) {
                               return <div style={{ fontSize: 12, color: 'var(--text-4)', padding: '4px 20px' }}>No chats yet.</div>;
                             }
-                            return pSessions.map(s => {
+                            
+                            // Real-time sort: newest sessions first
+                            const sortedSessions = [...pSessions].sort((a, b) => {
+                              const aTime = new Date(a.updated_at || a.created_at || 0).getTime() || 0;
+                              const bTime = new Date(b.updated_at || b.created_at || 0).getTime() || 0;
+                              return bTime - aTime;
+                            });
+
+                            return sortedSessions.map(s => {
                               const isActive = activeSessionId === s.id;
                               const isHovered = hoveredSessionId === s.id;
 
@@ -318,15 +399,19 @@ export default function Sidebar({
                                     padding: '6px 10px', borderRadius: 6, cursor: 'pointer',
                                     fontSize: 13, minHeight: 34,
                                     color: isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-3)'),
-                                    background: isActive ? 'var(--bg-3)' : (isHovered ? 'var(--bg-hover)' : 'transparent'),
+                                    background: isActive ? 'var(--bg-hover)' : (isHovered ? 'var(--bg-hover)' : 'transparent'),
                                     position: 'relative',
                                   }}
                                 >
-                                  {isActive && <div style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 3, background: 'var(--accent)', borderRadius: '0 4px 4px 0' }} />}
+                                  {isActive && <div style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', width: 4, height: 16, background: 'var(--accent)', borderRadius: 2 }} />}
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                                    <MessageSquare size={13} color={isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-4)')} fill={isActive ? 'var(--bg-3)' : 'transparent'} style={{ flexShrink: 0 }} />
-                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isActive ? 500 : 400 }}>
+                                    <MessageSquare size={13} color={isActive ? 'var(--accent)' : (isHovered ? 'var(--text)' : 'var(--text-4)')} fill={isActive ? 'var(--accent-dim)' : 'transparent'} style={{ flexShrink: 0 }} />
+                                    <span style={{ 
+                                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', 
+                                      fontWeight: isActive ? 600 : 400,
+                                      color: isActive ? 'var(--text)' : 'inherit'
+                                    }}>
                                       {s.title || "Untitled Session"}
                                     </span>
                                   </div>
@@ -334,11 +419,13 @@ export default function Sidebar({
                                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 24, height: 22, justifyContent: 'center', flexShrink: 0 }}>
                                     {(isHovered || isActive || openSessionMenuId === s.id) && (
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); setOpenSessionMenuId(openSessionMenuId === s.id ? null : s.id); }}
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpenSessionMenuId(openSessionMenuId === s.id ? null : s.id); }}
+                                        onMouseDown={(e) => e.stopPropagation()}
                                         style={{
                                           background: openSessionMenuId === s.id ? 'var(--bg-2)' : 'none',
                                           border: 'none', color: isHovered ? 'var(--text)' : 'var(--text-4)', cursor: 'pointer', padding: 4, borderRadius: 4,
-                                          display: 'flex', alignItems: 'center', justifyContent: 'center', height: 22, width: 22
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', height: 22, width: 22,
+                                          outline: 'none'
                                         }}
                                         onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-2)'; }}
                                         onMouseLeave={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = openSessionMenuId === s.id ? 'var(--bg-2)' : 'transparent'; }}
@@ -349,16 +436,18 @@ export default function Sidebar({
                                   </div>
 
                                   {openSessionMenuId === s.id && (
-                                    <div style={{
+                                    <div 
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      style={{
                                       position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                                      background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 6,
-                                      padding: 4, display: 'flex', flexDirection: 'column', gap: 2,
-                                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 50, minWidth: 120,
+                                      background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 8,
+                                      padding: '6px', display: 'flex', flexDirection: 'column', gap: 2,
+                                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 50, minWidth: 160,
+                                      backdropFilter: 'blur(10px)'
                                     }}>
-                                      <button onClick={(e) => { e.stopPropagation(); toast?.('Rename not yet implemented', 'info'); setOpenSessionMenuId(null); }} style={DropdownItemStyle}>Rename</button>
-                                      <button onClick={(e) => { e.stopPropagation(); toast?.('Pin not yet implemented', 'info'); setOpenSessionMenuId(null); }} style={DropdownItemStyle}>Pin</button>
-                                      <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />
-                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id); }} style={{ ...DropdownItemStyle, color: 'var(--red)' }}>Delete</button>
+                                      <DropdownItem icon={Edit2} label="Rename" onClick={(e) => { e.stopPropagation(); toast?.('Rename not yet implemented', 'info'); setOpenSessionMenuId(null); }} />
+                                      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                                      <DropdownItem icon={Trash2} label="Delete" danger onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id); }} />
                                     </div>
                                   )}
                                 </div>
@@ -392,6 +481,7 @@ export default function Sidebar({
           transition: 'padding 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease'
         }}
           onClick={() => !collapsed && setProfileMenuOpen(!profileMenuOpen)}
+          onMouseDown={(e) => e.stopPropagation()}
           onMouseEnter={e => !profileMenuOpen && (e.currentTarget.style.background = 'var(--bg-hover)')}
           onMouseLeave={e => !profileMenuOpen && (e.currentTarget.style.background = 'transparent')}
         >
@@ -420,18 +510,14 @@ export default function Sidebar({
           {profileMenuOpen && !collapsed && (
             <div style={{
               position: 'absolute', bottom: '115%', left: 0, width: '100%', marginBottom: 4,
-              background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 12,
-              padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.4)', zIndex: 60,
+              background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 8,
+              padding: '6px', display: 'flex', flexDirection: 'column', gap: 2,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 60, minWidth: 200,
               backdropFilter: 'blur(10px)'
             }}>
-              <button onClick={(e) => { e.stopPropagation(); toast?.('Settings not implemented', 'info'); setProfileMenuOpen(false); }} style={{ ...DropdownItemStyle, padding: '10px 12px', borderRadius: 8 }}>
-                <Settings size={14} style={{ marginRight: 10 }} /> Settings
-              </button>
+              <DropdownItem icon={Settings} label="Settings" onClick={(e) => { e.stopPropagation(); toast?.('Settings not implemented', 'info'); setProfileMenuOpen(false); }} />
               <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-              <button onClick={(e) => { e.stopPropagation(); toast?.('Logged out', 'info'); setProfileMenuOpen(false); }} style={{ ...DropdownItemStyle, padding: '10px 12px', borderRadius: 8, color: 'var(--red)' }}>
-                <LogOut size={14} style={{ marginRight: 10 }} /> Log Out
-              </button>
+              <DropdownItem icon={LogOut} label="Log Out" danger onClick={(e) => { e.stopPropagation(); toast?.('Logged out', 'info'); setProfileMenuOpen(false); }} />
             </div>
           )}
         </div>

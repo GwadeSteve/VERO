@@ -106,6 +106,7 @@ class SessionModel(Base):
     project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, default="New Conversation")
     created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     project = relationship("ProjectModel")
     messages = relationship("SessionMessageModel", back_populates="session", cascade="all, delete-orphan", order_by="SessionMessageModel.created_at")

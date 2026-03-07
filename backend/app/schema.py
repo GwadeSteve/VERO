@@ -252,6 +252,7 @@ class SessionResponse(BaseModel):
     project_id: str
     title: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
     messages: List[MessageResponse] = []
 
 

@@ -86,6 +86,7 @@ async def create_session(
         project_id=session.project_id,
         title=session.title,
         created_at=session.created_at,
+        updated_at=session.updated_at,
         messages=[],
     )
 
@@ -96,7 +97,7 @@ async def list_sessions(project_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SessionModel)
         .where(SessionModel.project_id == project_id)
-        .order_by(SessionModel.created_at.desc())
+        .order_by(SessionModel.updated_at.desc())
     )
     sessions = result.scalars().all()
     
@@ -106,6 +107,7 @@ async def list_sessions(project_id: str, db: AsyncSession = Depends(get_db)):
             project_id=s.project_id,
             title=s.title,
             created_at=s.created_at,
+            updated_at=s.updated_at,
             messages=[],  # Don't include full messages in list view
         )
         for s in sessions
@@ -129,6 +131,7 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
         project_id=session.project_id,
         title=session.title,
         created_at=session.created_at,
+        updated_at=session.updated_at,
         messages=[
             MessageResponse(
                 id=m.id,
@@ -256,11 +259,13 @@ async def chat(
     if len(session.messages) <= 1:
         session.title = body.message[:50] + ("..." if len(body.message) > 50 else "")
 
-    # Touch project activity
+    # Touch project and session activity
+    from datetime import datetime, timezone
+    session.updated_at = datetime.now(timezone.utc)
+    
     result = await db.execute(select(ProjectModel).where(ProjectModel.id == session.project_id))
     proj = result.scalar_one_or_none()
     if proj:
-        from datetime import datetime, timezone
         proj.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
