@@ -90,7 +90,7 @@ function App() {
       />
       <main style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <Routes location={location}>
-          <Route path="/" element={<ProjectsPage />} />
+          <Route path="/" element={<ProjectsPage onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
           <Route path="/p/:projectId/*" element={<WorkspacePage key={projectId} projectId={projectId} activeSessionId={activeSessionId} setSessions={setSessions} onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
         </Routes>
       </main>

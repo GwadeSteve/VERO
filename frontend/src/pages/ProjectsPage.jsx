@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useToast } from '../components/ui/Toast';
 
-export default function ProjectsPage() {
+export default function ProjectsPage({ onRefreshProjects }) {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -36,6 +36,7 @@ export default function ProjectsPage() {
             setProjects(prev => [...prev, p]);
             setShowForm(false); setName(''); setDesc('');
             toast?.(`Project "${p.name}" successfully created!`, 'success');
+            onRefreshProjects?.();
             select(p.id);
         } catch (err) { toast?.(err.message, 'error'); }
         finally { setCreating(false); }
@@ -65,6 +66,7 @@ export default function ProjectsPage() {
 
         if (failed === 0) {
             toast?.(`Successfully deleted ${count} project${count > 1 ? 's' : ''}.`, 'success');
+            onRefreshProjects?.();
         } else {
             toast?.(`Failed deleting ${failed} project${failed > 1 ? 's' : ''}.`, 'error');
             load(); // Reload to restore failed ones
@@ -296,7 +298,8 @@ export default function ProjectsPage() {
                                                 if (window.confirm(`Delete workspace "${p.name}"? This cannot be undone.`)) {
                                                     try {
                                                         await api.deleteProject(p.id);
-                                                        fetchProjects(); // need to re-fetch
+                                                        setProjects(prev => prev.filter(x => x.id !== p.id));
+                                                        onRefreshProjects?.();
                                                         toast?.('Workspace deleted.', 'success');
                                                     } catch { toast?.('Failed to delete workspace.', 'error'); }
                                                 }

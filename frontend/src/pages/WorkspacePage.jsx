@@ -749,30 +749,38 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 </div>
 
                 {/* Input Zone */}
-                <div style={{ padding: '24px 32px', background: 'var(--bg-0)' }}>
+                <div style={{ padding: '32px 32px 40px', background: 'var(--bg-0)' }}>
                     <form onSubmit={send} style={{
                         maxWidth: 840, margin: '0 auto', position: 'relative',
-                        background: 'rgba(21, 24, 32, 0.4)', backdropFilter: 'blur(24px)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 24, padding: '12px 16px',
-                        display: 'flex', flexDirection: 'column', gap: 12,
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                        background: 'var(--bg-0)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 20, padding: '16px 20px',
+                        display: 'flex', flexDirection: 'column', gap: 14,
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02)',
                         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                        ...(docs.length === 0 ? { opacity: 0.7, pointerEvents: 'none' } : {})
+                        ...(docs.length === 0 ? { opacity: 0.5, pointerEvents: 'none', filter: 'grayscale(1)' } : {})
                     }}
-                        onFocusCapture={e => { e.currentTarget.style.borderColor = 'var(--text-4)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.2)'; }}
-                        onBlurCapture={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)'; }}
+                        onFocusCapture={e => {
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                            e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)';
+                            e.currentTarget.style.background = 'var(--bg-1)';
+                        }}
+                        onBlurCapture={e => {
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                            e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02)';
+                            e.currentTarget.style.background = 'var(--bg-0)';
+                        }}
                     >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                             <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 4 }}>
-                                <Layers size={18} color="var(--text-3)" />
+                                <Layers size={18} color="var(--text-4)" />
                             </div>
                             <textarea
                                 value={query}
                                 onChange={e => {
                                     setQuery(e.target.value);
                                     e.target.style.height = 'auto';
-                                    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                                    e.target.style.height = Math.min(e.target.scrollHeight, 240) + 'px';
                                 }}
                                 onKeyDown={e => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -785,53 +793,85 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 rows={1}
                                 style={{
                                     flex: 1, border: 'none', background: 'transparent', color: 'var(--text)',
-                                    padding: '8px 0', fontSize: 15, fontFamily: 'var(--font)',
+                                    padding: '6px 0', fontSize: 16, fontFamily: 'var(--font)',
                                     outline: 'none', fontWeight: 500, resize: 'none',
-                                    minHeight: 40, maxHeight: 200, lineHeight: 1.5,
+                                    minHeight: 40, maxHeight: 240, lineHeight: 1.6,
                                     overflowY: 'auto'
                                 }}
                             />
                             <button type="submit" disabled={!query.trim() || searching || isStreaming || docs.length === 0}
                                 style={{
-                                    width: 40, height: 40, borderRadius: 12, border: 'none', flexShrink: 0,
-                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--bg-3)' : 'var(--text)',
-                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-3)' : 'var(--bg-0)',
+                                    width: 44, height: 44, borderRadius: '50%', border: 'none', flexShrink: 0,
+                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'transparent' : 'var(--text)',
+                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-4)' : 'var(--bg-0)',
                                     cursor: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'not-allowed' : 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    transition: 'all 0.2s ease', alignSelf: 'flex-end',
-                                    boxShadow: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'none' : '0 4px 12px rgba(255,255,255,0.2)'
-                                }}>
-                                <ArrowUp size={20} strokeWidth={3} />
+                                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', alignSelf: 'flex-end',
+                                    transform: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'scale(0.9)' : 'scale(1)',
+                                    boxShadow: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'none' : '0 4px 16px rgba(255,255,255,0.15)'
+                                }}
+                                onMouseEnter={e => {
+                                    if (query.trim() && !searching && !isStreaming && docs.length > 0) {
+                                        e.currentTarget.style.transform = 'scale(1.05) translateY(-2px)';
+                                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(255,255,255,0.25)';
+                                    }
+                                }}
+                                onMouseLeave={e => {
+                                    if (query.trim() && !searching && !isStreaming && docs.length > 0) {
+                                        e.currentTarget.style.transform = 'scale(1) translateY(0)';
+                                        e.currentTarget.style.boxShadow = '0 4px 16px rgba(255,255,255,0.15)';
+                                    }
+                                }}
+                            >
+                                <ArrowUp size={22} strokeWidth={2.5} />
                             </button>
                         </div>
 
-                        {/* SOTA Toolbar / Model Knowledge Toggle */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 2 }}>
+                        {/* SOTA Toolbar / Premium Switch Toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 14, marginTop: 2 }}>
                             <div
                                 onClick={() => setModelKnowledge(!modelKnowledge)}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-                                    padding: '4px 8px 4px 4px', borderRadius: 20,
-                                    background: modelKnowledge ? 'var(--accent-dim)' : 'transparent',
-                                    transition: 'all 0.2s'
+                                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                                    padding: '6px 14px 6px 8px', borderRadius: 100,
+                                    background: modelKnowledge ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                                }}
+                                onMouseEnter={e => {
+                                    if (!modelKnowledge) e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                                }}
+                                onMouseLeave={e => {
+                                    if (!modelKnowledge) e.currentTarget.style.background = 'transparent';
                                 }}
                             >
+                                {/* The Switch Track */}
                                 <div style={{
-                                    width: 32, height: 18, borderRadius: 10, background: modelKnowledge ? 'var(--accent)' : 'var(--bg-3)',
-                                    position: 'relative', transition: 'background 0.3s ease',
+                                    width: 36, height: 20, borderRadius: 10,
+                                    background: modelKnowledge ? 'var(--text)' : 'rgba(0,0,0,0.4)',
+                                    border: `1px solid ${modelKnowledge ? 'transparent' : 'rgba(255,255,255,0.1)'}`,
+                                    position: 'relative', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                    boxShadow: modelKnowledge ? '0 0 12px rgba(255,255,255,0.1)' : 'inset 0 2px 4px rgba(0,0,0,0.5)'
                                 }}>
+                                    {/* The Switch Thumb */}
                                     <div style={{
-                                        position: 'absolute', top: 2, left: modelKnowledge ? 16 : 2, width: 14, height: 14,
-                                        borderRadius: '50%', background: '#fff', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                    }}></div>
+                                        position: 'absolute', top: 1, left: modelKnowledge ? 17 : 1,
+                                        width: 16, height: 16, borderRadius: '50%',
+                                        background: modelKnowledge ? 'var(--bg-0)' : 'var(--text-3)',
+                                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                        boxShadow: modelKnowledge ? 'none' : '0 2px 4px rgba(0,0,0,0.4)'
+                                    }} />
                                 </div>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: modelKnowledge ? 'var(--accent)' : 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <span style={{
+                                    fontSize: 12, fontWeight: 700,
+                                    color: modelKnowledge ? 'var(--text)' : 'var(--text-4)',
+                                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                                    transition: 'color 0.3s ease'
+                                }}>
                                     Model Knowledge
                                 </span>
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <Info size={12} /> Press Shift + Enter for new line
+                            <div style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.7 }}>
+                                <Info size={12} /> Return to send, Shift + Return for new line
                             </div>
                         </div>
                     </form>
