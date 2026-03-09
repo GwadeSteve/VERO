@@ -3,6 +3,10 @@
 import os
 import warnings
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables early
+load_dotenv()
 
 # Must be set before ANY ML imports to suppress TensorFlow/OneDNN warnings
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
