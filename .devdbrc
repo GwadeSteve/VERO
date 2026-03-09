@@ -1,0 +1,6 @@
+[
+  {
+    "type": "sqlite",
+    "path": "a:\\AI-Searcher\\backend\\data\\vero.db"
+  }
+]
