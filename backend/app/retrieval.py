@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Optional
 
-from rank_bm25 import BM25Okapi
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -80,32 +80,43 @@ def _semantic_search(
 
 
 def _keyword_search(
+    project_id: str,
     chunks: list[ChunkModel],
     query: str,
     top_k: int,
+    last_indexed_at: Optional[str] = None,
 ) -> dict[str, float]:
-    """Run BM25 keyword search over chunk texts. Returns {chunk_id: score}."""
+    """Run BM25 keyword search over chunk texts. Returns {chunk_id: score}.
+
+    Uses the BM25Manager cache to avoid rebuilding the index on every query.
+    """
     if not chunks:
         return {}
 
-    corpus = [_tokenize(c.text) for c in chunks]
-    bm25 = BM25Okapi(corpus)
+    from app.bm25_cache import get_bm25_manager
+
+    manager = get_bm25_manager()
+    bm25, chunk_ids = manager.get_or_build(project_id, chunks, _tokenize, last_indexed_at)
+
+    if not chunk_ids:
+        return {}
+
     query_tokens = _tokenize(query)
     raw_scores = bm25.get_scores(query_tokens)
 
     # Pair scores with chunk IDs and sort descending
     scored = sorted(
-        zip(chunks, raw_scores),
+        zip(chunk_ids, raw_scores),
         key=lambda x: x[1],
         reverse=True,
     )
 
     # Normalize scores to [0, 1] range
-    max_score = scored[0][1] if scored and scored[0][1] > 0 else 1.0
+    max_score = float(scored[0][1]) if scored and scored[0][1] > 0 else 1.0
     scores: dict[str, float] = {}
-    for chunk, score in scored[:top_k]:
+    for chunk_id, score in scored[:top_k]:
         if score > 0:
-            scores[chunk.id] = score / max_score
+            scores[chunk_id] = float(score) / max_score
 
     return scores
 
@@ -161,6 +172,11 @@ async def search(
         logger.warning(f"Search failed: Project {project_id} has NO chunks in database.")
         return []
 
+    # Get project to read last_indexed_at timestamp for cache validation
+    from app.models import ProjectModel
+    project = await db.scalar(select(ProjectModel).where(ProjectModel.id == project_id))
+    last_indexed_at_str = project.last_indexed_at.isoformat() if project and project.last_indexed_at else None
+
     doc_map = await _fetch_doc_map(db, project_id)
 
     # Build chunk lookup
@@ -172,11 +188,11 @@ async def search(
     if mode == "semantic":
         final_scores = _semantic_search(project_id, query, candidate_k)
     elif mode == "keyword":
-        final_scores = _keyword_search(chunks, query, candidate_k)
+        final_scores = _keyword_search(project_id, chunks, query, candidate_k, last_indexed_at_str)
     else:
         # Hybrid: combine both using RRF
         sem_scores = _semantic_search(project_id, query, candidate_k)
-        kw_scores = _keyword_search(chunks, query, candidate_k)
+        kw_scores = _keyword_search(project_id, chunks, query, candidate_k, last_indexed_at_str)
         final_scores = _reciprocal_rank_fusion(sem_scores, kw_scores)
 
     if not final_scores:

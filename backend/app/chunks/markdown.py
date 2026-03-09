@@ -23,7 +23,7 @@ class MarkdownChunker(BaseChunker):
             ("###", "Header 3"),
         ]
 
-    def chunk(self, text: str, doc_id: str, project_id: str) -> list[ChunkResponse]:
+    def chunk(self, text: str, doc_id: str, project_id: str, doc_title: str = "") -> list[ChunkResponse]:
         # Step 1: Split strictly by headers. 
         # This groups logical sections together (e.g. all of "Installation" is one doc)
         md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=self.headers_to_split_on)
@@ -47,7 +47,7 @@ class MarkdownChunker(BaseChunker):
             breadcrumbs = " > ".join(doc.metadata.values()) if doc.metadata else "Root"
             
             # The search index will get this full context
-            contextualized_text = f"[{breadcrumbs}]\n{chunk_text}"
+            contextualized_text = f"[Source: {doc_title}]\n[{breadcrumbs}]\n{chunk_text}" if doc_title else f"[{breadcrumbs}]\n{chunk_text}"
             
             # Step 3: Find the starting character in the ORIGINAL text.
             # Robust mapping: LangChain modifies internal whitespace/newlines.

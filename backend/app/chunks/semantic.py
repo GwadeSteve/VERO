@@ -24,7 +24,7 @@ class SemanticChunker(BaseChunker):
             chunk_overlap=self.overlap,
         )
 
-    def chunk(self, text: str, doc_id: str, project_id: str) -> list[ChunkResponse]:
+    def chunk(self, text: str, doc_id: str, project_id: str, doc_title: str = "") -> list[ChunkResponse]:
         texts = self.splitter.split_text(text)
 
         response_chunks = []
@@ -35,16 +35,19 @@ class SemanticChunker(BaseChunker):
             start_idx = text.find(chunk_text[:100])
             end_idx = start_idx + len(chunk_text) if start_idx != -1 else len(text)
 
+            # Prepend document context for richer embeddings (Contextual Retrieval)
+            contextualized_text = f"[Source: {doc_title}]\n{chunk_text}" if doc_title else chunk_text
+
             response_chunks.append(ChunkResponse(
                 id=uuid.uuid4().hex[:12],
                 doc_id=doc_id,
                 project_id=project_id,
-                text=chunk_text,
+                text=contextualized_text,
                 start_char=max(0, start_idx),
                 end_char=max(0, end_idx),
-                token_count=self.count_tokens(chunk_text),
+                token_count=self.count_tokens(contextualized_text),
                 strategy="semantic",
-                metadata={}
+                metadata={"doc_title": doc_title} if doc_title else {}
             ))
 
         return response_chunks

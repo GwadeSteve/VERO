@@ -31,7 +31,30 @@ async def auto_pipeline(doc_id: str):
             doc.processing_status = "chunking"
             await db.commit()
             
-            # Step 1: Chunk
+            # Step 1: Generate LLM Summary for Contextual Chunks
+            if not doc.summary:
+                try:
+                    from app.llm import get_llm
+                    logger.info("Auto-pipeline: generating LLM summary for %s", doc_id)
+                    llm = get_llm()
+                    system_prompt = (
+                        "You are an expert technical summarizer. Provide a concise, highly accurate "
+                        "1-3 sentence summary of the following document text. This summary will be "
+                        "used to enrich vector embeddings for a Retrieval-Augmented Generation (RAG) system. "
+                        "Do not include introductory phrases like 'This document describes...', just provide the facts."
+                    )
+                    # Use the first 10,000 characters to get the gist without blowing up token limits
+                    user_prompt = f"Title: {doc.title}\n\nContent:\n{doc.raw_text[:10000]}"
+                    
+                    doc.summary = await llm.generate_response(system_prompt, user_prompt)
+                    await db.commit()
+                    logger.info("Auto-pipeline: generated summary -> %s", doc.summary)
+                except Exception as e:
+                    logger.warning("Auto-pipeline: Failed to generate summary for %s: %s", doc_id, e)
+                    doc.summary = "No summary available."
+                    await db.commit()
+
+            # Step 2: Chunk
             logger.info("Auto-pipeline: chunking document %s (%s)", doc_id, doc.title)
             await _chunk_document(db, doc)
             
@@ -49,8 +72,20 @@ async def auto_pipeline(doc_id: str):
             doc = await _get_doc(db, doc_id)
             if doc:
                 doc.processing_status = "ready"
+                
+                # Fetch project and set last_indexed_at
+                from app.models import ProjectModel
+                project = await db.scalar(select(ProjectModel).where(ProjectModel.id == doc.project_id))
+                if project:
+                    from app.models import _utcnow
+                    project.last_indexed_at = _utcnow()
+                
                 await db.commit()
                 logger.info("Auto-pipeline: document %s is ready for search", doc_id)
+
+                # Invalidate BM25 cache so next search picks up new chunks
+                from app.bm25_cache import get_bm25_manager
+                get_bm25_manager().invalidate(doc.project_id)
             
         except Exception as e:
             logger.error("Auto-pipeline failed for %s: %s", doc_id, e, exc_info=True)
@@ -79,8 +114,13 @@ async def _chunk_document(db: AsyncSession, doc: DocumentModel):
     
     # Generate new chunks (CPU-bound)
     chunker = get_chunker_for_source(doc.source_type)
+    # Prepare the context header for Metadata-Augmented Ingestion
+    context_header = f"{doc.title}"
+    if doc.summary and doc.summary != "No summary available.":
+        context_header += f" - {doc.summary}"
+
     chunk_responses = await run_in_threadpool(
-        chunker.chunk, text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id
+        chunker.chunk, text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id, doc_title=context_header
     )
     
     for cr in chunk_responses:

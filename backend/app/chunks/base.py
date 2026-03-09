@@ -18,9 +18,12 @@ class BaseChunker:
         """Count the number of tokens in a string."""
         return len(_TOKENIZER.encode(text, disallowed_special=()))
 
-    def chunk(self, text: str, doc_id: str, project_id: str) -> list[ChunkResponse]:
+    def chunk(self, text: str, doc_id: str, project_id: str, doc_title: str = "") -> list[ChunkResponse]:
         """
         Split text into chunks. Must be implemented by subclasses.
         Subclasses should return a list of ChunkResponse models.
+
+        Args:
+            doc_title: Document title for contextual chunk headers.
         """
         raise NotImplementedError("Subclasses must implement chunk()")

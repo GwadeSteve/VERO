@@ -25,6 +25,7 @@ class ProjectModel(Base):
     description = Column(Text, default="")
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    last_indexed_at = Column(DateTime, nullable=True)
 
     documents = relationship("DocumentModel", back_populates="project", cascade="all, delete-orphan")
 
@@ -44,6 +45,7 @@ class DocumentModel(Base):
     confidence_level = Column(Integer, nullable=False, default=3)
     source_url = Column(String, nullable=True)
     metadata_json = Column(Text, default="{}")
+    summary = Column(Text, nullable=True)
     processing_status = Column(String, nullable=False, default="pending")  # pending → processing → ready → failed
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)

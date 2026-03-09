@@ -51,6 +51,18 @@ async def init_db():
         if "citations_json" not in columns_msgs:
             await conn.execute(sa.text("ALTER TABLE session_messages ADD COLUMN citations_json TEXT DEFAULT '[]'"))
 
+        # Add last_indexed_at to projects if missing (added in Search Upgrade)
+        result_projs = await conn.execute(sa.text("PRAGMA table_info(projects)"))
+        columns_projs = [row[1] for row in result_projs.fetchall()]
+        if "last_indexed_at" not in columns_projs:
+            await conn.execute(sa.text("ALTER TABLE projects ADD COLUMN last_indexed_at DATETIME"))
+
+        # Add summary to documents if missing (added in Search Upgrade Phase 2)
+        result_docs = await conn.execute(sa.text("PRAGMA table_info(documents)"))
+        columns_docs = [row[1] for row in result_docs.fetchall()]
+        if "summary" not in columns_docs:
+            await conn.execute(sa.text("ALTER TABLE documents ADD COLUMN summary TEXT"))
+
 
 async def get_db():
     """FastAPI dependency — yields an async session."""
