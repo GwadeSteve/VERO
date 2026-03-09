@@ -169,7 +169,7 @@ async def search(
 
     chunks = await _fetch_project_chunks(db, project_id)
     if not chunks:
-        logger.warning(f"Search failed: Project {project_id} has NO chunks in database.")
+        logger.info(f"Search skipped: Project {project_id} is empty (NO chunks).")
         return []
 
     # Get project to read last_indexed_at timestamp for cache validation
@@ -196,7 +196,7 @@ async def search(
         final_scores = _reciprocal_rank_fusion(sem_scores, kw_scores)
 
     if not final_scores:
-        logger.warning(f"Search failed: Stage 1 [{mode}] returned 0 candidates for query '{query[:50]}'")
+        logger.info(f"Search finished: Stage 1 [{mode}] found 0 candidates for query '{query[:50]}'")
         return []
 
     # Sort by Stage 1 score and take candidates
