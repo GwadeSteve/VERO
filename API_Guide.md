@@ -108,7 +108,7 @@ Recursively clones a public GitHub repo, extracting all READMEs and Python docst
   {
     "repo_url": "https://github.com/GwadeSteve/VERO",
     "title": "Optional Override Title"
-  }
+  } 
   ```
 
 ### `DELETE /projects/{project_id}`
