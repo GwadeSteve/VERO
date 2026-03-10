@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { api } from '../api';
 import { useToast } from '../components/ui/Toast';
 import {
@@ -397,76 +399,21 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         docTraces[r.doc_title].push({ ...r, index: i });
     });
 
-    // ── Aggressive Inline Citation Parser ────────────────
-    const renderTextWithSources = (text, traces) => {
-        if (!text || !traces?.length) return text;
+    // ── Pre-process Text for ReactMarkdown Citations ────────────────
+    const preprocessTextForMarkdown = (text) => {
+        if (!text) return '';
         
         // This regex aggressively looks for bracketed numbers like [Source 1], [1], [Sources 1, 2], [1 and 2]
         const citationPattern = /\[(?:Sources?\s*)?((?:\d+(?:,\s*|\s+and\s+)*)+)\]/gi;
         
-        const parts = [];
-        let lastIndex = 0;
-        let match;
-
-        while ((match = citationPattern.exec(text)) !== null) {
-            // Push text before the match
-            if (match.index > lastIndex) {
-                parts.push(text.substring(lastIndex, match.index));
-            }
-
-            // Extract all numbers within the matched bracket
-            const numbers = match[1].match(/\d+/g);
+        return text.replace(citationPattern, (match, numbersStr) => {
+            const numbers = numbersStr.match(/\d+/g);
             if (numbers) {
-                const chips = numbers.map((n, idx) => {
-                    const num = parseInt(n);
-                    const trace = traces[num - 1]; // traces are 0-indexed
-                    if (!trace) return <span key={`raw-${n}`}>{n}</span>;
-
-                    const isChunkActive = activeCitationChunk?.srcNum === num;
-                    
-                    return (
-                        <span key={`cite-${match.index}-${num}`}
-                            onClick={() => {
-                                setActiveCitationChunk(isChunkActive ? null : { srcNum: num, text: trace.text, doc_title: trace.doc_title, score: trace.score });
-                                setActiveCitationDoc(trace.doc_title);
-                                setTimeout(() => {
-                                    const el = document.getElementById(`doc-${trace.doc_title}`);
-                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                }, 50);
-                            }}
-                            title={`From: ${trace.doc_title}`}
-                            style={{
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                padding: '0 7px', margin: '0 3px', borderRadius: 5, minWidth: 20,
-                                background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
-                                border: '1px solid var(--accent-border)',
-                                color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
-                                fontSize: 11, fontWeight: 800,
-                                cursor: 'pointer', lineHeight: '20px',
-                                verticalAlign: 'middle', transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'var(--bg-0)'; } }}
-                            onMouseLeave={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent-dim)'; e.currentTarget.style.color = 'var(--accent)'; } }}
-                        >
-                            {num}
-                        </span>
-                    );
-                });
-                
-                parts.push(<span key={`group-${match.index}`} style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap' }}>{chips}</span>);
-            } else {
-                parts.push(match[0]); // fallback if no numbers extracted
+                // Convert to a custom markdown link that we'll intercept in the Custom Components
+                return numbers.map(n => `[${n}](cite:${n})`).join(' ');
             }
-            
-            lastIndex = match.index + match[0].length;
-        }
-
-        // Push remaining text
-        if (lastIndex < text.length) {
-            parts.push(text.substring(lastIndex));
-        }
-
-        return parts;
+            return match;
+        });
     };
 
     return (
@@ -591,11 +538,61 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                 <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain', filter: 'brightness(0)' }} />
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
-                                                <div className={m.isStreaming ? "streaming-cursor" : ""} style={{
-                                                    fontSize: 15, lineHeight: 1.7, color: m.role === 'error' ? 'var(--red)' : 'var(--text)',
-                                                    whiteSpace: 'pre-wrap', fontWeight: 400
+                                                <div className={`vero-md ${m.isStreaming ? "streaming-cursor" : ""}`} style={{
+                                                    color: m.role === 'error' ? 'var(--red)' : 'var(--text)'
                                                 }}>
-                                                    {m.traces?.length > 0 ? renderTextWithSources(m.text, m.traces) : m.text}
+                                                    <ReactMarkdown
+                                                        remarkPlugins={[remarkGfm]}
+                                                        urlTransform={(value) => {
+                                                            if (value.startsWith('cite:')) return value;
+                                                            // Provide a simple default transform for other URLs if needed,
+                                                            // or rely on ReactMarkdown's default behavior for legitimate links.
+                                                            return value.replace(/^javascript:/i, ''); // basic XSS prevention
+                                                        }}
+                                                        components={{
+                                                            a: ({ node, href, children, ...props }) => {
+                                                                if (href && href.startsWith('cite:')) {
+                                                                    const num = parseInt(href.replace('cite:', ''));
+                                                                    const trace = m.traces?.[num - 1];
+                                                                    if (!trace) return <span style={{ opacity: 0.5 }}>[{num}]</span>;
+
+                                                                    const isChunkActive = activeCitationChunk?.srcNum === num;
+                                                                    
+                                                                    return (
+                                                                        <span 
+                                                                            onClick={() => {
+                                                                                setActiveCitationChunk(isChunkActive ? null : { srcNum: num, text: trace.text, doc_title: trace.doc_title, score: trace.score });
+                                                                                setActiveCitationDoc(trace.doc_title);
+                                                                                setTimeout(() => {
+                                                                                    const el = document.getElementById(`doc-${trace.doc_title}`);
+                                                                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                                }, 50);
+                                                                            }}
+                                                                            title={`From: ${trace.doc_title}`}
+                                                                            style={{
+                                                                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                                                padding: '0 7px', margin: '0 3px', borderRadius: 5, minWidth: 20,
+                                                                                background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
+                                                                                border: '1px solid var(--accent-border)',
+                                                                                color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
+                                                                                fontSize: 11, fontWeight: 800,
+                                                                                cursor: 'pointer', lineHeight: '20px',
+                                                                                verticalAlign: 'middle', transition: 'all 0.15s ease',
+                                                                                textDecoration: 'none'
+                                                                            }}
+                                                                            onMouseEnter={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'var(--bg-0)'; } }}
+                                                                            onMouseLeave={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent-dim)'; e.currentTarget.style.color = 'var(--accent)'; } }}
+                                                                        >
+                                                                            {num}
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                                return <a href={href} target="_blank" rel="noopener noreferrer" {...props} style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: 2 }}>{children}</a>;
+                                                            }
+                                                        }}
+                                                    >
+                                                        {m.traces?.length > 0 ? preprocessTextForMarkdown(m.text) : m.text}
+                                                    </ReactMarkdown>
                                                 </div>
 
                                                 {/* Grouped Source Documents (Collapsible Accordion) */}
@@ -690,13 +687,26 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                                                         }, 50);
                                                                                                     }}
                                                                                                     style={{
-                                                                                                        fontSize: 10, fontWeight: 800, width: 20, height: 20,
-                                                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                                                        borderRadius: 5, cursor: 'pointer',
+                                                                                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                                                                        padding: '0 7px', margin: '0 2px', borderRadius: 5, minWidth: 20, height: 20,
                                                                                                         background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
-                                                                                                        color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
                                                                                                         border: '1px solid var(--accent-border)',
+                                                                                                        color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
+                                                                                                        fontSize: 11, fontWeight: 800,
+                                                                                                        cursor: 'pointer', lineHeight: '20px',
                                                                                                         transition: 'all 0.15s ease'
+                                                                                                    }}
+                                                                                                    onMouseEnter={e => { 
+                                                                                                        if (!isChunkActive) { 
+                                                                                                            e.currentTarget.style.background = 'var(--accent)'; 
+                                                                                                            e.currentTarget.style.color = 'var(--bg-0)'; 
+                                                                                                        } 
+                                                                                                    }}
+                                                                                                    onMouseLeave={e => { 
+                                                                                                        if (!isChunkActive) { 
+                                                                                                            e.currentTarget.style.background = 'var(--accent-dim)'; 
+                                                                                                            e.currentTarget.style.color = 'var(--accent)'; 
+                                                                                                        } 
                                                                                                     }}
                                                                                                 >
                                                                                                     {item.srcNum}
@@ -749,7 +759,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 </div>
 
                 {/* Input Zone */}
-                <div style={{ padding: '32px 32px 40px', background: 'var(--bg-0)' }}>
+                <div style={{ padding: '0px 32px 24px', background: 'var(--bg-0)' }}>
                     <form onSubmit={send} style={{
                         maxWidth: 840, margin: '0 auto', position: 'relative',
                         background: 'var(--bg-0)',

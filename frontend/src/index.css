@@ -346,3 +346,82 @@ h4 {
   color: var(--accent);
   border-color: var(--accent-border);
 }
+
+/* ─── Markdown (vero-md) ──────────────────── */
+.vero-md {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.vero-md p {
+  margin-bottom: 1em;
+}
+
+.vero-md p:last-child {
+  margin-bottom: 0;
+}
+
+.vero-md strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.vero-md h1, .vero-md h2, .vero-md h3, .vero-md h4 {
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.vero-md h1 { font-size: 1.4em; }
+.vero-md h2 { font-size: 1.25em; }
+.vero-md h3 { font-size: 1.1em; }
+
+.vero-md ul, .vero-md ol {
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.vero-md li {
+  margin-bottom: 0.35em;
+}
+
+.vero-md code {
+  font-family: var(--mono);
+  background: rgba(255,255,255,0.08);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 0.85em;
+  color: #e5e7eb;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+.vero-md pre {
+  background: #111113;
+  padding: 1rem;
+  border-radius: var(--r-lg);
+  overflow-x: auto;
+  margin-bottom: 1em;
+  border: 1px solid var(--border);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.vero-md pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: #e5e7eb;
+  font-size: 0.85em;
+  box-shadow: none;
+}
+
+.vero-md blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  margin-left: 0;
+  margin-bottom: 1em;
+  color: var(--text-2);
+  font-style: italic;
+}
