@@ -62,6 +62,17 @@ def run_tests():
         r_ingest.raise_for_status()
         doc_id = r_ingest.json()["id"]
 
+        # Wait for the background auto_pipeline to finish its first run
+        # otherwise it will overwrite our manual chunks/embeddings in Step 1/2
+        print(f"  Waiting for background pipeline to finish for {doc_id}...")
+        import time
+        for i in range(20):
+            r_status = httpx.get(f"{BASE}/documents/{doc_id}")
+            if r_status.json().get("processing_status") == "ready":
+                print(f"  Pipeline ready ({i*2}s)")
+                break
+            time.sleep(2)
+
         # Generate chunks first (Layer 2 prerequisite)
         r_chunk = httpx.post(f"{BASE}/documents/{doc_id}/chunk", timeout=HTTP_TIMEOUT)
         r_chunk.raise_for_status()

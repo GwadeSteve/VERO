@@ -21,6 +21,20 @@ from app.schema import SearchResultItem
 logger = logging.getLogger(__name__)
 
 
+def _strip_context_prefix(text: str) -> str:
+    """Remove the [Source: ...] contextual header added during chunking.
+
+    The prefix enriches vector embeddings but confuses the cross-encoder
+    reranker, causing near-zero relevance scores.  We strip it before
+    reranking so the cross-encoder sees clean, natural text.
+    """
+    if text.startswith("[Source:"):
+        newline_idx = text.find("\n")
+        if newline_idx != -1:
+            return text[newline_idx + 1:].lstrip()
+    return text
+
+
 def _tokenize(text: str) -> list[str]:
     """Simple whitespace + punctuation tokenizer for BM25."""
     return re.findall(r"\w+", text.lower())
@@ -216,7 +230,7 @@ async def search(
         candidate_dicts.append({
             "chunk_id": chunk.id,
             "doc_id": doc.id,
-            "text": chunk.text,
+            "text": _strip_context_prefix(chunk.text),
             "start_char": chunk.start_char,
             "end_char": chunk.end_char,
             "strategy": chunk.strategy,

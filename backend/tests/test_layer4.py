@@ -47,7 +47,14 @@ def section(title: str):
 
 
 def setup_project_with_embeddings():
-    """Create a project, ingest README, chunk it, and embed it."""
+    """Create a project, ingest README, and wait for auto_pipeline to finish.
+    
+    The auto_pipeline (triggered by /ingest) handles chunk + embed automatically.
+    We just wait for it to complete rather than doing redundant manual calls
+    that would create mismatched chunk IDs in ChromaDB.
+    """
+    import time
+
     project_name = f"Layer 4 Search Test {uuid.uuid4().hex[:6]}"
     r = httpx.post(f"{BASE}/projects", json={"name": project_name, "description": "Testing search."}, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
@@ -58,15 +65,15 @@ def setup_project_with_embeddings():
     r_ingest.raise_for_status()
     doc_id = r_ingest.json()["id"]
 
-    r_chunk = httpx.post(f"{BASE}/documents/{doc_id}/chunk", timeout=HTTP_TIMEOUT)
-    r_chunk.raise_for_status()
-
-    r_embed = httpx.post(
-        f"{BASE}/documents/{doc_id}/embed",
-        json={"model_name": "all-MiniLM-L6-v2"},
-        timeout=HTTP_TIMEOUT,
-    )
-    r_embed.raise_for_status()
+    # Wait for background auto_pipeline (chunk + embed) to complete
+    for i in range(30):
+        r_status = httpx.get(f"{BASE}/documents/{doc_id}", timeout=HTTP_TIMEOUT)
+        status = r_status.json().get("processing_status")
+        if status == "ready":
+            break
+        time.sleep(2)
+    else:
+        raise RuntimeError(f"Pipeline did not finish within 60s (last status: {status})")
 
     return pid, doc_id
 

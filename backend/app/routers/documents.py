@@ -326,8 +326,18 @@ async def generate_chunks(
     from app.chunks import get_chunker_for_source
     chunker = get_chunker_for_source(doc.source_type)
 
+    # Prepare contextual header for enrichment
+    context_header = f"{doc.title}"
+    if doc.summary and doc.summary != "No summary available.":
+        context_header += f" - {doc.summary}"
+
     # 4. Generate chunks
-    chunk_responses = chunker.chunk(text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id)
+    chunk_responses = chunker.chunk(
+        text=doc.raw_text, 
+        doc_id=doc.id, 
+        project_id=doc.project_id, 
+        doc_title=context_header
+    )
     
     # 5. Store them in the DB
     new_chunks = []

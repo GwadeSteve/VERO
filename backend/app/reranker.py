@@ -62,9 +62,12 @@ def rerank(
     # Score all pairs at once (batch inference)
     raw_scores = model.predict(pairs)
 
-    # Normalize raw logits to [0, 1] via sigmoid so min_score thresholds work correctly
+    # Scale the cross-encoder logits to a 0-1 range linearly for our 0.01 threshold.
+    # ms-marco models output raw logits typically roughly between -10 and +10.
+    # We clip to [-10, 10] and normalize to [0, 1].
     for chunk, raw in zip(chunks, raw_scores):
-        chunk["rerank_score"] = 1.0 / (1.0 + math.exp(-float(raw)))
+        clipped = max(-10.0, min(10.0, float(raw)))
+        chunk["rerank_score"] = (clipped + 10.0) / 20.0
 
     reranked = sorted(chunks, key=lambda x: x["rerank_score"], reverse=True)
 

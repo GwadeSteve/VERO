@@ -43,8 +43,9 @@ SYSTEM_PROMPT_WITH_HISTORY = """You are VERO, a brilliant, highly articulate AI 
 - **Connect the Dots:** Be smart about identifying researchers. If a document title or header mentions a name like "Gwade Steve" consistently, or identifies someone as the author/student, treat them as the researcher of that work. Look for markers like "Supervised by," "Prof. X," or "Committee" to identify supervisors.
 - **Aesthetic Excellence:** Use professional Markdown to structure complex information. Use bolding for key terms, lists for multiple points, and code blocks where appropriate. Make your answers visually beautiful.
 
-### Citation Rules (CRITICAL):
-- You MUST back up every factual claim with a citation using EXACTLY this format: [Source N] (e.g., [Source 1] or [Source 3]).
+### Citation Rules (STRICT TECHNICAL REQUIREMENT):
+- **NEVER** omit this: You MUST back up every factual claim with a citation using EXACTLY this format: [Source N] (e.g., [Source 1] or [Source 3]).
+- Even if your tone is natural, these tags are required for the system to function.
 - NEVER combine citations inside one bracket, and NEVER add extra text inside.
   - WRONG: [Source 1, Source 2]
   - RIGHT: [Source 1] [Source 2]
@@ -68,8 +69,9 @@ SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED = """You are VERO, a brilliant, highly arti
 - **Aesthetic Excellence:** Use professional Markdown (bolding, lists, headers).
 - **Knowledge Blending:** If you provide information from your own knowledge that isn't in the sources, mention it naturally (e.g., "While your documents don't explicitly state this, generally it works by...").
 
-### Citation Rules (CRITICAL):
-- You MUST back up claims derived from the provided documents with citations using EXACTLY this format: [Source N] (e.g., [Source 1]).
+### Citation Rules (STRICT TECHNICAL REQUIREMENT):
+- **NEVER** omit this: You MUST back up claims derived from the provided documents with citations using EXACTLY this format: [Source N] (e.g., [Source 1]).
+- Even if your tone is natural, these tags are required for the system to function.
 - NEVER combine citations inside one bracket, and NEVER add extra text inside.
   - WRONG: [Source 1, Source 2]
   - RIGHT: [Source 1] [Source 2]
@@ -255,24 +257,36 @@ async def chat(
         logger.error("Chat LLM error: %s", e)
         answer = f"Error generating answer: {str(e)}"
 
-    # Determine if sufficient info was found
+    # Refine sufficient info logic:
+    # 1. Start with negative phrase check
     refusal_phrases = [
         "cannot answer", "do not know", "don't know",
         "don't have enough information", "not enough information",
         "no relevant information", "insufficient",
-        "unable to answer", "don't have any relevant",
+        "unable to answer", "not found in",
+        "cannot find", "no information", "not contain",
+        "don't have any relevant",
     ]
     sufficient = not any(p in answer.lower() for p in refusal_phrases)
-
-    # Smart citation filtering
+    
+    # 2. Extract and link citations
     used_citations = []
-    if sufficient and search_results:
+    if search_results: # Only try to extract citations if there were search results
         referenced = set(int(m) for m in re.findall(r'\[Source\s*(\d+)\]', answer))
         for i, r in enumerate(search_results, 1):
             if i in referenced:
                 used_citations.append(r)
-        if not used_citations:
-            used_citations = search_results
+    
+    # 3. OVERRIDE: If the LLM referenced a source, it FOUND sufficient info.
+    if used_citations:
+        sufficient = True
+        
+    # If the LLM didn't use [Source N] format but the answer looks sufficient (no refusal phrases), return all
+    if sufficient and not used_citations and search_results: # Only return all if there were search results
+        used_citations = search_results
+        
+    # Determine if grounding was actually used
+    grounding_found = sufficient and len(used_citations) > 0
 
     # Save the assistant's response
     assistant_msg = SessionMessageModel(

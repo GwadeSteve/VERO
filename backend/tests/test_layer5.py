@@ -38,6 +38,11 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 
+# Ensure UTF-8 output on Windows
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 def check(name: str, condition: bool, detail: str = ""):
     global PASS, FAIL
     if condition:
@@ -49,7 +54,7 @@ def check(name: str, condition: bool, detail: str = ""):
 
 def section(title: str):
     print(f"\n{BOLD}{title.upper()}{RESET}")
-    print(f"{DIM}{'─' * 40}{RESET}")
+    print(f"{DIM}{'-' * 40}{RESET}")
 
 
 def wait_for_server():
@@ -187,10 +192,9 @@ def run_tests():
         check("Answer contains refusal phrasing", has_refusal, f"Answer: {ans_refuse[:100]}...")
 
         # ============================================================
-        section("RESULTS")
         total = PASS + FAIL
         color = GREEN if FAIL == 0 else RED
-        print(f"\n  {color}Report: {PASS}/{total} assertions passed{RESET}\n")
+        print(f"\n  Report: {PASS}/{total} assertions passed\n")
 
         if FAIL == 0:
             print(f"  {GREEN}{BOLD}LAYER 5 VERIFICATION COMPLETE{RESET}")
