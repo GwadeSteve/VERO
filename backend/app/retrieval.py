@@ -25,13 +25,21 @@ def _strip_context_prefix(text: str) -> str:
     """Remove the [Source: ...] contextual header added during chunking.
 
     The prefix enriches vector embeddings but confuses the cross-encoder
-    reranker, causing near-zero relevance scores.  We strip it before
-    reranking so the cross-encoder sees clean, natural text.
+    reranker (and pollutes the UI). We strip it to reveal clean, natural text.
     """
     if text.startswith("[Source:"):
+        # The header is typically "[Source: Title - Summary]\nChunk Text"
+        # We need to find the first closing bracket ']' that matches the opening
+        # and then strip the rest.
+        end_idx = text.find("]\n")
+        if end_idx != -1:
+            return text[end_idx + 2:].lstrip()
+        
+        # Fallback if '\n' is missing for some reason
         newline_idx = text.find("\n")
         if newline_idx != -1:
             return text[newline_idx + 1:].lstrip()
+            
     return text
 
 
@@ -246,15 +254,24 @@ async def search(
 
     # Build response items with reranked scores, filtering out irrelevant noise
     results: list[SearchResultItem] = []
+    seen_texts = set()
+    
     for item in reranked:
         score = round(item["rerank_score"], 6)
         if score < min_score:
             continue
             
+        # Hard text-level deduplication to prevent "same chunk" bug
+        # We must strip the prefix FIRST, otherwise different chunks with the same summary might look unique.
+        clean_text = _strip_context_prefix(item["text"]).strip()
+        if clean_text in seen_texts:
+            continue
+        seen_texts.add(clean_text)
+            
         results.append(SearchResultItem(
             chunk_id=item["chunk_id"],
             doc_id=item["doc_id"],
-            text=item["text"],
+            text=clean_text,
             score=score,
             start_char=item["start_char"],
             end_char=item["end_char"],

@@ -24,7 +24,8 @@ SYSTEM_PROMPT = """You are VERO, a brilliant, highly articulate AI research part
 
 ### Citation Rules (STRICT TECHNICAL REQUIREMENT):
 - **NEVER** omit this: You MUST back up every factual claim with a citation using EXACTLY this format: [Source N] (e.g., [Source 1] or [Source 3]).
-- Even if your tone is natural, these tags are required for the system to function.
+- **ONLY NUMBERS IN TEXT:** Do NOT include the file name or document title next to the citation (e.g., WRONG: [Source 1] (MSc.pdf) -> RIGHT: [Source 1]).
+- **NO REFERENCE LISTS:** NEVER generate a list of "Sources cited" or references at the bottom of your response. The UI handles that automatically.
 - NEVER combine citations inside one bracket, and NEVER add extra text inside.
   - WRONG: [Source 1, Source 2]
   - RIGHT: [Source 1] [Source 2]
@@ -49,7 +50,8 @@ SYSTEM_PROMPT_AUGMENTED = """You are VERO, a brilliant, highly articulate AI res
 
 ### Citation Rules (STRICT TECHNICAL REQUIREMENT):
 - **NEVER** omit this: You MUST back up claims derived from the provided documents with citations using EXACTLY this format: [Source N] (e.g., [Source 1]).
-- Even if your tone is natural, these tags are required for the system to function.
+- **ONLY NUMBERS IN TEXT:** Do NOT include the file name or document title next to the citation (e.g., WRONG: [Source 1] (MSc.pdf) -> RIGHT: [Source 1]).
+- **NO REFERENCE LISTS:** NEVER generate a list of "Sources cited" or references at the bottom of your response. The UI handles that automatically.
 - NEVER combine citations inside one bracket, and NEVER add extra text inside.
   - WRONG: [Source 1, Source 2]
   - RIGHT: [Source 1] [Source 2]
@@ -103,25 +105,41 @@ async def generate_answer(
         ]
         sufficient = not any(p in raw_answer.lower() for p in refusal_phrases)
         
-        # 2. Extract citations
-        referenced = set(int(m) for m in re.findall(r'\[Source\s*(\d+)\]', raw_answer))
+        # 2. Extract used citations and rewrite the answer text with dense indices (1, 2, 3...)
         used_citations = []
-        for i, r in enumerate(results, 1):
-            if i in referenced:
-                used_citations.append(r)
+        if results:
+            # Find all unique source numbers the LLM actually cited
+            referenced = sorted(list(set(int(m) for m in re.findall(r'\[Source\s*(\d+)\]', raw_answer))))
+            
+            # Build a mapping from Original Index -> New Dense Index (1-based)
+            # e.g., if it cited 3 and 8, mapping is {3: 1, 8: 2}
+            idx_mapping = {}
+            for original_idx in referenced:
+                if 1 <= original_idx <= len(results):
+                    used_citations.append(results[original_idx - 1])
+                    idx_mapping[original_idx] = len(used_citations)
+                    
+            # Rewrite the text to use the new dense indices
+            def replace_cite(match):
+                old_idx = int(match.group(1))
+                new_idx = idx_mapping.get(old_idx)
+                if new_idx:
+                    return f"[Source {new_idx}]"
+                return match.group(0) # Leave it alone if out of bounds (shouldn't happen)
+                
+            if idx_mapping:
+                raw_answer = re.sub(r'\[Source\s*(\d+)\]', replace_cite, raw_answer)
         
         # 3. OVERRIDE: If the LLM referenced a source, it FOUND sufficient info,
         # even if it used a "refusal" phrase conversationally (e.g., "The specific detail was not found in [Source 1]").
         if used_citations:
             sufficient = True
             
-        # If the LLM didn't use [Source N] format but the answer looks sufficient (no refusal phrases), return all
-        if sufficient and not used_citations:
-            used_citations = results
+        final_citations = used_citations
         
         return GroundedAnswer(
             answer=raw_answer.strip(),
-            citations=used_citations,
+            citations=final_citations,
             found_sufficient_info=sufficient
         )
         

@@ -45,7 +45,8 @@ SYSTEM_PROMPT_WITH_HISTORY = """You are VERO, a brilliant, highly articulate AI 
 
 ### Citation Rules (STRICT TECHNICAL REQUIREMENT):
 - **NEVER** omit this: You MUST back up every factual claim with a citation using EXACTLY this format: [Source N] (e.g., [Source 1] or [Source 3]).
-- Even if your tone is natural, these tags are required for the system to function.
+- **ONLY NUMBERS IN TEXT:** Do NOT include the file name or document title next to the citation (e.g., WRONG: [Source 1] (MSc.pdf) -> RIGHT: [Source 1]).
+- **NO REFERENCE LISTS:** NEVER generate a list of "Sources cited" or references at the bottom of your response. The UI handles that automatically.
 - NEVER combine citations inside one bracket, and NEVER add extra text inside.
   - WRONG: [Source 1, Source 2]
   - RIGHT: [Source 1] [Source 2]
@@ -71,7 +72,8 @@ SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED = """You are VERO, a brilliant, highly arti
 
 ### Citation Rules (STRICT TECHNICAL REQUIREMENT):
 - **NEVER** omit this: You MUST back up claims derived from the provided documents with citations using EXACTLY this format: [Source N] (e.g., [Source 1]).
-- Even if your tone is natural, these tags are required for the system to function.
+- **ONLY NUMBERS IN TEXT:** Do NOT include the file name or document title next to the citation (e.g., WRONG: [Source 1] (MSc.pdf) -> RIGHT: [Source 1]).
+- **NO REFERENCE LISTS:** NEVER generate a list of "Sources cited" or references at the bottom of your response. The UI handles that automatically.
 - NEVER combine citations inside one bracket, and NEVER add extra text inside.
   - WRONG: [Source 1, Source 2]
   - RIGHT: [Source 1] [Source 2]
@@ -269,21 +271,36 @@ async def chat(
     ]
     sufficient = not any(p in answer.lower() for p in refusal_phrases)
     
-    # 2. Extract and link citations
+    # 2. Extract used citations and rewrite the answer text with dense indices (1, 2, 3...)
     used_citations = []
-    if search_results: # Only try to extract citations if there were search results
-        referenced = set(int(m) for m in re.findall(r'\[Source\s*(\d+)\]', answer))
-        for i, r in enumerate(search_results, 1):
-            if i in referenced:
-                used_citations.append(r)
+    if search_results:
+        # Find all unique source numbers the LLM actually cited
+        referenced = sorted(list(set(int(m) for m in re.findall(r'\[Source\s*(\d+)\]', answer))))
+        
+        # Build a mapping from Original Index -> New Dense Index (1-based)
+        # e.g., if it cited 3 and 8, mapping is {3: 1, 8: 2}
+        idx_mapping = {}
+        for original_idx in referenced:
+            if 1 <= original_idx <= len(search_results):
+                used_citations.append(search_results[original_idx - 1])
+                idx_mapping[original_idx] = len(used_citations)
+                
+        # Rewrite the text to use the new dense indices
+        def replace_cite(match):
+            old_idx = int(match.group(1))
+            new_idx = idx_mapping.get(old_idx)
+            if new_idx:
+                return f"[Source {new_idx}]"
+            return match.group(0) # Leaf it alone if out of bounds (shouldn't happen)
+            
+        if idx_mapping:
+            answer = re.sub(r'\[Source\s*(\d+)\]', replace_cite, answer)
     
     # 3. OVERRIDE: If the LLM referenced a source, it FOUND sufficient info.
     if used_citations:
         sufficient = True
         
-    # If the LLM didn't use [Source N] format but the answer looks sufficient (no refusal phrases), return all
-    if sufficient and not used_citations and search_results: # Only return all if there were search results
-        used_citations = search_results
+    final_citations = used_citations
         
     # Determine if grounding was actually used
     grounding_found = sufficient and len(used_citations) > 0
