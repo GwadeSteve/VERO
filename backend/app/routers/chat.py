@@ -274,8 +274,8 @@ async def chat(
     # 2. Extract used citations and rewrite the answer text with dense indices (1, 2, 3...)
     used_citations = []
     if search_results:
-        # Find all unique source numbers the LLM actually cited
-        referenced = sorted(list(set(int(m) for m in re.findall(r'\[Source\s*(\d+)\]', answer))))
+        # Find all unique source numbers the LLM actually cited, matching [1] or [Source 1]
+        referenced = sorted(list(set(int(m) for m in re.findall(r'\[(?:Source\s*)?(\d+)\]', answer, re.IGNORECASE))))
         
         # Build a mapping from Original Index -> New Dense Index (1-based)
         # e.g., if it cited 3 and 8, mapping is {3: 1, 8: 2}
@@ -294,7 +294,7 @@ async def chat(
             return match.group(0) # Leaf it alone if out of bounds (shouldn't happen)
             
         if idx_mapping:
-            answer = re.sub(r'\[Source\s*(\d+)\]', replace_cite, answer)
+            answer = re.sub(r'\[(?:Source\s*)?(\d+)\]', replace_cite, answer, flags=re.IGNORECASE)
     
     # 3. OVERRIDE: If the LLM referenced a source, it FOUND sufficient info.
     if used_citations:
