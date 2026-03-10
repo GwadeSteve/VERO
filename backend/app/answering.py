@@ -135,6 +135,11 @@ async def generate_answer(
         if used_citations:
             sufficient = True
             
+        # 4. FALLBACK: If the LLM didn't use [Source N] format but the answer looks 
+        # sufficient (no refusal phrases), return all results as citations rather than empty.
+        if sufficient and not used_citations and results:
+            used_citations = results
+
         final_citations = used_citations
         
         return GroundedAnswer(

@@ -300,6 +300,11 @@ async def chat(
     if used_citations:
         sufficient = True
         
+    # 4. FALLBACK: If the LLM didn't use [Source N] format but the answer looks 
+    # sufficient (no refusal phrases), return all results as citations rather than empty.
+    if sufficient and not used_citations and search_results:
+        used_citations = search_results
+
     final_citations = used_citations
         
     # Determine if grounding was actually used
