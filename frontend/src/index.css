@@ -1,36 +1,156 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
-  /* True Black & Professional Zinc Hierarchy */
-  --bg-0: #000000;
-  --bg-1: #09090b;
-  --bg-2: #18181b;
-  --bg-3: #27272a;
-  
-  --bg-hover: rgba(255, 255, 255, 0.06);
-  --bg-active: rgba(255, 255, 255, 0.1);
+/* ═══════════════════════════════════════════════
+   VERO DESIGN SYSTEM — SOTA Dual Theme
+   ═══════════════════════════════════════════════ */
 
-  --border: rgba(255, 255, 255, 0.1);
-  --border-light: rgba(255, 255, 255, 0.18);
+/* ─── Dark Theme (Default) ─────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg-0: #0a0a0f;
+  --bg-1: #111118;
+  --bg-2: #1a1a24;
+  --bg-3: #24243a;
 
-  --text: #ffffff;
-  --text-2: #a1a1aa;
-  --text-3: #71717a;
-  --text-4: #52525b;
+  --bg-glass: rgba(10, 10, 15, 0.78);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.08);
 
-  /* Accent: Stark, pure high-contrast neutral for a sleek "tool" aesthetic */
-  --accent: #ffffff;
-  --accent-dim: rgba(255, 255, 255, 0.1);
-  --accent-border: rgba(255, 255, 255, 0.25);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.14);
+
+  --text: #f0f0f5;
+  --text-2: #a0a0b8;
+  --text-3: #6e6e8a;
+  --text-4: #4a4a62;
+
+  /* Accent: Violet-Blue */
+  --accent: #7c5cfc;
+  --accent-hover: #9179ff;
+  --accent-dim: rgba(124, 92, 252, 0.12);
+  --accent-border: rgba(124, 92, 252, 0.25);
+  --accent-text: #ffffff;
+
+  /* Surfaces for cards / elevated elements */
+  --surface: #14141e;
+  --surface-hover: #1c1c2a;
+
+  /* User message bubble */
+  --user-bubble: #1e1e30;
+  --user-bubble-border: rgba(124, 92, 252, 0.15);
+
+  /* Bot avatar */
+  --bot-avatar-bg: var(--accent);
+  --bot-avatar-fg: #ffffff;
+
+  /* Input */
+  --input-bg: #0e0e16;
+  --input-border: rgba(255, 255, 255, 0.06);
+  --input-focus-border: rgba(124, 92, 252, 0.4);
+  --input-focus-shadow: 0 0 0 3px rgba(124, 92, 252, 0.08);
+
+  /* Submit button */
+  --submit-bg: var(--accent);
+  --submit-fg: #ffffff;
+  --submit-shadow: 0 4px 16px rgba(124, 92, 252, 0.3);
 
   /* Status Colors */
-  --green: #10b981;
-  --green-dim: rgba(16, 185, 129, 0.15);
+  --green: #22c55e;
+  --green-dim: rgba(34, 197, 94, 0.12);
   --amber: #f59e0b;
-  --amber-dim: rgba(245, 158, 11, 0.15);
+  --amber-dim: rgba(245, 158, 11, 0.12);
   --red: #ef4444;
-  --red-dim: rgba(239, 68, 68, 0.15);
+  --red-dim: rgba(239, 68, 68, 0.12);
 
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
+
+  /* Code blocks */
+  --code-bg: rgba(255,255,255,0.06);
+  --code-border: rgba(255,255,255,0.04);
+  --code-text: #d4d4e8;
+  --pre-bg: #0c0c14;
+
+  /* Toast */
+  --toast-bg: rgba(16, 16, 24, 0.92);
+
+  color-scheme: dark;
+}
+
+/* ─── Light Theme ──────────────────────────── */
+[data-theme="light"] {
+  --bg-0: #f8f8fa;
+  --bg-1: #ffffff;
+  --bg-2: #f0f0f4;
+  --bg-3: #e4e4ec;
+
+  --bg-glass: rgba(248, 248, 250, 0.82);
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.06);
+
+  --border: rgba(0, 0, 0, 0.08);
+  --border-light: rgba(0, 0, 0, 0.12);
+
+  --text: #1a1a2e;
+  --text-2: #5a5a72;
+  --text-3: #8888a0;
+  --text-4: #b0b0c0;
+
+  /* Accent: Same Violet-Blue for coherence */
+  --accent: #6d4aed;
+  --accent-hover: #5c3dd4;
+  --accent-dim: rgba(109, 74, 237, 0.08);
+  --accent-border: rgba(109, 74, 237, 0.2);
+  --accent-text: #ffffff;
+
+  --surface: #ffffff;
+  --surface-hover: #f4f4f8;
+
+  --user-bubble: #eeeef6;
+  --user-bubble-border: rgba(109, 74, 237, 0.12);
+
+  --bot-avatar-bg: var(--accent);
+  --bot-avatar-fg: #ffffff;
+
+  --input-bg: #ffffff;
+  --input-border: rgba(0, 0, 0, 0.08);
+  --input-focus-border: rgba(109, 74, 237, 0.4);
+  --input-focus-shadow: 0 0 0 3px rgba(109, 74, 237, 0.06);
+
+  --submit-bg: var(--accent);
+  --submit-fg: #ffffff;
+  --submit-shadow: 0 4px 16px rgba(109, 74, 237, 0.2);
+
+  --green: #16a34a;
+  --green-dim: rgba(22, 163, 74, 0.08);
+  --amber: #d97706;
+  --amber-dim: rgba(217, 119, 6, 0.08);
+  --red: #dc2626;
+  --red-dim: rgba(220, 38, 38, 0.08);
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.1);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.1);
+
+  --code-bg: rgba(0,0,0,0.04);
+  --code-border: rgba(0,0,0,0.06);
+  --code-text: #3a3a50;
+  --pre-bg: #f4f4f8;
+
+  --toast-bg: rgba(255, 255, 255, 0.95);
+
+  color-scheme: light;
+}
+
+/* ─── Typography & Base ────────────────────── */
+:root {
   --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --mono: 'JetBrains Mono', monospace;
   --r: 8px;
@@ -53,6 +173,7 @@ body {
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
   line-height: 1.5;
+  transition: background-color 0.35s ease, color 0.25s ease;
 }
 
 button,
@@ -67,6 +188,7 @@ textarea {
   display: flex;
 }
 
+/* ─── Scrollbar ────────────────────────────── */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -76,10 +198,11 @@ textarea {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--scrollbar-thumb);
   border-radius: 6px;
 }
 
+/* ─── Headings ─────────────────────────────── */
 h1,
 h2,
 h3,
@@ -88,7 +211,7 @@ h4 {
   letter-spacing: -0.02em;
 }
 
-/* ─── Status ───────────────────────────────── */
+/* ─── Status Dots ──────────────────────────── */
 .dot {
   width: 7px;
   height: 7px;
@@ -99,7 +222,7 @@ h4 {
 
 .dot-ready {
   background: var(--green);
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 6px var(--green-dim);
 }
 
 .dot-processing {
@@ -127,49 +250,23 @@ h4 {
 }
 
 @keyframes pulse {
-
-  0%,
-  100% {
-    opacity: 1
-  }
-
-  50% {
-    opacity: 0.4
-  }
+  0%, 100% { opacity: 1 }
+  50% { opacity: 0.4 }
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px)
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0)
-  }
+  from { opacity: 0; transform: translateY(4px) }
+  to { opacity: 1; transform: translateY(0) }
 }
 
 @keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px)
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0)
-  }
+  from { opacity: 0; transform: translateX(20px) }
+  to { opacity: 1; transform: translateX(0) }
 }
 
 @keyframes typewriter {
-  from {
-    width: 0
-  }
-
-  to {
-    width: 100%
-  }
+  from { width: 0 }
+  to { width: 100% }
 }
 
 .skel {
@@ -180,13 +277,8 @@ h4 {
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0
-  }
-
-  100% {
-    background-position: -200% 0
-  }
+  0% { background-position: 200% 0 }
+  100% { background-position: -200% 0 }
 }
 
 /* ─── Toast ────────────────────────────────── */
@@ -203,31 +295,13 @@ h4 {
   align-items: center;
 }
 
-.skel {
-  animation: skelPulse 1.5s ease-in-out infinite;
-}
-
-@keyframes skelPulse {
-  0% {
-    opacity: 0.3;
-  }
-
-  50% {
-    opacity: 0.6;
-  }
-
-  100% {
-    opacity: 0.3;
-  }
-}
-
 .toast-item {
   pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 20px;
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--toast-bg);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   border: 1px solid var(--border);
@@ -235,9 +309,7 @@ h4 {
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 var(--bg-hover);
   animation: slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -250,15 +322,8 @@ h4 {
 }
 
 @keyframes slideDownToast {
-  from {
-    opacity: 0;
-    transform: translateY(-30px) scale(0.9);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(-30px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ─── Toggle ───────────────────────────────── */
@@ -271,6 +336,7 @@ h4 {
   position: relative;
   border: none;
   padding: 0;
+  transition: background 0.25s ease;
 }
 
 .toggle-track.on {
@@ -281,10 +347,11 @@ h4 {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--text);
   position: absolute;
   top: 2px;
   left: 2px;
+  transition: transform 0.25s ease;
 }
 
 .toggle-track.on .toggle-thumb {
@@ -318,9 +385,7 @@ h4 {
 }
 
 @keyframes blink {
-  50% {
-    opacity: 0
-  }
+  50% { opacity: 0 }
 }
 
 /* ─── Session item ─────────────────────────── */
@@ -334,6 +399,7 @@ h4 {
   overflow: hidden;
   text-overflow: ellipsis;
   border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .session-item:hover {
@@ -390,29 +456,29 @@ h4 {
 
 .vero-md code {
   font-family: var(--mono);
-  background: rgba(255,255,255,0.08);
+  background: var(--code-bg);
   padding: 0.2em 0.4em;
   border-radius: 6px;
   font-size: 0.85em;
-  color: #e5e7eb;
-  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--code-text);
+  border: 1px solid var(--code-border);
 }
 
 .vero-md pre {
-  background: #111113;
+  background: var(--pre-bg);
   padding: 1rem;
   border-radius: var(--r-lg);
   overflow-x: auto;
   margin-bottom: 1em;
   border: 1px solid var(--border);
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .vero-md pre code {
   background: transparent;
   padding: 0;
   border: none;
-  color: #e5e7eb;
+  color: var(--code-text);
   font-size: 0.85em;
   box-shadow: none;
 }
@@ -424,4 +490,13 @@ h4 {
   margin-bottom: 1em;
   color: var(--text-2);
   font-style: italic;
+}
+
+/* ─── Theme transition helpers ─────────────── */
+/* Apply transitions to major surfaces for smooth theme switching */
+aside,
+header,
+main,
+.toast-item {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.25s ease;
 }

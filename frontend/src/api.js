@@ -34,6 +34,7 @@ export const api = {
         fetch(`${BASE_URL}/projects/${pid}/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title || "New Conversation" }) }).then(handle),
     getSession: (sid) => fetch(`${BASE_URL}/sessions/${sid}`).then(handle),
     deleteSession: (sid) => fetch(`${BASE_URL}/sessions/${sid}`, { method: 'DELETE' }).then(handle),
+    deleteMessagePair: (sid, mid) => fetch(`${BASE_URL}/sessions/${sid}/messages/${mid}`, { method: 'DELETE' }).then(handle),
 
     // ── Chat ──────────────────────────────────────────
     chat: (sid, message, allowModelKnowledge = false) =>

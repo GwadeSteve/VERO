@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Home, Search, MessageSquare, Plus, PanelLeftClose, PanelLeftOpen,
   Layers, X, MoreHorizontal, ChevronDown, ChevronRight, User, Settings, LogOut, Folder,
-  Compass, Activity, BookOpen, Edit2, Pin, Trash2, FolderPlus
+  Compass, Activity, BookOpen, Edit2, Pin, Trash2, FolderPlus, Sun, Moon
 } from 'lucide-react';
 import { api } from '../../api';
 import { useToast } from '../ui/Toast';
@@ -21,7 +21,15 @@ export default function Sidebar({
   const [openSessionMenuId, setOpenSessionMenuId] = useState(null);
   const [openProjectMenuId, setOpenProjectMenuId] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark');
   const toast = useToast();
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('vero-theme', next);
+  };
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -211,8 +219,8 @@ export default function Sidebar({
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: collapsed ? '12px 0' : (isPrimary ? '10px 14px' : '8px 12px'),
                   justifyContent: collapsed ? 'center' : 'flex-start',
-                  background: isPrimary ? '#FFFFFF' : (isActive ? 'var(--bg-3)' : 'transparent'),
-                  color: isPrimary ? '#000000' : (isActive ? 'var(--text)' : 'var(--text-2)'),
+                  background: isPrimary ? 'var(--accent)' : (isActive ? 'var(--bg-3)' : 'transparent'),
+                  color: isPrimary ? 'var(--accent-text)' : (isActive ? 'var(--text)' : 'var(--text-2)'),
                   border: '1px solid transparent',
                   borderRadius: 8, cursor: 'pointer', fontSize: 13,
                   fontWeight: isPrimary ? 600 : (isActive ? 600 : 500),
@@ -235,7 +243,7 @@ export default function Sidebar({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, flexShrink: 0 }}>
-                  <Icon size={18} strokeWidth={isPrimary ? 2.5 : 2} color={isPrimary ? '#000000' : undefined} />
+                  <Icon size={18} strokeWidth={isPrimary ? 2.5 : 2} color={isPrimary ? 'var(--accent-text)' : undefined} />
                 </div>
                 {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>{action.label}</span>}
               </button>
@@ -465,12 +473,33 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* 4. User Profile Footer */}
+      {/* 4. Theme Toggle + User Profile Footer */}
       <div style={{
         padding: '16px', borderTop: '1px solid var(--border)',
-        display: 'flex', flexDirection: 'column', gap: 12,
+        display: 'flex', flexDirection: 'column', gap: 8,
         background: 'linear-gradient(to top, var(--bg-0), transparent)'
       }}>
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: collapsed ? '10px 0' : '8px 12px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            background: 'transparent', border: '1px solid transparent',
+            borderRadius: 10, cursor: 'pointer', width: '100%',
+            color: 'var(--text-2)', fontSize: 13, fontWeight: 500,
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-2)'; }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, flexShrink: 0 }}>
+            {theme === 'dark' ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}
+          </div>
+          {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12,
           padding: collapsed ? '12px 0' : '10px 12px',

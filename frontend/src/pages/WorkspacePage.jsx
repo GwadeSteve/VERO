@@ -8,7 +8,7 @@ import {
     Send, Search, Loader2, FileText, ArrowUp,
     RefreshCw, User, Bot, CheckCircle2, UploadCloud, Globe,
     X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2,
-    FileType, AlignLeft, FileCode, Github, Link, Plus
+    FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil
 } from 'lucide-react';
 
 export default function WorkspacePage({ projectId, activeSessionId, setSessions, onRefreshProjects }) {
@@ -35,6 +35,15 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     const [openCitations, setOpenCitations] = useState(new Set()); // Message indices that have their citations accordion open
     const [modelKnowledge, setModelKnowledge] = useState(false);
     const [loadingText, setLoadingText] = useState('Analyzing sources...');
+    const [rightPanelOpen, setRightPanelOpen] = useState(() => {
+        const saved = localStorage.getItem('vero-right-panel');
+        return saved !== null ? saved === 'true' : true;
+    });
+
+    // Persist right panel state
+    useEffect(() => {
+        localStorage.setItem('vero-right-panel', String(rightPanelOpen));
+    }, [rightPanelOpen]);
 
     // Cycle loading text
     useEffect(() => {
@@ -52,6 +61,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     const chatEndRef = useRef(null);
     const fileRef = useRef(null);
     const isCreatingSession = useRef(false);
+    const streamIntervalRef = useRef(null);
+    const [copiedIndex, setCopiedIndex] = useState(null);
     const toast = useToast();
     const navigate = useNavigate();
 
@@ -111,10 +122,12 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             const s = await api.getSession(sid);
             if (!s) throw new Error("Session not found");
             setMessages((s.messages || []).map(m => ({
+                id: m.id,
                 role: m.role,
                 text: m.content,
                 traces: m.citations || [],
                 citations: m.citations || [],
+                timestamp: m.created_at,
             })));
             // Reset trace/citations when switching sessions
             setTraceResults([]);
@@ -146,15 +159,21 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         let i = 0;
         const iv = setInterval(() => {
             if (i < words.length) {
-                currentText += (i > 0 ? ' ' : '') + words[i];
+                // Stream 2-3 words at a time for natural speed
+                const batch = Math.min(2, words.length - i);
+                for (let b = 0; b < batch; b++) {
+                    currentText += (i + b > 0 ? ' ' : '') + words[i + b];
+                }
+                i += batch;
                 if (onChunk) onChunk(currentText);
-                i++;
             } else {
                 clearInterval(iv);
+                streamIntervalRef.current = null;
                 setIsStreaming(false);
                 if (onDone) onDone(fullText);
             }
-        }, 30);
+        }, 25);
+        streamIntervalRef.current = iv;
     };
 
     const pollStatus = (docTitle) => {
@@ -269,11 +288,12 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     // ── Chat ─────────────────────────────────────────
     const send = async (e) => {
         e?.preventDefault();
-        if (!query.trim() || !projectId || searching || docs.length === 0) return;
+        if (!query.trim() || !projectId || searching || isStreaming || docs.length === 0) return;
 
         const q = query.trim();
         setQuery('');
-        setMessages(prev => [...prev, { role: 'user', text: q }]);
+        const now = new Date().toISOString();
+        setMessages(prev => [...prev, { role: 'user', text: q, timestamp: now }]);
         setSearching(true);
         setTraceResults([]); setActiveCitationDoc(null);
 
@@ -307,17 +327,19 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     return prev;
                 });
             }
-            onRefreshProjects?.(); // Re-sort project list on activity
+            onRefreshProjects?.();
 
             setSearching(false);
+            const answerTime = new Date().toISOString();
             
             // Push an empty streaming message first
             setMessages(prev => [...prev, {
                 role: 'assistant', text: '',
                 citations: cr?.citations || [],
-                traces: searchResults, // Store traces with this message
+                traces: searchResults,
                 sufficient: cr?.found_sufficient_info,
-                isStreaming: true
+                isStreaming: true,
+                timestamp: answerTime
             }]);
 
             streamText(cr?.answer || "No response generated.", 
@@ -337,9 +359,72 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 }
             );
         } catch (err) {
-            setMessages(prev => [...prev, { role: 'error', text: 'Issues connecting to VERO intelligence.' }]);
+            setMessages(prev => [...prev, { role: 'error', text: 'Issues connecting to VERO intelligence.', timestamp: new Date().toISOString() }]);
             setSearching(false);
         }
+    };
+
+    const stopGenerating = () => {
+        if (streamIntervalRef.current) {
+            clearInterval(streamIntervalRef.current);
+            streamIntervalRef.current = null;
+        }
+        setIsStreaming(false);
+        setSearching(false);
+        // Mark last message as done
+        setMessages(prev => {
+            const next = [...prev];
+            if (next.length > 0 && next[next.length - 1].isStreaming) {
+                next[next.length - 1] = { ...next[next.length - 1], isStreaming: false, stopped: true };
+            }
+            return next;
+        });
+    };
+
+    const copyMessage = (text, index) => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopiedIndex(index);
+            setTimeout(() => setCopiedIndex(null), 2000);
+        });
+    };
+
+    const formatTimestamp = (ts) => {
+        if (!ts) return '';
+        const d = new Date(ts);
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const date = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        return `${date}, ${time}`;
+    };
+
+    const deleteMessagePair = async (msgIndex) => {
+        const msg = messages[msgIndex];
+        // If this is a user message, find its corresponding AI response
+        const userIdx = msg.role === 'user' ? msgIndex : msgIndex - 1;
+        const aiIdx = msg.role === 'user' ? msgIndex + 1 : msgIndex;
+        const userMsg = messages[userIdx];
+        const aiMsg = messages[aiIdx];
+
+        // Determine which message ID to send to backend
+        const targetId = userMsg?.id || aiMsg?.id;
+
+        if (targetId && activeSessionId) {
+            try {
+                await api.deleteMessagePair(activeSessionId, targetId);
+            } catch (err) {
+                toast?.('Failed to delete message.', 'error');
+                return;
+            }
+        }
+
+        // Remove both messages from UI state
+        setMessages(prev => {
+            const next = [...prev];
+            const removeIndices = new Set();
+            if (userIdx >= 0 && userIdx < next.length && next[userIdx]?.role === 'user') removeIndices.add(userIdx);
+            if (aiIdx >= 0 && aiIdx < next.length && (next[aiIdx]?.role === 'assistant' || next[aiIdx]?.role === 'error')) removeIndices.add(aiIdx);
+            return next.filter((_, idx) => !removeIndices.has(idx));
+        });
+        toast?.('Message deleted.', 'success');
     };
 
     const getPreciseStatus = (doc) => {
@@ -427,7 +512,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     padding: '12px 32px', borderBottom: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', zIndex: 10, position: 'sticky', top: 0,
-                    backdropFilter: 'blur(30px)', background: 'rgba(11, 13, 16, 0.75)'
+                    backdropFilter: 'blur(30px)', background: 'var(--bg-glass)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                         <div>
@@ -456,12 +541,12 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         </div>
                     </div>
                     {/* Header Quick Actions */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <button title="Pin Workspace" style={{
                             width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
                             color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s ease'
-                        }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-1)'; e.currentTarget.style.color = 'var(--text)'; }}
+                        }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
                             <Pin size={16} />
                         </button>
@@ -469,7 +554,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
                             color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s ease'
-                        }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-1)'; e.currentTarget.style.color = 'var(--text)'; }}
+                        }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
                             <Edit2 size={16} />
                         </button>
@@ -480,6 +565,22 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--red-dim)'; e.currentTarget.style.color = 'var(--red)'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
                             <Trash2 size={16} />
+                        </button>
+                        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+                        <button
+                            title={rightPanelOpen ? 'Hide Sources Panel' : 'Show Sources Panel'}
+                            onClick={() => setRightPanelOpen(p => !p)}
+                            style={{
+                                width: 32, height: 32, borderRadius: 8, border: 'none',
+                                background: rightPanelOpen ? 'var(--accent-dim)' : 'transparent',
+                                color: rightPanelOpen ? 'var(--accent)' : 'var(--text-3)',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; } }}
+                            onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; } }}
+                        >
+                            {rightPanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
                         </button>
                     </div>
                 </header>
@@ -522,22 +623,32 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             {messages.map((m, i) => (
                                 <div key={i} style={{
                                     maxWidth: 840, margin: '0 auto',
-                                    display: 'flex',
-                                    justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start',
-                                    marginBottom: 32,
+                                    display: 'flex', flexDirection: 'column',
+                                    alignItems: m.role === 'user' ? 'flex-end' : 'flex-start',
+                                    marginBottom: 28,
                                     animation: 'fadeIn 0.3s ease both',
                                 }}>
                                     {m.role === 'assistant' || m.role === 'error' ? (
-                                        <div style={{ display: 'flex', gap: 20, maxWidth: '100%' }}>
+                                        <div style={{ display: 'flex', gap: 16, maxWidth: '100%', width: '100%' }}>
+                                            {/* VERO Avatar */}
                                             <div style={{
-                                                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                                                background: 'var(--text)', color: 'var(--bg-0)',
+                                                width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                                                background: 'var(--accent-dim)',
+                                                border: `1.5px solid ${m.isStreaming ? 'var(--accent)' : 'var(--accent-border)'}`,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                boxShadow: '0 4px 12px rgba(255,255,255,0.1)'
+                                                boxShadow: m.isStreaming ? '0 0 12px var(--accent-dim)' : 'var(--shadow-sm)',
+                                                transition: 'all 0.3s ease',
+                                                animation: m.isStreaming ? 'pulse 2s ease-in-out infinite' : 'none',
                                             }}>
-                                                <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain', filter: 'brightness(0)' }} />
+                                                <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain' }} />
                                             </div>
-                                            <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
+                                            <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+                                                {/* Header: VERO label + timestamp */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>VERO</span>
+                                                    {m.timestamp && <span style={{ fontSize: 10, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
+                                                    {m.stopped && <span style={{ fontSize: 10, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
+                                                </div>
                                                 <div className={`vero-md ${m.isStreaming ? "streaming-cursor" : ""}`} style={{
                                                     color: m.role === 'error' ? 'var(--red)' : 'var(--text)'
                                                 }}>
@@ -563,10 +674,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                             onClick={() => {
                                                                                 setActiveCitationChunk(isChunkActive ? null : { srcNum: num, text: trace.text, doc_title: trace.doc_title, score: trace.score });
                                                                                 setActiveCitationDoc(trace.doc_title);
+                                                                                if (!rightPanelOpen) setRightPanelOpen(true);
                                                                                 setTimeout(() => {
                                                                                     const el = document.getElementById(`doc-${trace.doc_title}`);
                                                                                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                                }, 50);
+                                                                                }, 100);
                                                                             }}
                                                                             title={`From: ${trace.doc_title}`}
                                                                             style={{
@@ -594,6 +706,27 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         {m.traces?.length > 0 ? preprocessTextForMarkdown(m.text) : m.text}
                                                     </ReactMarkdown>
                                                 </div>
+
+                                                {/* Message Actions */}
+                                                {!m.isStreaming && m.role === 'assistant' && (
+                                                    <div style={{ display: 'flex', gap: 2, marginTop: 8 }}>
+                                                        <button
+                                                            onClick={() => copyMessage(m.text, i)}
+                                                            title="Copy response"
+                                                            style={{
+                                                                display: 'flex', alignItems: 'center', gap: 4,
+                                                                padding: '4px 8px', borderRadius: 6, border: 'none',
+                                                                background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
+                                                                cursor: 'pointer', fontSize: 11, fontWeight: 500,
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-2)'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; }}
+                                                        >
+                                                            {copiedIndex === i ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                                                        </button>
+                                                    </div>
+                                                )}
 
                                                 {/* Grouped Source Documents (Collapsible Accordion) */}
                                                 {!m.isStreaming && m.traces?.length > 0 && (() => {
@@ -641,7 +774,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                 <div style={{ overflow: 'hidden' }}>
                                                                     <div style={{
                                                                         marginTop: 12, padding: '14px 16px', borderRadius: 12,
-                                                                        background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                                                                        background: 'var(--surface)', border: '1px solid var(--border)',
                                                                         display: 'flex', flexDirection: 'column', gap: 6,
                                                                         opacity: isAccordionOpen ? 1 : 0, transform: isAccordionOpen ? 'translateY(0)' : 'translateY(-10px)',
                                                                         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -665,7 +798,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                                     border: isActive ? '1px solid var(--accent-border)' : '1px solid transparent',
                                                                                     transition: 'all 0.2s ease'
                                                                                 }}
-                                                                                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                                                                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-hover)'; }}
                                                                                     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-1)'; }}
                                                                                 >
                                                                                     <FileText size={14} color={isActive ? 'var(--accent)' : 'var(--text-4)'} />
@@ -726,14 +859,69 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                             </div>
                                         </div>
                                     ) : (
-                                        <div style={{
-                                            background: 'var(--bg-1)', color: 'var(--text)',
-                                            padding: '12px 20px', borderRadius: '18px', borderBottomRightRadius: 4,
-                                            border: '1px solid var(--border)',
-                                            maxWidth: '85%', fontSize: 15, lineHeight: 1.6, fontWeight: 400,
-                                            whiteSpace: 'pre-wrap'
-                                        }}>
-                                            {m.text}
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '85%' }}>
+                                            <div style={{
+                                                background: 'var(--user-bubble)', color: 'var(--text)',
+                                                padding: '10px 16px', borderRadius: '16px', borderBottomRightRadius: 4,
+                                                border: '1px solid var(--user-bubble-border)',
+                                                fontSize: 14, lineHeight: 1.6, fontWeight: 400,
+                                                whiteSpace: 'pre-wrap'
+                                            }}>
+                                                {m.text}
+                                            </div>
+                                            {/* User message actions + timestamp row */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                                                {m.timestamp && (
+                                                    <span style={{ fontSize: 10, color: 'var(--text-4)', fontWeight: 500, paddingRight: 2 }}>
+                                                        {formatTimestamp(m.timestamp)}
+                                                    </span>
+                                                )}
+                                                <button
+                                                    onClick={() => copyMessage(m.text, i)}
+                                                    title="Copy message"
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: 3,
+                                                        padding: '2px 6px', borderRadius: 5, border: 'none',
+                                                        background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
+                                                        cursor: 'pointer', fontSize: 10, fontWeight: 500,
+                                                        transition: 'all 0.15s ease'
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; }}
+                                                >
+                                                    {copiedIndex === i ? <Check size={10} /> : <Copy size={10} />}
+                                                </button>
+                                                <button
+                                                    onClick={() => toast?.('Edit feature coming soon.', 'info')}
+                                                    title="Edit message"
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: 3,
+                                                        padding: '2px 6px', borderRadius: 5, border: 'none',
+                                                        background: 'transparent', color: 'var(--text-4)',
+                                                        cursor: 'pointer', fontSize: 10, fontWeight: 500,
+                                                        transition: 'all 0.15s ease'
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; }}
+                                                >
+                                                    <Pencil size={10} />
+                                                </button>
+                                                <button
+                                                    onClick={() => { if (window.confirm('Delete this Q&A pair?')) deleteMessagePair(i); }}
+                                                    title="Delete this exchange"
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: 3,
+                                                        padding: '2px 6px', borderRadius: 5, border: 'none',
+                                                        background: 'transparent', color: 'var(--text-4)',
+                                                        cursor: 'pointer', fontSize: 10, fontWeight: 500,
+                                                        transition: 'all 0.15s ease'
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; }}
+                                                >
+                                                    <Trash2 size={10} />
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -741,16 +929,59 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
 
 
-                            {searching && !isStreaming && (
-                                <div style={{ padding: '0 32px 32px', maxWidth: 840, margin: '0 auto', display: 'flex', gap: 20, alignItems: 'center' }}>
-                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Loader2 size={16} className="spin" />
+                            {/* VERO Thinking Indicator */}
+                            {(searching && !isStreaming) && (
+                                <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 28 }}>
+                                    <div style={{
+                                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                                        background: 'var(--accent-dim)', border: '1.5px solid var(--accent)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        animation: 'pulse 1.5s ease-in-out infinite',
+                                        boxShadow: '0 0 16px var(--accent-dim)',
+                                    }}>
+                                        <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain' }} />
                                     </div>
-                                    <div>
-                                        <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            {loadingText}
-                                        </span>
+                                    <div style={{ paddingTop: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>VERO</span>
+                                            <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>thinking...</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div style={{ display: 'flex', gap: 3 }}>
+                                                {[0, 1, 2].map(d => (
+                                                    <div key={d} style={{
+                                                        width: 6, height: 6, borderRadius: '50%',
+                                                        background: 'var(--accent)',
+                                                        animation: `pulse 1.2s ease-in-out ${d * 0.2}s infinite`,
+                                                    }} />
+                                                ))}
+                                            </div>
+                                            <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
+                                                {loadingText}
+                                            </span>
+                                        </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Stop Generating Button */}
+                            {(isStreaming || searching) && (
+                                <div style={{ maxWidth: 840, margin: '0 auto 20px', display: 'flex', justifyContent: 'center' }}>
+                                    <button
+                                        onClick={stopGenerating}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 6,
+                                            padding: '6px 16px', borderRadius: 100,
+                                            background: 'var(--bg-2)', border: '1px solid var(--border)',
+                                            color: 'var(--text-2)', cursor: 'pointer',
+                                            fontSize: 12, fontWeight: 600,
+                                            transition: 'all 0.15s ease',
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-3)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-light)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                                    >
+                                        <Square size={12} fill="currentColor" /> Stop generating
+                                    </button>
                                 </div>
                             )}
                             <div ref={chatEndRef} />
@@ -759,38 +990,33 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 </div>
 
                 {/* Input Zone */}
-                <div style={{ padding: '0px 32px 24px', background: 'var(--bg-0)' }}>
+                <div style={{ padding: '0px 32px 16px', background: 'var(--bg-0)' }}>
                     <form onSubmit={send} style={{
                         maxWidth: 840, margin: '0 auto', position: 'relative',
-                        background: 'var(--bg-0)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 20, padding: '16px 20px',
-                        display: 'flex', flexDirection: 'column', gap: 14,
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02)',
+                        background: 'var(--input-bg)',
+                        border: '1px solid var(--input-border)',
+                        borderRadius: 16, padding: '10px 14px',
+                        display: 'flex', flexDirection: 'column', gap: 10,
+                        boxShadow: 'var(--shadow-md)',
                         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                         ...(docs.length === 0 ? { opacity: 0.5, pointerEvents: 'none', filter: 'grayscale(1)' } : {})
                     }}
                         onFocusCapture={e => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                            e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)';
-                            e.currentTarget.style.background = 'var(--bg-1)';
+                            e.currentTarget.style.borderColor = 'var(--input-focus-border)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-md), var(--input-focus-shadow)';
                         }}
                         onBlurCapture={e => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-                            e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02)';
-                            e.currentTarget.style.background = 'var(--bg-0)';
+                            e.currentTarget.style.borderColor = 'var(--input-border)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                         }}
                     >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 4 }}>
-                                <Layers size={18} color="var(--text-4)" />
-                            </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
                             <textarea
                                 value={query}
                                 onChange={e => {
                                     setQuery(e.target.value);
                                     e.target.style.height = 'auto';
-                                    e.target.style.height = Math.min(e.target.scrollHeight, 240) + 'px';
+                                    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                                 }}
                                 onKeyDown={e => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -798,57 +1024,56 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                         send(e);
                                     }
                                 }}
-                                disabled={docs.length === 0 || searching || isStreaming}
-                                placeholder={docs.length === 0 ? "Import documents to start your workspace..." : "Ask VERO anything about this workspace..."}
+                                disabled={docs.length === 0}
+                                placeholder={docs.length === 0 ? "Import documents to start..." : (isStreaming || searching) ? "VERO is answering..." : "Ask VERO anything..."}
                                 rows={1}
                                 style={{
                                     flex: 1, border: 'none', background: 'transparent', color: 'var(--text)',
-                                    padding: '6px 0', fontSize: 16, fontFamily: 'var(--font)',
+                                    padding: '4px 0', fontSize: 14, fontFamily: 'var(--font)',
                                     outline: 'none', fontWeight: 500, resize: 'none',
-                                    minHeight: 40, maxHeight: 240, lineHeight: 1.6,
+                                    minHeight: 28, maxHeight: 200, lineHeight: 1.5,
                                     overflowY: 'auto'
                                 }}
                             />
                             <button type="submit" disabled={!query.trim() || searching || isStreaming || docs.length === 0}
+                                title={isStreaming ? 'Wait for VERO to finish' : 'Send message'}
                                 style={{
-                                    width: 44, height: 44, borderRadius: '50%', border: 'none', flexShrink: 0,
-                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'transparent' : 'var(--text)',
-                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-4)' : 'var(--bg-0)',
+                                    width: 36, height: 36, borderRadius: '50%', border: 'none', flexShrink: 0,
+                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--bg-2)' : 'var(--submit-bg)',
+                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-4)' : 'var(--submit-fg)',
                                     cursor: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'not-allowed' : 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', alignSelf: 'flex-end',
+                                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                     transform: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'scale(0.9)' : 'scale(1)',
-                                    boxShadow: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'none' : '0 4px 16px rgba(255,255,255,0.15)'
+                                    boxShadow: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'none' : 'var(--submit-shadow)'
                                 }}
                                 onMouseEnter={e => {
                                     if (query.trim() && !searching && !isStreaming && docs.length > 0) {
-                                        e.currentTarget.style.transform = 'scale(1.05) translateY(-2px)';
-                                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(255,255,255,0.25)';
+                                        e.currentTarget.style.transform = 'scale(1.08)';
                                     }
                                 }}
                                 onMouseLeave={e => {
                                     if (query.trim() && !searching && !isStreaming && docs.length > 0) {
-                                        e.currentTarget.style.transform = 'scale(1) translateY(0)';
-                                        e.currentTarget.style.boxShadow = '0 4px 16px rgba(255,255,255,0.15)';
+                                        e.currentTarget.style.transform = 'scale(1)';
                                     }
                                 }}
                             >
-                                <ArrowUp size={22} strokeWidth={2.5} />
+                                <ArrowUp size={20} strokeWidth={2.5} />
                             </button>
                         </div>
 
-                        {/* SOTA Toolbar / Premium Switch Toggle */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 14, marginTop: 2 }}>
+                        {/* Compact Toolbar */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
                             <div
                                 onClick={() => setModelKnowledge(!modelKnowledge)}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                                    padding: '6px 14px 6px 8px', borderRadius: 100,
-                                    background: modelKnowledge ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                    display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                                    padding: '4px 10px 4px 6px', borderRadius: 100,
+                                    background: modelKnowledge ? 'var(--accent-dim)' : 'transparent',
                                     transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                                 }}
                                 onMouseEnter={e => {
-                                    if (!modelKnowledge) e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                                    if (!modelKnowledge) e.currentTarget.style.background = 'var(--bg-hover)';
                                 }}
                                 onMouseLeave={e => {
                                     if (!modelKnowledge) e.currentTarget.style.background = 'transparent';
@@ -856,36 +1081,33 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             >
                                 {/* The Switch Track */}
                                 <div style={{
-                                    width: 36, height: 20, borderRadius: 10,
-                                    background: modelKnowledge ? 'var(--text)' : 'rgba(0,0,0,0.4)',
-                                    border: `1px solid ${modelKnowledge ? 'transparent' : 'rgba(255,255,255,0.1)'}`,
+                                    width: 32, height: 18, borderRadius: 9,
+                                    background: modelKnowledge ? 'var(--accent)' : 'var(--bg-3)',
+                                    border: `1px solid ${modelKnowledge ? 'transparent' : 'var(--border)'}`,
                                     position: 'relative', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                    boxShadow: modelKnowledge ? '0 0 12px rgba(255,255,255,0.1)' : 'inset 0 2px 4px rgba(0,0,0,0.5)'
                                 }}>
                                     {/* The Switch Thumb */}
                                     <div style={{
-                                        position: 'absolute', top: 1, left: modelKnowledge ? 17 : 1,
-                                        width: 16, height: 16, borderRadius: '50%',
-                                        background: modelKnowledge ? 'var(--bg-0)' : 'var(--text-3)',
+                                        position: 'absolute', top: 1, left: modelKnowledge ? 15 : 1,
+                                        width: 14, height: 14, borderRadius: '50%',
+                                        background: modelKnowledge ? '#fff' : 'var(--text-3)',
                                         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                        boxShadow: modelKnowledge ? 'none' : '0 2px 4px rgba(0,0,0,0.4)'
                                     }} />
                                 </div>
                                 <span style={{
-                                    fontSize: 12, fontWeight: 700,
-                                    color: modelKnowledge ? 'var(--text)' : 'var(--text-4)',
-                                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                                    fontSize: 11, fontWeight: 600,
+                                    color: modelKnowledge ? 'var(--accent)' : 'var(--text-4)',
                                     transition: 'color 0.3s ease'
                                 }}>
                                     Model Knowledge
                                 </span>
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.7 }}>
-                                <Info size={12} /> Return to send, Shift + Return for new line
+                            <div style={{ fontSize: 10, color: 'var(--text-4)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4, opacity: 0.6 }}>
+                                <Info size={10} /> ⏎ Send · ⇧⏎ Newline
                             </div>
                         </div>
                     </form>
-                    <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-4)', marginTop: 16, fontWeight: 600 }}>
+                    <p style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-4)', marginTop: 8, fontWeight: 500, opacity: 0.7 }}>
                         VERO might produce hallucinated answers. Always verify critical information.
                     </p>
                 </div>
@@ -893,8 +1115,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
             {/* ═══════ RIGHT: Insight & Context ═══════ */}
             <div style={{
-                width: 360, flexShrink: 0, background: 'var(--bg-1)',
-                borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column'
+                width: rightPanelOpen ? 360 : 0, flexShrink: 0, background: 'var(--bg-1)',
+                borderLeft: rightPanelOpen ? '1px solid var(--border)' : 'none',
+                display: 'flex', flexDirection: 'column',
+                overflow: 'hidden',
+                transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
             }}>
                 {/* ── Compact Unified Ingest Zone ── */}
                 <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>

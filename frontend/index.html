@@ -6,6 +6,14 @@
     <link rel="icon" type="image/svg+xml" href="/vero.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VERO | Your Personal Research Assistant</title>
+    <script>
+      // Flash-free theme persistence: apply BEFORE any CSS paints
+      (function() {
+        var t = localStorage.getItem('vero-theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
 </head>
 
 <body>

@@ -183,6 +183,54 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
     return None
 
 
+@router.delete("/sessions/{session_id}/messages/{message_id}", status_code=204)
+async def delete_message_pair(
+    session_id: str,
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a user message and its corresponding assistant response."""
+    # Load session with all messages (ordered by created_at)
+    result = await db.execute(
+        select(SessionModel)
+        .options(selectinload(SessionModel.messages))
+        .where(SessionModel.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Find the target message
+    target = None
+    target_idx = -1
+    for idx, m in enumerate(session.messages):
+        if m.id == message_id:
+            target = m
+            target_idx = idx
+            break
+
+    if target is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Delete the target message
+    await db.delete(target)
+
+    # If it's a user message, also delete the following assistant message (the pair)
+    if target.role == "user" and target_idx + 1 < len(session.messages):
+        next_msg = session.messages[target_idx + 1]
+        if next_msg.role == "assistant":
+            await db.delete(next_msg)
+
+    # If it's an assistant message, also delete the preceding user message (the pair)
+    if target.role == "assistant" and target_idx - 1 >= 0:
+        prev_msg = session.messages[target_idx - 1]
+        if prev_msg.role == "user":
+            await db.delete(prev_msg)
+
+    await db.commit()
+    return None
+
+
 @router.post("/sessions/{session_id}/chat", response_model=ChatResponse)
 async def chat(
     session_id: str,

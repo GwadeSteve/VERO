@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ArrowRight, Folder, Clock, Trash2, Loader2, FileText, CheckSquare, Square, X } from 'lucide-react';
+import { Plus, ArrowRight, Folder, Clock, Trash2, Loader2, FileText, CheckSquare, Square, X, Layers, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useToast } from '../components/ui/Toast';
@@ -56,8 +56,6 @@ export default function ProjectsPage({ onRefreshProjects }) {
         setProjects(prev => prev.filter(p => !toDelete.includes(p.id)));
         setSelected(new Set());
 
-
-
         let failed = 0;
         for (const id of toDelete) {
             try { await api.deleteProject(id); }
@@ -104,7 +102,7 @@ export default function ProjectsPage({ onRefreshProjects }) {
                         <button onClick={() => setShowForm(f => !f)} style={{
                             display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
                             fontSize: 13, fontWeight: 500, fontFamily: 'var(--font)',
-                            background: 'var(--accent)', color: 'var(--bg-0)',
+                            background: 'var(--accent)', color: 'var(--accent-text)',
                             border: 'none', borderRadius: 'var(--r)',
                             cursor: 'pointer',
                         }}
@@ -129,7 +127,7 @@ export default function ProjectsPage({ onRefreshProjects }) {
                             <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Q4 Financial Reports"
                                 style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
                                 onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
-                                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'}
+                                onBlur={e => e.target.style.borderColor = 'var(--border)'}
                             />
                         </div>
                         <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -137,7 +135,7 @@ export default function ProjectsPage({ onRefreshProjects }) {
                             <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="What is this workspace for?"
                                 style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
                                 onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
-                                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'}
+                                onBlur={e => e.target.style.borderColor = 'var(--border)'}
                             />
                         </div>
                         <button type="button" onClick={() => setShowForm(false)} style={{
@@ -145,7 +143,7 @@ export default function ProjectsPage({ onRefreshProjects }) {
                             color: 'var(--text-3)', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font)',
                         }}>Cancel</button>
                         <button type="submit" disabled={creating || !name.trim()} style={{
-                            padding: '10px 24px', background: 'var(--accent)', color: 'var(--bg-0)',
+                            padding: '10px 24px', background: 'var(--accent)', color: 'var(--accent-text)',
                             border: 'none', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13,
                             fontWeight: 600, fontFamily: 'var(--font)', opacity: (creating || !name.trim()) ? 0.4 : 1
                         }}>
@@ -173,43 +171,40 @@ export default function ProjectsPage({ onRefreshProjects }) {
                     </div>
                 )}
 
-                {/* Table-style List */}
+                {/* Content */}
                 {loading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 64 }} />)}
                     </div>
                 ) : projects.length === 0 ? (
+                    /* ═══════════════════════════════════════
+                       EMPTY STATE — Improved
+                       ═══════════════════════════════════════ */
                     <div style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                         padding: '120px 40px', background: 'var(--bg-1)',
                         borderRadius: 'var(--r-lg)', border: '1px solid var(--border)',
                         position: 'relative', overflow: 'hidden',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                        boxShadow: 'var(--shadow-sm)',
                     }}>
-                        {/* Subtle Ambient Accent Glow */}
+                        {/* Ambient glow */}
                         <div style={{
                             position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
-                            width: 400, height: 400, background: 'var(--accent)', opacity: 0.05,
+                            width: 400, height: 400, background: 'var(--accent)', opacity: 0.04,
                             filter: 'blur(80px)', borderRadius: '50%', pointerEvents: 'none'
                         }} />
 
-                        {/* Minimal Icon Container */}
+                        {/* Icon */}
                         <div style={{
                             width: 72, height: 72, borderRadius: 20, marginBottom: 28,
                             background: 'var(--bg-2)', border: '1px solid var(--border)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                            position: 'relative',
+                            boxShadow: 'var(--shadow-md)', position: 'relative',
                         }}>
-                            <div style={{
-                                position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
-                                width: 24, height: 24, background: 'var(--accent)', opacity: 0.15,
-                                filter: 'blur(10px)', borderRadius: '50%'
-                            }} />
-                            <Folder size={32} color="var(--text)" strokeWidth={1.5} />
+                            <Layers size={32} color="var(--accent)" strokeWidth={1.5} />
                         </div>
 
-                        {/* Crisp Typography */}
+                        {/* Text */}
                         <h3 style={{
                             fontSize: 28, fontWeight: 700, marginBottom: 12, letterSpacing: '-0.02em',
                             color: 'var(--text)', textAlign: 'center'
@@ -218,36 +213,43 @@ export default function ProjectsPage({ onRefreshProjects }) {
                         </h3>
                         <p style={{
                             fontSize: 15, color: 'var(--text-3)', lineHeight: 1.6, textAlign: 'center',
-                            maxWidth: 420, marginBottom: 40
+                            maxWidth: 420, marginBottom: 16
                         }}>
                             Your knowledge architecture begins here. Create your first isolated intelligent project to start syncing and querying documents.
                         </p>
 
-                        {/* Coherent SOTA Button */}
+                        {/* Feature pills */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 36, flexWrap: 'wrap', justifyContent: 'center' }}>
+                            {['PDF & DOCX', 'Semantic Search', 'AI Chat', 'Citations'].map(f => (
+                                <span key={f} style={{
+                                    padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 600,
+                                    background: 'var(--accent-dim)', color: 'var(--accent)',
+                                    border: '1px solid var(--accent-border)',
+                                }}>
+                                    {f}
+                                </span>
+                            ))}
+                        </div>
+
+                        {/* Button */}
                         <button onClick={() => setShowForm(true)} style={{
                             padding: '12px 28px', borderRadius: 'var(--r)', fontSize: 14, fontWeight: 600,
                             fontFamily: 'var(--font)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-                            background: 'var(--text)', color: 'var(--bg-0)', border: 'none',
-                            boxShadow: '0 4px 12px rgba(255,255,255,0.1)',
-                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                            position: 'relative',
+                            background: 'var(--accent)', color: 'var(--accent-text)', border: 'none',
+                            boxShadow: 'var(--submit-shadow)',
+                            transition: 'opacity 0.2s ease',
                         }}
-                            onMouseEnter={e => {
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,255,255,0.15)';
-                                e.currentTarget.style.background = '#FFFFFF';
-                            }}
-                            onMouseLeave={e => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,255,255,0.1)';
-                                e.currentTarget.style.background = 'var(--text)';
-                            }}
+                            onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
+                            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                         >
-                            <Plus size={16} strokeWidth={2.5} />
-                            Create Project
+                            <Sparkles size={16} strokeWidth={2} />
+                            Create First Project
                         </button>
                     </div>
                 ) : (
+                    /* ═══════════════════════════════════════
+                       TABLE-STYLE PROJECT LIST
+                       ═══════════════════════════════════════ */
                     <div style={{ background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                         {/* Table header */}
                         <div style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', fontSize: 11, fontWeight: 600, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>
@@ -273,6 +275,7 @@ export default function ProjectsPage({ onRefreshProjects }) {
                                         padding: '14px 20px', borderBottom: '1px solid var(--border)',
                                         cursor: 'pointer',
                                         background: isSelected ? 'var(--accent-dim)' : hovered === p.id ? 'var(--bg-hover)' : 'transparent',
+                                        transition: 'background 0.15s ease',
                                     }}
                                 >
                                     <div onClick={e => toggleSelect(e, p.id)} style={{ width: 36, display: 'flex', color: isSelected ? 'var(--accent)' : 'var(--text-4)', cursor: 'pointer' }}>
@@ -310,12 +313,12 @@ export default function ProjectsPage({ onRefreshProjects }) {
                                                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 transition: 'all 0.15s ease', opacity: hovered === p.id ? 1 : 0
                                             }}
-                                            onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--bg-0)'; }}
+                                            onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--bg-hover)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                         >
                                             <Trash2 size={14} />
                                         </button>
-                                        <ArrowRight size={16} color={hovered === p.id ? 'var(--accent)' : 'var(--text-4)'} style={{ flexShrink: 0 }} />
+                                        <ArrowRight size={16} color={hovered === p.id ? 'var(--accent)' : 'var(--text-4)'} style={{ flexShrink: 0, transition: 'color 0.15s ease' }} />
                                     </div>
                                 </div>
                             );

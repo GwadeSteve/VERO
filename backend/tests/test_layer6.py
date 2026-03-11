@@ -5,6 +5,8 @@ Covers:
 1. Auto-Pipeline: Documents auto-process (chunk & embed) upon ingest.
 2. Sessions: Creation and listing of multi-turn chat sessions.
 3. Chat History: Context is maintained across messages in a session.
+4. Message Pair Deletion: Deleting a message removes its Q&A pair.
+5. Session Deletion: Full session cleanup.
 
 Usage:
     Must set GROQ_API_KEY (or GEMINI/OLLAMA equivalents) environment variable.
@@ -184,7 +186,29 @@ def run_tests():
         check("History maintains order", history[0]["role"] == "user" and history[1]["role"] == "assistant")
 
     # ============================================================
-    section("4. Session Deletion")
+    section("4. Message Pair Deletion")
+    # ============================================================
+    # We have 4 messages: user1, assistant1, user2, assistant2
+    # Delete the first user message — its paired assistant response should also be removed
+    first_msg_id = history[0]["id"]
+    r_del_msg = httpx.delete(f"{BASE}/sessions/{session_id}/messages/{first_msg_id}", timeout=5.0)
+    check("DELETE /sessions/{sid}/messages/{mid} returns 204", r_del_msg.status_code == 204)
+
+    r_hist2 = httpx.get(f"{BASE}/sessions/{session_id}", timeout=5.0)
+    history2 = r_hist2.json().get("messages", [])
+    check("History reduced to 2 messages after pair deletion", len(history2) == 2)
+
+    # The remaining messages should be from Turn 2
+    if len(history2) == 2:
+        check("Remaining messages are Turn 2 (user then assistant)", 
+              history2[0]["role"] == "user" and history2[1]["role"] == "assistant")
+
+    # Try deleting a non-existent message
+    r_del_404 = httpx.delete(f"{BASE}/sessions/{session_id}/messages/nonexistent-id", timeout=5.0)
+    check("DELETE non-existent message returns 404", r_del_404.status_code == 404)
+
+    # ============================================================
+    section("5. Session Deletion")
     # ============================================================
     r_del = httpx.delete(f"{BASE}/sessions/{session_id}", timeout=5.0)
     check("DELETE /sessions/{id} returns 204", r_del.status_code == 204)

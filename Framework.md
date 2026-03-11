@@ -8,7 +8,7 @@ The goal is clarity before code, and structure that prevents abandonment.
 ---
 
 ## PART I — The Universal Project-Finishing Framework
- 
+
 This framework applies to **any ML / AI product**, regardless of domain.
 
 ### 1. Why This Project Exists (Purpose)
