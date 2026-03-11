@@ -42,19 +42,19 @@ class GroqProvider(BaseLLM):
 
     Configure via environment variables:
         GROQ_API_KEY    -- required
-        VERO_GROQ_MODEL -- optional (default: llama-3.1-8b-instant)
+        VERO_GROQ_MODEL -- optional (default: llama-3.3-70b-versatile)
 
     Available models (same API, just change the name):
+        llama-3.3-70b-versatile -- best quality for research (recommended)
+        llama-3.1-70b-versatile -- strong all-around
         llama-3.1-8b-instant    -- fastest, good for CI and quick answers
-        llama-3.1-70b-versatile -- best quality for research
-        mixtral-8x7b-32768      -- long context (32k tokens)
         gemma2-9b-it            -- lighter alternative
     """
 
     GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
     MAX_RETRIES = 3
 
-    def __init__(self, model_name: str = "llama-3.1-8b-instant"):
+    def __init__(self, model_name: str = "llama-3.3-70b-versatile"):
         self.api_key = os.environ.get("GROQ_API_KEY")
         if not self.api_key:
             raise ValueError("GROQ_API_KEY environment variable not set. Get one at https://console.groq.com.")
