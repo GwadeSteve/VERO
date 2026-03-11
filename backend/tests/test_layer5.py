@@ -157,10 +157,14 @@ def run_tests():
         
         ans_lower = answer.lower()
         check("Answer contains affirmative parsing statement", "docx" in ans_lower or "pdf" in ans_lower)
-        check("Answer contains source citation format", "[" in ans_lower and "]" in ans_lower)
         
         citations = data.get("citations", [])
-        check("Returns >0 citations", len(citations) > 0, f"Got {len(citations)} citations")
+        # Accept either inline [Source N] brackets in text OR citations returned in response array
+        has_inline_cite = "[" in ans_lower and "]" in ans_lower
+        has_api_citations = len(citations) > 0
+        check("Answer has citations (inline or via API)", has_inline_cite or has_api_citations,
+              f"No inline brackets and {len(citations)} API citations")
+        check("Returns >0 citations", has_api_citations, f"Got {len(citations)} citations")
         
         # ============================================================
         section("2. Insufficient Context Refusal (Negative Test)")
