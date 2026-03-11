@@ -81,6 +81,25 @@ SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED = """You are VERO, a brilliant, highly arti
 
 MAX_HISTORY_MESSAGES = 6 # Keep last 3 full turns (user + assistant = 1 turn)
 
+# Patterns indicating the model leaked prompt scaffolding into its output
+_ARTIFACT_PATTERNS = [
+    re.compile(r'<\|.*?\|>', re.IGNORECASE),          # <|end_header_id|>, <|im_start|>, etc.
+    re.compile(r'^assistant\s*:', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'^\[INST\].*?\[/INST\]', re.IGNORECASE | re.DOTALL),
+    re.compile(r'CONVERSATION HISTORY\s*\n', re.IGNORECASE),
+    re.compile(r'^---\s*CONVERSATION HISTORY\s*---', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'^---\s*SOURCES\s*---', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'Please answer this question with proper Markdown.*', re.IGNORECASE | re.DOTALL),
+]
+
+def sanitize_answer(text: str) -> str:
+    """Strip leaked prompt artifacts from model output."""
+    for pattern in _ARTIFACT_PATTERNS:
+        text = pattern.sub('', text)
+    # Collapse excessive blank lines left behind
+    text = re.sub(r'\n{4,}', '\n\n', text)
+    return text.strip()
+
 
 @router.post("/projects/{project_id}/sessions", status_code=201, response_model=SessionResponse)
 async def create_session(
@@ -267,22 +286,14 @@ async def chat(
         min_score=body.min_score,
     )
 
-    # Build conversation history string
+    # Build conversation history as proper multi-turn messages
+    # This prevents Llama models from echoing prompt scaffold text back
     recent_messages = session.messages[-MAX_HISTORY_MESSAGES:]
-    # Ensure history always starts with a user message if possible
+    # Ensure history always starts with a user message
     if recent_messages and recent_messages[0].role != "user":
         recent_messages = recent_messages[1:]
-        
-    history_lines = []
-    for msg in recent_messages:
-        role_label = "[User]" if msg.role == "user" else "[VERO]"
-        history_lines.append(f"{role_label}\n{msg.content}")
-    
-    history_block = ""
-    if history_lines:
-        history_block = "--- CONVERSATION HISTORY ---\n" + "\n\n".join(history_lines) + "\n\n"
 
-    # Build source context
+    # Build source context block (only appended to the final user turn)
     context_lines = ["--- SOURCES ---"]
     for i, r in enumerate(search_results, 1):
         source_header = f"[Source {i}] {r.doc_title}"
@@ -291,18 +302,28 @@ async def chat(
         context_lines.append(f"{source_header}:\n{r.text}\n")
     context_block = "\n".join(context_lines)
 
-    # Build user prompt with history + context
-    user_prompt = f"{history_block}{context_block}\n\nQuestion: {body.message}"
+    # Assemble multi-turn messages array:
+    # [system, user_1, assistant_1, ..., user_N_with_context]
+    system_prompt = SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED if body.allow_model_knowledge else SYSTEM_PROMPT_WITH_HISTORY
+    chat_messages: list[dict] = [{"role": "system", "content": system_prompt}]
+
+    for msg in recent_messages:
+        role = "user" if msg.role == "user" else "assistant"
+        chat_messages.append({"role": role, "content": msg.content})
+
+    # Final user turn: attach sources + question
+    final_user_content = f"{context_block}\n\nQuestion: {body.message}"
+    chat_messages.append({"role": "user", "content": final_user_content})
 
     # Generate answer
     try:
         llm = get_llm()
-        prompt = SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED if body.allow_model_knowledge else SYSTEM_PROMPT_WITH_HISTORY
         raw_answer = await llm.generate_response(
-            system_prompt=prompt,
-            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+            user_prompt=final_user_content,
+            messages=chat_messages,
         )
-        answer = raw_answer.strip()
+        answer = sanitize_answer(raw_answer)
     except Exception as e:
         logger.error("Chat LLM error: %s", e)
         answer = f"Error generating answer: {str(e)}"

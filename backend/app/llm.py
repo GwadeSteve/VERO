@@ -23,8 +23,16 @@ class BaseLLM(ABC):
     """Abstract interface for LLM providers."""
 
     @abstractmethod
-    async def generate_response(self, system_prompt: str, user_prompt: str) -> str:
-        """Generate a response given a system and user prompt."""
+    async def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        messages: list[dict] | None = None,
+    ) -> str:
+        """Generate a response given a system and user prompt.
+        
+        If `messages` is provided it is used directly (multi-turn mode).
+        """
         pass
 
 
@@ -52,9 +60,24 @@ class GroqProvider(BaseLLM):
             raise ValueError("GROQ_API_KEY environment variable not set. Get one at https://console.groq.com.")
         self.model_name = os.environ.get("VERO_GROQ_MODEL", model_name)
 
-    async def generate_response(self, system_prompt: str, user_prompt: str) -> str:
-        """Generate response via Groq with automatic retry on transient errors."""
+    async def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        messages: list[dict] | None = None,
+    ) -> str:
+        """Generate response via Groq with automatic retry on transient errors.
+        
+        If `messages` is provided it is used directly (multi-turn mode).
+        Otherwise a simple [system, user] pair is sent.
+        """
         last_error = None
+
+        if messages is None:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
 
         for attempt in range(1, self.MAX_RETRIES + 1):
             try:
@@ -67,10 +90,7 @@ class GroqProvider(BaseLLM):
                         },
                         json={
                             "model": self.model_name,
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_prompt},
-                            ],
+                            "messages": messages,
                             "temperature": 0.3,
                             "max_tokens": 2048,
                         },
@@ -121,7 +141,12 @@ class GeminiProvider(BaseLLM):
             types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
         ]
 
-    async def generate_response(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        messages: list[dict] | None = None,
+    ) -> str:
         """Generate response via Gemini using async generation."""
         try:
             response = await self.client.aio.models.generate_content(
@@ -147,7 +172,12 @@ class OllamaProvider(BaseLLM):
         self.model_name = os.environ.get("VERO_OLLAMA_MODEL", model_name)
         self.base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
-    async def generate_response(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        messages: list[dict] | None = None,
+    ) -> str:
         """Generate response via local Ollama API."""
         try:
             async with httpx.AsyncClient(timeout=180.0) as client:
