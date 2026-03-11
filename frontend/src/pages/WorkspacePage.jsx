@@ -14,6 +14,20 @@ import {
     FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil
 } from 'lucide-react';
 
+/**
+ * Convert [Source N] and [N] citation patterns into markdown links [N](cite:N)
+ * so ReactMarkdown's `a` tag handler can render them as clickable bubbles.
+ */
+function preprocessTextForMarkdown(text) {
+    if (!text) return text;
+    // First pass: [Source N] → [N](cite:N)
+    let result = text.replace(/\[Source\s+(\d+)\]/gi, (_, num) => `[${num}](cite:${num})`);
+    // Second pass: standalone [N] that aren't already part of a markdown link
+    // Match [N] not followed by ( which would mean it's already a link like [N](...)
+    result = result.replace(/\[(\d+)\](?!\()/g, (_, num) => `[${num}](cite:${num})`);
+    return result;
+}
+
 export default function WorkspacePage({ projectId, activeSessionId, setSessions, onRefreshProjects }) {
     // Project info
     const [project, setProject] = useState(null);
@@ -753,7 +767,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                             }
                                                         }}
                                                     >
-                                                        {m.traces?.length > 0 ? preprocessTextForMarkdown(m.text) : m.text}
+                                                        {preprocessTextForMarkdown(m.text)}
                                                     </ReactMarkdown>
                                                 </div>
 

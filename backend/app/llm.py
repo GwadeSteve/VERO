@@ -91,7 +91,7 @@ class GroqProvider(BaseLLM):
                         json={
                             "model": self.model_name,
                             "messages": messages,
-                            "temperature": 0.3,
+                            "temperature": 0.2,
                             "max_tokens": 2048,
                         },
                     )
