@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { api } from '../api';
 import { useToast } from '../components/ui/Toast';
 import {
@@ -653,7 +656,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                     color: m.role === 'error' ? 'var(--red)' : 'var(--text)'
                                                 }}>
                                                     <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm]}
+                                                        remarkPlugins={[remarkGfm, remarkMath]}
+                                                        rehypePlugins={[rehypeKatex]}
                                                         urlTransform={(value) => {
                                                             if (value.startsWith('cite:')) return value;
                                                             // Provide a simple default transform for other URLs if needed,
@@ -661,6 +665,52 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                             return value.replace(/^javascript:/i, ''); // basic XSS prevention
                                                         }}
                                                         components={{
+                                                            code({ node, inline, className, children, ...props }) {
+                                                                const match = /language-(\w+)/.exec(className || '');
+                                                                return !inline && match ? (
+                                                                    <div style={{ position: 'relative', marginTop: 12, marginBottom: 16 }}>
+                                                                        <div style={{
+                                                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                                            background: 'var(--bg-3)', padding: '6px 14px',
+                                                                            borderTopLeftRadius: 8, borderTopRightRadius: 8,
+                                                                            border: '1px solid var(--border)', borderBottom: 'none'
+                                                                        }}>
+                                                                            <span style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                                {match[1]}
+                                                                            </span>
+                                                                            <button
+                                                                                onClick={() => { navigator.clipboard.writeText(String(children).replace(/\n$/, '')); /* Optional: toast here */ }}
+                                                                                style={{
+                                                                                    background: 'none', border: 'none', color: 'var(--text-4)',
+                                                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                                                                    fontSize: 11, fontWeight: 500, padding: '4px 8px', borderRadius: 4,
+                                                                                    transition: 'all 0.15s ease'
+                                                                                }}
+                                                                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                                                                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
+                                                                            >
+                                                                                <Copy size={12} /> Copy
+                                                                            </button>
+                                                                        </div>
+                                                                        <pre style={{
+                                                                            margin: 0, padding: '16px 20px', background: 'var(--bg-1)',
+                                                                            overflowX: 'auto', borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
+                                                                            border: '1px solid var(--border)'
+                                                                        }}>
+                                                                            <code className={className} {...props} style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-2)' }}>
+                                                                                {children}
+                                                                            </code>
+                                                                        </pre>
+                                                                    </div>
+                                                                ) : (
+                                                                    <code className={className} {...props} style={{ background: 'var(--bg-1)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: '0.85em', color: 'var(--accent)' }}>
+                                                                        {children}
+                                                                    </code>
+                                                                );
+                                                            },
+                                                            p({ children }) {
+                                                                return <p style={{ margin: '0 0 12px 0', lineHeight: 1.6 }}>{children}</p>;
+                                                            },
                                                             a: ({ node, href, children, ...props }) => {
                                                                 if (href && href.startsWith('cite:')) {
                                                                     const num = parseInt(href.replace('cite:', ''));
