@@ -6,11 +6,13 @@ import {
 } from 'lucide-react';
 import { api } from '../../api';
 import { useToast } from '../ui/Toast';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 export default function Sidebar({
   currentPath, onNavigate, collapsed, setCollapsed,
-  sessions, setSessions, projectId, activeSessionId, onSelectSession, onNewSession, projectName, onRefreshProjects, refreshToggle, isFetchingSessions
+  sessions, setSessions, projectId, activeSessionId, onSelectSession, onNewSession, projectName, onRefreshProjects, refreshToggle, isFetchingSessions, isMobile, onCloseMobile
 }) {
+  const isSmallMobile = useMediaQuery('(max-width: 500px)');
   const [recentProjects, setRecentProjects] = useState([]);
   const [projectsListOpen, setProjectsListOpen] = useState(true);
   const [expandedProjectIds, setExpandedProjectIds] = useState(new Set());
@@ -92,8 +94,6 @@ export default function Sidebar({
     }
   };
 
-  const w = collapsed ? 72 : 260;
-
   const DropdownItem = ({ icon: Icon, label, onClick, danger }) => (
     <button
       onClick={onClick}
@@ -147,6 +147,17 @@ export default function Sidebar({
     { id: 'activity', icon: Activity, label: 'Activity', action: () => toast?.('Activity monitoring coming soon', 'info'), isActive: false },
   ];
 
+  let w = 280;
+  if (isMobile) {
+      if (isSmallMobile) {
+          w = '80vw';
+      } else {
+          w = 320; // tablet drawer wide
+      }
+  } else {
+      w = collapsed ? 76 : 280;
+  }
+
   return (
     <aside style={{
       width: w, minWidth: w, height: '100vh',
@@ -166,11 +177,11 @@ export default function Sidebar({
           height: 60, flexShrink: 0,
         }}
       >
-        {!collapsed && (
+        {(!collapsed || isMobile) && (
           <div
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
-              padding: '4px', borderRadius: 8,
+              padding: '4px', borderRadius: 8, flex: 1
             }}
           >
             <div style={{
@@ -178,29 +189,44 @@ export default function Sidebar({
               background: 'var(--accent-dim)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: '1px solid var(--accent-border)',
-              flexShrink: 0,
+              flexShrink: 0
             }}>
-              <Layers size={16} color="var(--accent)" />
+              <img src="/vero.svg" alt="V" style={{ width: 14, height: 14 }} />
             </div>
-            <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.3px', color: 'var(--text)' }}>
-              VERO
-            </span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', letterSpacing: '0.02em' }}>VERO</span>
           </div>
         )}
+        
+        {/* Mobile Close Button */}
+        {isMobile && (
+          <button 
+            onClick={onCloseMobile}
+            style={{
+              width: 32, height: 32, borderRadius: 8, background: 'transparent', border: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)',
+              cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0, marginLeft: 'auto'
+            }}
+          >
+            <X size={16} />
+          </button>
+        )}
 
-        <button
-          onClick={(e) => { e.stopPropagation(); setCollapsed(c => !c); }}
-          style={{
-            background: 'var(--bg-2)', border: '1px solid var(--border)',
-            width: 32, height: 32, borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--text)', cursor: 'pointer', flexShrink: 0,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-          }}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-        </button>
+        {/* Desktop Collapse Toggle */}
+        {!isMobile && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setCollapsed(c => !c); }}
+            style={{
+              background: 'var(--bg-2)', border: '1px solid var(--border)',
+              width: 32, height: 32, borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text)', cursor: 'pointer', flexShrink: 0,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+            }}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingTop: 16 }}>

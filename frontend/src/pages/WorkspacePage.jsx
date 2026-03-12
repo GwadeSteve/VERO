@@ -11,7 +11,7 @@ import {
     Send, Search, Loader2, FileText, ArrowUp,
     RefreshCw, User, Bot, CheckCircle2, UploadCloud, Globe,
     X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2,
-    FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil
+    FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library
 } from 'lucide-react';
 
 /**
@@ -112,7 +112,7 @@ function preprocessTextForMarkdown(text) {
     return result;
 }
 
-export default function WorkspacePage({ projectId, activeSessionId, setSessions, onRefreshProjects }) {
+export default function WorkspacePage({ projectId, activeSessionId, setSessions, onRefreshProjects, isMobile, onOpenMobileMenu }) {
     // Project info
     const [project, setProject] = useState(null);
 
@@ -134,7 +134,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     const [activeCitationDoc, setActiveCitationDoc] = useState(null);
     const [activeCitationChunk, setActiveCitationChunk] = useState(null); // { srcNum, text, doc_title }
     const [openCitations, setOpenCitations] = useState(new Set()); // Message indices that have their citations accordion open
-    const [modelKnowledge, setModelKnowledge] = useState(false);
+    const [modelKnowledge, setModelKnowledge] = useState(() => {
+        const saved = localStorage.getItem('vero-model-knowledge');
+        return saved === 'true';
+    });
     const [loadingText, setLoadingText] = useState('Analyzing sources...');
     const [rightPanelOpen, setRightPanelOpen] = useState(() => {
         const saved = localStorage.getItem('vero-right-panel');
@@ -160,9 +163,17 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     }, [searching]);
 
     const chatEndRef = useRef(null);
+    const chatFeedRef = useRef(null);
     const fileRef = useRef(null);
     const isCreatingSession = useRef(false);
     const streamIntervalRef = useRef(null);
+
+    // Auto-scroll to bottom on new messages and during streaming
+    useEffect(() => {
+        if (chatEndRef.current) {
+            chatEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+    }, [messages, isStreaming]);
     const [copiedIndex, setCopiedIndex] = useState(null);
     const toast = useToast();
     const navigate = useNavigate();
@@ -440,7 +451,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 traces: searchResults,
                 sufficient: cr?.found_sufficient_info,
                 isStreaming: true,
-                timestamp: answerTime
+                timestamp: answerTime,
+                usedModelKnowledge: modelKnowledge,
             }]);
 
             streamText(cr?.answer || "No response generated.", 
@@ -609,18 +621,23 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--bg-0)' }}>
 
                 {/* Workspace Header - Minimal & Rich */}
-                <header style={{
+                <header className="workspace-header" style={{
                     padding: '12px 32px', borderBottom: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', zIndex: 10, position: 'sticky', top: 0,
                     backdropFilter: 'blur(30px)', background: 'var(--bg-glass)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div>
-                            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.01em', marginBottom: 2 }}>
+                        {isMobile && (
+                            <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu">
+                                <Menu size={20} />
+                            </button>
+                        )}
+                        <div className="header-text-container">
+                            <h2 className="header-title" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.01em', marginBottom: 2 }}>
                                 {project?.name || 'Workspace'}
                             </h2>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-4)', fontWeight: 500 }}>
+                            <div className="header-metrics" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-4)', fontWeight: 500 }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                     <Clock size={12} /> {lastActive}
                                 </span>
@@ -643,7 +660,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     </div>
                     {/* Header Quick Actions */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <button title="Pin Workspace" style={{
+                        <button className="header-action-btn hide-on-small-mobile" title="Pin Workspace" style={{
                             width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
                             color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s ease'
@@ -651,7 +668,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
                             <Pin size={16} />
                         </button>
-                        <button title="Rename Workspace" style={{
+                        <button className="header-action-btn hide-on-small-mobile" title="Rename Workspace" style={{
                             width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
                             color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s ease'
@@ -659,7 +676,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
                             <Edit2 size={16} />
                         </button>
-                        <button title="Delete Workspace" onClick={handleDeleteProject} style={{
+                        <button className="header-action-btn" title="Delete Workspace" onClick={handleDeleteProject} style={{
                             width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
                             color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s ease'
@@ -669,6 +686,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         </button>
                         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
                         <button
+                            className="header-action-btn"
                             title={rightPanelOpen ? 'Hide Sources Panel' : 'Show Sources Panel'}
                             onClick={() => setRightPanelOpen(p => !p)}
                             style={{
@@ -679,9 +697,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 transition: 'all 0.2s ease'
                             }}
                             onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; } }}
-                            onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; } }}
                         >
-                            {rightPanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+                            <Library size={16} />
                         </button>
                     </div>
                 </header>
@@ -689,16 +706,14 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 {/* Main Header End */}
 
                 {/* Chat Feed */}
-                <div style={{ flex: 1, overflowY: 'auto', scrollPaddingBottom: 100 }}>
+                <div ref={chatFeedRef} className="chat-feed" style={{ flex: 1, overflowY: 'auto', scrollPaddingBottom: 100 }}>
                     {messages.length === 0 && !searching && !isStreaming ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 40 }}>
                             <div style={{
-                                width: 80, height: 80, borderRadius: 24, background: 'var(--accent-dim)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                border: '1px solid var(--accent-border)', marginBottom: 24,
-                                animation: 'pulse 3s infinite ease-in-out'
+                                width: 56, height: 56, borderRadius: 16, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20
                             }}>
-                                <img src="/vero.svg" alt="VERO" style={{ width: 44, height: 44, objectFit: 'contain' }} />
+                                <img src="/vero.svg" alt="VERO" style={{ width: 32, height: 32, objectFit: 'contain' }} />
                             </div>
                             <h3 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>
                                 AI Knowledge Hub
@@ -722,34 +737,46 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     ) : (
                         <div style={{ paddingBottom: 40, padding: '32px 32px' }}>
                             {messages.map((m, i) => (
-                                <div key={i} style={{
+                                <div key={i} className={`chat-message ${m.role === 'user' ? 'chat-message-user' : ''}`} style={{
                                     maxWidth: 840, margin: '0 auto',
                                     display: 'flex', flexDirection: 'column',
                                     alignItems: m.role === 'user' ? 'flex-end' : 'flex-start',
                                     marginBottom: 28,
-                                    animation: 'fadeIn 0.3s ease both',
                                 }}>
                                     {m.role === 'assistant' || m.role === 'error' ? (
-                                        <div style={{ display: 'flex', gap: 16, maxWidth: '100%', width: '100%' }}>
-                                            {/* VERO Avatar */}
-                                            <div style={{
-                                                width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                                                background: 'var(--accent-dim)',
-                                                border: `1.5px solid ${m.isStreaming ? 'var(--accent)' : 'var(--accent-border)'}`,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                boxShadow: m.isStreaming ? '0 0 12px var(--accent-dim)' : 'var(--shadow-sm)',
-                                                transition: 'all 0.3s ease',
-                                                animation: m.isStreaming ? 'pulse 2s ease-in-out infinite' : 'none',
-                                            }}>
-                                                <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-                                                {/* Header: VERO label + timestamp */}
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>VERO</span>
-                                                    {m.timestamp && <span style={{ fontSize: 10, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
-                                                    {m.stopped && <span style={{ fontSize: 10, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
+                                        <div className="ai-message-container" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                                            {/* AI Header: Avatar + VERO + Timestamp */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                                {/* VERO Avatar */}
+                                                <div style={{
+                                                    width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                                                    background: 'var(--accent-dim)',
+                                                    border: `1.5px solid ${m.isStreaming ? 'var(--accent)' : 'var(--accent-border)'}`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    boxShadow: m.isStreaming ? '0 0 12px var(--accent-dim)' : 'var(--shadow-sm)',
+                                                    transition: 'all 0.3s ease',
+                                                    animation: m.isStreaming ? 'pulse 2s ease-in-out infinite' : 'none',
+                                                }}>
+                                                    <img src="/vero.svg" alt="V" style={{ width: 16, height: 16, objectFit: 'contain' }} />
                                                 </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>VERO</span>
+                                                    {m.timestamp && <span style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
+                                                    {m.stopped && <span style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
+                                                    {m.usedModelKnowledge && (
+                                                        <span style={{
+                                                            fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+                                                            color: 'var(--accent)', background: 'var(--accent-dim)',
+                                                            border: '1px solid var(--accent-border)',
+                                                            padding: '1px 6px', borderRadius: 4,
+                                                            textTransform: 'uppercase',
+                                                        }}>✦ Enhanced</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Content / Text */}
+                                            <div className="ai-message-content" style={{ paddingLeft: 44, width: '100%' }}>
                                                 <div className={`vero-md ${m.isStreaming ? "streaming-cursor" : ""}`} style={{
                                                     color: m.role === 'error' ? 'var(--red)' : 'var(--text)'
                                                 }}>
@@ -1007,12 +1034,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                             </div>
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '85%' }}>
-                                            <div style={{
+                                        <div className="user-message-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '100%' }}>
+                                            <div className="user-message-text" style={{
                                                 background: 'var(--user-bubble)', color: 'var(--text)',
                                                 padding: '10px 16px', borderRadius: '16px', borderBottomRightRadius: 4,
-                                                border: '1px solid var(--user-bubble-border)',
-                                                fontSize: 14, lineHeight: 1.6, fontWeight: 400,
+                                                border: '1px solid var(--user-bubble-border)', fontWeight: 400,
                                                 whiteSpace: 'pre-wrap'
                                             }}>
                                                 {m.text}
@@ -1138,7 +1164,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 </div>
 
                 {/* Input Zone */}
-                <div style={{ padding: '0px 32px 16px', background: 'var(--bg-0)' }}>
+                <div className="chat-input-zone" style={{ padding: '0px 32px 16px', background: 'var(--bg-0)' }}>
                     <form onSubmit={send} style={{
                         maxWidth: 840, margin: '0 auto', position: 'relative',
                         background: 'var(--input-bg)',
@@ -1213,7 +1239,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         {/* Compact Toolbar */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
                             <div
-                                onClick={() => setModelKnowledge(!modelKnowledge)}
+                                onClick={() => {
+                                    const next = !modelKnowledge;
+                                    setModelKnowledge(next);
+                                    localStorage.setItem('vero-model-knowledge', String(next));
+                                }}
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
                                     padding: '4px 10px 4px 6px', borderRadius: 100,
@@ -1262,31 +1292,53 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             </div>
 
             {/* ═══════ RIGHT: Insight & Context ═══════ */}
-            <div style={{
-                width: rightPanelOpen ? 360 : 0, flexShrink: 0, background: 'var(--bg-1)',
+            {isMobile && (
+                <div
+                    className={`sidebar-overlay ${rightPanelOpen ? 'active' : ''}`}
+                    onClick={() => setRightPanelOpen(false)}
+                    style={{ zIndex: 997 }}
+                />
+            )}
+            <div 
+                className={isMobile ? `right-panel-mobile ${rightPanelOpen ? 'open' : ''}` : ''}
+                style={{
+                width: rightPanelOpen ? (isMobile ? 320 : 300) : 0, flexShrink: 0, background: 'var(--bg-1)',
                 borderLeft: rightPanelOpen ? '1px solid var(--border)' : 'none',
                 display: 'flex', flexDirection: 'column',
                 overflow: 'hidden',
-                transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                zIndex: isMobile ? 998 : 'auto'
             }}>
                 {/* ── Compact Unified Ingest Zone ── */}
                 <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>Add Sources</span>
                         {ingesting && <Loader2 size={14} className="spin" color="var(--accent)" />}
+                        {isMobile && (
+                            <button 
+                                onClick={() => setRightPanelOpen(false)}
+                                style={{
+                                    width: 24, height: 24, borderRadius: 6, background: 'transparent', border: 'none',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)',
+                                    cursor: 'pointer', transition: 'all 0.15s ease'
+                                }}
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <label
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                             onDragLeave={() => setDragOver(false)}
                             onDrop={handleDrop}
                             title="Click or drag & drop files here (PDF, DOCX, TXT, MD, CSV)"
                             style={{
-                                flex: 1, height: 36, borderRadius: 8,
+                                width: '100%', height: 40, borderRadius: 8,
                                 border: `1px ${dragOver ? 'solid' : 'dashed'} ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
                                 background: dragOver ? 'var(--bg-hover)' : 'var(--bg-2)',
-                                color: dragOver ? 'var(--accent)' : 'var(--text-3)', fontSize: 12, fontWeight: 600,
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                color: dragOver ? 'var(--accent)' : 'var(--text-3)', fontSize: 13, fontWeight: 600,
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                                 transition: 'all 0.15s ease', margin: 0
                             }}
                             onMouseEnter={e => {
@@ -1304,32 +1356,30 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 }
                             }}
                         >
-                            <UploadCloud size={14} /> {ingesting ? 'Processing...' : 'File'}
+                            <UploadCloud size={16} /> {ingesting ? 'Processing...' : 'Upload File'}
                             <input ref={fileRef} type="file" multiple onChange={e => handleFiles(e.target.files)} style={{ display: 'none' }} accept=".pdf,.txt,.md,.docx,.csv" />
                         </label>
-                        <div style={{ flex: 1.5, display: 'flex', gap: 4 }}>
-                            <form onSubmit={handleUrlIngest} style={{ display: 'flex', flex: 1, gap: 4 }}>
-                                <input
-                                    value={url}
-                                    onChange={e => setUrl(e.target.value)}
-                                    placeholder="Paste URL or GitHub..."
-                                    style={{
-                                        flex: 1, height: 36, padding: '0 10px', background: 'var(--bg-2)',
-                                        border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
-                                        fontSize: 12, outline: 'none', fontWeight: 500
-                                    }}
-                                />
-                                <button type="submit" disabled={!url.trim() || ingesting} style={{
-                                    width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: (!url.trim() || ingesting) ? 'var(--bg-3)' : 'var(--accent)',
-                                    color: (!url.trim() || ingesting) ? 'var(--text-4)' : 'var(--bg-0)',
-                                    border: 'none', borderRadius: 8, cursor: (!url.trim() || ingesting) ? 'not-allowed' : 'pointer',
-                                    flexShrink: 0, transition: 'all 0.15s ease'
-                                }}>
-                                    <Plus size={16} strokeWidth={2.5} />
-                                </button>
-                            </form>
-                        </div>
+                        <form onSubmit={handleUrlIngest} style={{ display: 'flex', width: '100%', gap: 6 }}>
+                            <input
+                                value={url}
+                                onChange={e => setUrl(e.target.value)}
+                                placeholder="Paste URL or GitHub link..."
+                                style={{
+                                    flex: 1, height: 40, padding: '0 12px', background: 'var(--bg-2)',
+                                    border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
+                                    fontSize: 13, outline: 'none', fontWeight: 500
+                                }}
+                            />
+                            <button type="submit" disabled={!url.trim() || ingesting} style={{
+                                width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                background: (!url.trim() || ingesting) ? 'var(--bg-3)' : 'var(--accent)',
+                                color: (!url.trim() || ingesting) ? 'var(--text-4)' : 'var(--bg-0)',
+                                border: 'none', borderRadius: 8, cursor: (!url.trim() || ingesting) ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                {ingesting ? <Loader2 size={16} className="spin" /> : <Globe size={16} />}
+                            </button>
+                        </form>
                     </div>
                     {ingesting && (
                         <div style={{ marginTop: 8, height: 2, borderRadius: 1, background: 'var(--bg-3)', overflow: 'hidden' }}>
