@@ -49,6 +49,13 @@ $$\\theta^* = \\arg\\min_{\\theta} \\frac{1}{N} \\sum_{i=1}^{N} L(h(x_i; \\theta
 - NEVER output raw Unicode math symbols like θ, λ, Σ — always use LaTeX: $\\theta$, $\\lambda$, $\\sum$.
 - Subscripts use underscore: $\\theta_k$. Superscripts use caret: $\\theta^*$.
 
+### Answering Style (CRITICAL):
+- ALWAYS synthesize information in your own words. NEVER copy-paste raw chunks of source text.
+- NEVER dump entire sections, outlines, or chapter headings from the source.
+- If the user asks a specific question, give a specific, focused answer. Do not pad with unrelated information.
+- Keep answers concise and focused — under 300 words unless the user explicitly asks for a detailed explanation.
+- If multiple sources say the same thing, summarize once and cite all relevant sources.
+
 ### Citation Rules:
 - Back up EVERY factual claim from the sources with [Source N] (e.g. [Source 1]).
 - Do NOT include file names next to citations: WRONG: [Source 1] (MSc.pdf). RIGHT: [Source 1].
@@ -88,6 +95,13 @@ $$\\theta^* = \\arg\\min_{\\theta} \\frac{1}{N} \\sum_{i=1}^{N} L(h(x_i; \\theta
 - NEVER output raw Unicode math symbols like θ, λ, Σ — always use LaTeX: $\\theta$, $\\lambda$, $\\sum$.
 - Subscripts use underscore: $\\theta_k$. Superscripts use caret: $\\theta^*$.
 
+### Answering Style (CRITICAL):
+- ALWAYS synthesize information in your own words. NEVER copy-paste raw chunks of source text.
+- NEVER dump entire sections, outlines, or chapter headings from the source.
+- If the user asks a specific question, give a specific, focused answer. Do not pad with unrelated information.
+- Keep answers concise and focused — under 300 words unless the user explicitly asks for a detailed explanation.
+- If multiple sources say the same thing, summarize once and cite all relevant sources.
+
 ### Citation Rules:
 - Back up EVERY factual claim from the sources with [Source N] (e.g. [Source 1]).
 - Do NOT include file names next to citations: WRONG: [Source 1] (MSc.pdf). RIGHT: [Source 1].
@@ -126,10 +140,38 @@ _LEAK_PATTERNS = [
 ]
 
 def sanitize_answer(text: str) -> str:
-    """Strip leaked prompt artifacts from model output."""
+    """Strip leaked prompt artifacts and remove duplicate paragraphs from model output."""
+    # Step 1: Remove leaked prompt patterns
     for pattern in _LEAK_PATTERNS:
         text = pattern.sub('', text)
-    # Collapse excessive blank lines left behind
+    
+    # Step 2: Remove near-duplicate paragraphs (fixes repeated sections)
+    paragraphs = text.split('\n\n')
+    seen_paragraphs: list[set] = []
+    unique_paragraphs = []
+    for para in paragraphs:
+        stripped = para.strip()
+        if not stripped:
+            continue
+        # Skip very short paragraphs (headers, single lines) — dedup only content blocks
+        if len(stripped) < 80:
+            unique_paragraphs.append(para)
+            continue
+        para_words = set(re.findall(r'\w+', stripped.lower()))
+        is_dup = False
+        for seen_words in seen_paragraphs:
+            if not para_words or not seen_words:
+                continue
+            overlap = len(para_words & seen_words) / min(len(para_words), len(seen_words))
+            if overlap > 0.80:
+                is_dup = True
+                break
+        if not is_dup:
+            seen_paragraphs.append(para_words)
+            unique_paragraphs.append(para)
+    text = '\n\n'.join(unique_paragraphs)
+    
+    # Step 3: Collapse excessive blank lines left behind
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 

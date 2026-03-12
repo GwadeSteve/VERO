@@ -254,19 +254,48 @@ async def search(
 
     # Build response items with reranked scores, filtering out irrelevant noise
     results: list[SearchResultItem] = []
-    seen_texts = set()
+    seen_texts: list[set] = []  # Store word sets for near-duplicate detection
+    
+    MAX_CHUNK_CHARS = 1500  # ~375 tokens - truncate oversized chunks
+    MAX_TOTAL_CHARS = 6000  # ~1500 tokens - total context budget for all chunks
+    total_chars = 0
     
     for item in reranked:
         score = round(item["rerank_score"], 6)
         if score < min_score:
             continue
             
-        # Hard text-level deduplication to prevent "same chunk" bug
-        # We must strip the prefix FIRST, otherwise different chunks with the same summary might look unique.
+        # Strip context prefix and truncate oversized chunks
         clean_text = _strip_context_prefix(item["text"]).strip()
-        if clean_text in seen_texts:
+        if len(clean_text) > MAX_CHUNK_CHARS:
+            # Truncate at last sentence boundary before limit
+            truncated = clean_text[:MAX_CHUNK_CHARS]
+            last_period = truncated.rfind('.')
+            if last_period > MAX_CHUNK_CHARS // 2:
+                clean_text = truncated[:last_period + 1]
+            else:
+                clean_text = truncated + "..."
+        
+        # Near-duplicate detection: skip chunks that overlap >70% with any seen chunk
+        chunk_words = set(re.findall(r'\w+', clean_text.lower()))
+        is_near_dup = False
+        for seen_words in seen_texts:
+            if not chunk_words or not seen_words:
+                continue
+            overlap = len(chunk_words & seen_words) / min(len(chunk_words), len(seen_words))
+            if overlap > 0.70:
+                is_near_dup = True
+                break
+        if is_near_dup:
+            logger.debug("Skipping near-duplicate chunk: %.0f%% overlap", overlap * 100)
             continue
-        seen_texts.add(clean_text)
+        seen_texts.append(chunk_words)
+        
+        # Enforce total context budget
+        if total_chars + len(clean_text) > MAX_TOTAL_CHARS and results:
+            logger.info("Context budget reached (%d chars), stopping at %d results", total_chars, len(results))
+            break
+        total_chars += len(clean_text)
             
         results.append(SearchResultItem(
             chunk_id=item["chunk_id"],
