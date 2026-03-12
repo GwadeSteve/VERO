@@ -15,15 +15,99 @@ import {
 } from 'lucide-react';
 
 /**
- * Convert [Source N] and [N] citation patterns into markdown links [N](cite:N)
- * so ReactMarkdown's `a` tag handler can render them as clickable bubbles.
+ * Map of Unicode math symbols → LaTeX equivalents.
+ * Covers Greek letters, operators, and notation commonly found in academic PDFs.
+ */
+const UNICODE_TO_LATEX = {
+    // Lowercase Greek
+    'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta',
+    'ε': '\\epsilon', 'ζ': '\\zeta', 'η': '\\eta', 'θ': '\\theta',
+    'ι': '\\iota', 'κ': '\\kappa', 'λ': '\\lambda', 'μ': '\\mu',
+    'ν': '\\nu', 'ξ': '\\xi', 'π': '\\pi', 'ρ': '\\rho',
+    'σ': '\\sigma', 'τ': '\\tau', 'υ': '\\upsilon', 'φ': '\\varphi',
+    'ϕ': '\\phi', 'χ': '\\chi', 'ψ': '\\psi', 'ω': '\\omega',
+    // Uppercase Greek
+    'Γ': '\\Gamma', 'Δ': '\\Delta', 'Θ': '\\Theta', 'Λ': '\\Lambda',
+    'Ξ': '\\Xi', 'Π': '\\Pi', 'Σ': '\\Sigma', 'Υ': '\\Upsilon',
+    'Φ': '\\Phi', 'Ψ': '\\Psi', 'Ω': '\\Omega',
+    // Math operators & relations
+    '∑': '\\sum', '∏': '\\prod', '∫': '\\int', '∂': '\\partial',
+    '∇': '\\nabla', '∈': '\\in', '∉': '\\notin', '⊂': '\\subset',
+    '⊃': '\\supset', '⊆': '\\subseteq', '⊇': '\\supseteq',
+    '∪': '\\cup', '∩': '\\cap', '∀': '\\forall', '∃': '\\exists',
+    '∞': '\\infty', '≈': '\\approx', '≠': '\\neq', '≤': '\\leq',
+    '≥': '\\geq', '→': '\\to', '←': '\\leftarrow', '↔': '\\leftrightarrow',
+    '⇒': '\\Rightarrow', '⇐': '\\Leftarrow', '⇔': '\\Leftrightarrow',
+    '×': '\\times', '·': '\\cdot', '±': '\\pm', '∓': '\\mp',
+    '√': '\\sqrt', '∝': '\\propto', '⊗': '\\otimes', '⊕': '\\oplus',
+    // Misc notation
+    'ℝ': '\\mathbb{R}', 'ℤ': '\\mathbb{Z}', 'ℕ': '\\mathbb{N}',
+    'ℂ': '\\mathbb{C}', 'ℙ': '\\mathbb{P}',
+};
+
+/**
+ * Detect and convert Unicode math patterns to LaTeX-wrapped expressions.
+ * Simple, reliable strategy: find Unicode math symbols, expand to grab
+ * surrounding math context, convert and wrap in $...$
+ */
+function postprocessMathForRendering(text) {
+    if (!text) return text;
+
+    // Quick check: any math symbols present at all?
+    const mathSymbolPattern = /[α-ωΑ-Ωϕ∑∏∫∂∇∈∉⊂⊃⊆⊇∪∩∀∃∞≈≠≤≥⇒⇐⇔×±∓√∝⊗⊕ℝℤℕℂℙ∗]/;
+    if (!mathSymbolPattern.test(text)) return text;
+
+    // Process line by line to skip code blocks
+    const lines = text.split('\n');
+    let inCodeBlock = false;
+
+    const processed = lines.map(line => {
+        if (line.trim().startsWith('```')) { inCodeBlock = !inCodeBlock; return line; }
+        if (inCodeBlock) return line;
+        if (line.trim().startsWith('$$')) return line;
+        // Skip if line already has inline math
+        if (/\$[^$]+\$/.test(line) && !mathSymbolPattern.test(line.replace(/\$[^$]+\$/g, ''))) return line;
+
+        // Replace each Unicode math symbol (and its surrounding math context) with LaTeX
+        // Strategy: match a "math token" — a Unicode symbol optionally surrounded by
+        // letters/digits/subscripts/superscripts/parens/braces that form one expression
+        let result = line.replace(
+            /[({]?[a-zA-Z0-9_^∗*{}()\[\], =+\-/.]*[α-ωΑ-Ωϕ∑∏∫∂∇∈∉⊂⊃⊆⊇∪∩∀∃∞≈≠≤≥⇒⇐⇔×±∓√∝⊗⊕ℝℤℕℂℙ∗][a-zA-Z0-9_^∗*{}()\[\], =+\-/.α-ωΑ-Ωϕ∑∏∫∂∇∈∉⊂⊃⊆⊇∪∩∀∃∞≈≠≤≥⇒⇐⇔×±∓√∝⊗⊕ℝℤℕℂℙ]*[)}]?/g,
+            (match) => {
+                const trimmed = match.trim();
+                if (!trimmed) return match;
+
+                // Convert each Unicode symbol to its LaTeX command
+                let latex = trimmed;
+                for (const [sym, cmd] of Object.entries(UNICODE_TO_LATEX)) {
+                    latex = latex.replaceAll(sym, cmd);
+                }
+                latex = latex.replace(/∗/g, '^*');
+
+                const lead = match.match(/^\s*/)[0];
+                const trail = match.match(/\s*$/)[0];
+                return `${lead}$${latex.trim()}$${trail}`;
+            }
+        );
+
+        return result;
+    });
+
+    return processed.join('\n');
+}
+
+/**
+ * Full preprocessing pipeline for AI response text:
+ * 1. Convert Unicode math to LaTeX
+ * 2. Convert [Source N] / [N] citations to clickable markdown links
  */
 function preprocessTextForMarkdown(text) {
     if (!text) return text;
-    // First pass: [Source N] → [N](cite:N)
-    let result = text.replace(/\[Source\s+(\d+)\]/gi, (_, num) => `[${num}](cite:${num})`);
-    // Second pass: standalone [N] that aren't already part of a markdown link
-    // Match [N] not followed by ( which would mean it's already a link like [N](...)
+    // Step 1: Convert Unicode math symbols to LaTeX
+    let result = postprocessMathForRendering(text);
+    // Step 2: [Source N] → [N](cite:N) for clickable citation bubbles
+    result = result.replace(/\[Source\s+(\d+)\]/gi, (_, num) => `[${num}](cite:${num})`);
+    // Step 3: standalone [N] not already linked → [N](cite:N)
     result = result.replace(/\[(\d+)\](?!\()/g, (_, num) => `[${num}](cite:${num})`);
     return result;
 }
@@ -206,7 +290,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     if (doc.processing_status === 'ready') {
                         toast?.(`"${docTitle}" is ready for chat.`, 'success');
                         clearInterval(iv);
-                    } else if (doc.processing_status === 'error') {
+                    } else if (doc.processing_status === 'error' || doc.processing_status === 'failed') {
                         toast?.(`Failed to process "${docTitle}".`, 'error');
                         clearInterval(iv);
                     } else if (doc.processing_status.includes('/')) {
@@ -216,7 +300,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 }
             } catch { clearInterval(iv); }
         }, 2500);
-        setTimeout(() => clearInterval(iv), 60000);
+        setTimeout(() => clearInterval(iv), 180000);
     };
 
     // ── Ingestion ────────────────────────────────────
@@ -447,10 +531,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     const getPreciseStatus = (doc) => {
         const s = doc.processing_status;
         if (s === 'ready') return { label: 'Knowledge Ready', color: 'var(--green)', icon: CheckCircle2 };
-        if (s === 'processing') return { label: 'Step 1/3: Extracting Text', color: 'var(--accent)', icon: Loader2 };
-        if (s === 'chunking') return { label: 'Step 2/3: Semantic Splitting', color: 'var(--accent)', icon: Loader2 };
-        if (s === 'embedding') return { label: 'Step 3/3: Vectorizing Context', color: 'var(--accent)', icon: Loader2 };
-        if (s === 'error') return { label: 'Sync Failed', color: 'var(--red)', icon: X };
+        if (s === 'pending') return { label: 'In Queue', color: 'var(--text-4)', icon: Clock };
+        if (s === 'processing' || s === 'chunking') return { label: 'Step 1/2: Chunking & Indexing', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'embedding') return { label: 'Step 2/2: Vectorizing Context', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'error' || s === 'failed') return { label: 'Sync Failed', color: 'var(--red)', icon: X };
         return { label: 'In Queue', color: 'var(--text-4)', icon: Clock };
     };
 
