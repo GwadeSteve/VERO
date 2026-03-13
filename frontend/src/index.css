@@ -454,7 +454,8 @@ h4 {
 }
 
 /* ─── Typography: Chat Bubbles ──────────────── */
-.vero-md, .user-message-text {
+.vero-md,
+.user-message-text {
   font-size: 16px;
   line-height: 1.7;
 }
@@ -847,7 +848,9 @@ input[type="url"] {
 
 /* Mobile-specific overrides */
 @media (max-width: 768px) {
-  .vero-md, .user-message-text {
+
+  .vero-md,
+  .user-message-text {
     font-size: 16px !important;
     line-height: 1.6;
   }
@@ -883,7 +886,8 @@ input[type="url"] {
   }
 
   /* Slightly enlarge icons on mobile for easier tapping */
-  .header-action-btn svg, .hamburger-btn svg {
+  .header-action-btn svg,
+  .hamburger-btn svg {
     transform: scale(1.15);
   }
 }
@@ -893,7 +897,7 @@ input[type="url"] {
   .header-metrics {
     display: none !important;
   }
-  
+
   .header-title {
     font-size: 15px !important;
   }
