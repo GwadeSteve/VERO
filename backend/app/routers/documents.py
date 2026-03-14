@@ -23,6 +23,7 @@ from app.utils import compute_content_hash
 from app.schema import (
     DocumentDetail,
     DocumentSummary,
+    GlobalDocumentSummary,
     ChunkResponse,
     EmbedRequest,
     EmbeddingResponse,
@@ -244,6 +245,27 @@ async def ingest_repo(
 
 
 # List and retrieve documents
+
+@router.get("/documents", response_model=list[GlobalDocumentSummary])
+async def list_global_documents(db: AsyncSession = Depends(get_db)):
+    """List all documents across all projects for the global discovery dashboard."""
+    result = await db.execute(
+        select(DocumentModel, ProjectModel.name)
+        .join(ProjectModel, DocumentModel.project_id == ProjectModel.id)
+        .order_by(DocumentModel.created_at.desc())
+    )
+    rows = result.all()
+    
+    docs = []
+    for doc, proj_name in rows:
+        summary_dict = _to_summary(doc).model_dump()
+        docs.append(
+            GlobalDocumentSummary(
+                **summary_dict,
+                project_name=proj_name
+            )
+        )
+    return docs
 
 @router.get("/projects/{project_id}/documents", response_model=list[DocumentSummary])
 async def list_documents(project_id: str, db: AsyncSession = Depends(get_db)):

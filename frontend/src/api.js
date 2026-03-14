@@ -16,7 +16,13 @@ export const api = {
     getProject: (id) => fetch(`${BASE_URL}/projects/${id}`).then(handle),
     createProject: (name, description = "") =>
         fetch(`${BASE_URL}/projects`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description }) }).then(handle),
+    updateProject: (id, payload) => 
+        fetch(`${BASE_URL}/projects/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(handle),
     deleteProject: (id) => fetch(`${BASE_URL}/projects/${id}`, { method: 'DELETE' }).then(handle),
+
+    // ── Global ────────────────────────────────────────
+    getGlobalDocuments: () => fetch(`${BASE_URL}/documents`).then(handle),
+    getActivityMetrics: () => fetch(`${BASE_URL}/activity/metrics`).then(handle),
 
     // ── Documents ─────────────────────────────────────
     getDocuments: (pid) => fetch(`${BASE_URL}/projects/${pid}/documents`).then(handle),
@@ -33,6 +39,7 @@ export const api = {
     createSession: (pid, title) =>
         fetch(`${BASE_URL}/projects/${pid}/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title || "New Conversation" }) }).then(handle),
     getSession: (sid) => fetch(`${BASE_URL}/sessions/${sid}`).then(handle),
+    renameSession: (sid, title) => fetch(`${BASE_URL}/sessions/${sid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }).then(handle),
     deleteSession: (sid) => fetch(`${BASE_URL}/sessions/${sid}`, { method: 'DELETE' }).then(handle),
     deleteMessagePair: (sid, mid) => fetch(`${BASE_URL}/sessions/${sid}/messages/${mid}`, { method: 'DELETE' }).then(handle),
 

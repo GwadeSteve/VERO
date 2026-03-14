@@ -143,8 +143,8 @@ export default function Sidebar({
   const quickActions = [
     { id: 'new', icon: Plus, label: 'New Chat', action: onNewSession, primary: true, isActive: false },
     { id: 'library', icon: BookOpen, label: 'Library', action: () => onNavigate('/'), isActive: currentPath === '/' },
-    { id: 'discovery', icon: Compass, label: 'Discovery', action: () => toast?.('Global Discovery coming soon', 'info'), isActive: false },
-    { id: 'activity', icon: Activity, label: 'Activity', action: () => toast?.('Activity monitoring coming soon', 'info'), isActive: false },
+    { id: 'discovery', icon: Compass, label: 'Global Discovery', action: () => onNavigate('/discovery'), isActive: currentPath === '/discovery' },
+    { id: 'activity', icon: Activity, label: 'Activity', action: () => onNavigate('/activity'), isActive: currentPath === '/activity' },
   ];
 
   let w = 280;

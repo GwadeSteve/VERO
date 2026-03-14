@@ -126,7 +126,13 @@ class DocumentSummary(BaseModel):
     source_url: Optional[str] = None
     is_duplicate: bool = False
     processing_status: str = "pending"
+    summary: Optional[str] = None
     created_at: datetime
+
+
+class GlobalDocumentSummary(DocumentSummary):
+    """Summary view including the project name for global grids."""
+    project_name: str
 
 
 class DocumentDetail(BaseModel):
