@@ -268,6 +268,44 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+from pydantic import BaseModel as PydanticBaseModel
+
+class SessionPatchBody(PydanticBaseModel):
+    title: str | None = None
+
+@router.patch("/sessions/{session_id}", response_model=SessionResponse)
+async def patch_session(session_id: str, body: SessionPatchBody, db: AsyncSession = Depends(get_db)):
+    """Rename or update a session."""
+    result = await db.execute(
+        select(SessionModel).options(selectinload(SessionModel.messages)).where(SessionModel.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if body.title is not None:
+        session.title = body.title.strip()[:100]
+
+    await db.commit()
+    await db.refresh(session)
+
+    return SessionResponse(
+        id=session.id,
+        project_id=session.project_id,
+        title=session.title,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        messages=[
+            MessageResponse(
+                id=m.id, session_id=m.session_id, role=m.role, content=m.content,
+                citations=json.loads(getattr(m, 'citations_json', None) or '[]'),
+                created_at=m.created_at
+            )
+            for m in session.messages
+        ],
+    )
+
+
 @router.delete("/sessions/{session_id}", status_code=204)
 async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a conversation session."""
@@ -470,9 +508,26 @@ async def chat(
     )
     db.add(assistant_msg)
 
-    # Auto-title on first message
+    # Auto-title on first message using LLM
     if len(session.messages) <= 1:
-        session.title = body.message[:50] + ("..." if len(body.message) > 50 else "")
+        try:
+            title_llm = get_llm()
+            title_prompt = (
+                f"Generate a concise 3-6 word title for a research conversation that starts with this message: "
+                f"\"{body.message[:200]}\". Return ONLY the title text, nothing else. No quotes, no punctuation at the end."
+            )
+            generated_title = await title_llm.generate_response(
+                system_prompt="You are a helpful assistant that generates short, descriptive conversation titles.",
+                user_prompt=title_prompt,
+            )
+            clean_title = generated_title.strip().strip('"').strip("'").strip(".")[:60]
+            if clean_title:
+                session.title = clean_title
+            else:
+                session.title = body.message[:50] + ("..." if len(body.message) > 50 else "")
+        except Exception as e:
+            logger.warning("LLM title generation failed, using fallback: %s", e)
+            session.title = body.message[:50] + ("..." if len(body.message) > 50 else "")
 
     # Touch project and session activity
     from datetime import datetime, timezone

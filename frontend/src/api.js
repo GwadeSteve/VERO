@@ -23,6 +23,7 @@ export const api = {
     // ── Global ────────────────────────────────────────
     getGlobalDocuments: () => fetch(`${BASE_URL}/documents`).then(handle),
     getActivityMetrics: () => fetch(`${BASE_URL}/activity/metrics`).then(handle),
+    getActivityTimeline: () => fetch(`${BASE_URL}/activity/timeline`).then(handle),
 
     // ── Documents ─────────────────────────────────────
     getDocuments: (pid) => fetch(`${BASE_URL}/projects/${pid}/documents`).then(handle),

@@ -131,7 +131,7 @@ function App() {
 
       <main style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <Routes location={location}>
-          <Route path="/" element={<ProjectsPage onRefreshProjects={() => setRefreshToggle(t => !t)} />} />
+          <Route path="/" element={<ProjectsPage onRefreshProjects={() => setRefreshToggle(t => !t)} isMobile={isMobile} onOpenMobileMenu={() => setMobileMenuOpen(true)} />} />
           <Route path="/discovery" element={<DiscoveryPage isMobile={isMobile} onOpenMobileMenu={() => setMobileMenuOpen(true)} />} />
           <Route path="/activity" element={<ActivityPage isMobile={isMobile} onOpenMobileMenu={() => setMobileMenuOpen(true)} />} />
           <Route path="/p/:projectId/*" element={

@@ -95,6 +95,50 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+from pydantic import BaseModel as PydanticBaseModel
+
+class ProjectPatchBody(PydanticBaseModel):
+    name: str | None = None
+    description: str | None = None
+
+@router.patch("/{project_id}", response_model=ProjectResponse)
+async def patch_project(project_id: str, body: ProjectPatchBody, db: AsyncSession = Depends(get_db)):
+    """Update a project's name or description."""
+    stmt = select(ProjectModel).where(ProjectModel.id == project_id)
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+    
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if body.name is not None:
+        project.name = body.name.strip()[:100]
+    if body.description is not None:
+        project.description = body.description.strip()
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"Project name '{body.name}' already exists")
+        
+    await db.refresh(project)
+    
+    # Get doc count
+    count_stmt = select(func.count(DocumentModel.id)).where(DocumentModel.project_id == project_id)
+    count_result = await db.execute(count_stmt)
+    doc_count = count_result.scalar() or 0
+    
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        document_count=doc_count,
+    )
+
+
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a project and all its associated data (documents, chunks, embeddings, sessions)."""

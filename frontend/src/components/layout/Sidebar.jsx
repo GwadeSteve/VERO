@@ -94,6 +94,38 @@ export default function Sidebar({
     }
   };
 
+  const handleRenameProject = async (pid, oldName) => {
+    const newName = window.prompt("Rename workspace:", oldName || '');
+    if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+    try {
+      await api.updateProject(pid, { name: newName.trim() });
+      setRecentProjects(prev => prev.map(p => p.id === pid ? { ...p, name: newName.trim() } : p));
+      if (onRefreshProjects) onRefreshProjects();
+      toast?.('Workspace renamed.', 'success');
+    } catch { toast?.('Failed to rename workspace', 'error'); }
+  };
+
+  const handleRenameSession = async (sid, pid, oldTitle) => {
+    const newTitle = window.prompt("Rename session:", oldTitle || '');
+    if (!newTitle || newTitle.trim() === '' || newTitle.trim() === oldTitle) return;
+    try {
+      await api.renameSession(sid, newTitle.trim());
+      // Update local cache
+      setCachedSessions(prev => {
+        const next = { ...prev };
+        if (next[pid] && next[pid].data) {
+          next[pid].data = next[pid].data.map(s => s.id === sid ? { ...s, title: newTitle.trim() } : s);
+        }
+        return next;
+      });
+      // also if the current active project is the same, we need to update sessions array directly
+      if (projectId === pid && setSessions) {
+        setSessions(prev => prev.map(s => s.id === sid ? { ...s, title: newTitle.trim() } : s));
+      }
+      toast?.('Session renamed.', 'success');
+    } catch { toast?.('Failed to rename session', 'error'); }
+  };
+
   const DropdownItem = ({ icon: Icon, label, onClick, danger }) => (
     <button
       onClick={onClick}
@@ -383,7 +415,7 @@ export default function Sidebar({
                               boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 60, minWidth: 160,
                               backdropFilter: 'blur(10px)'
                             }}>
-                              <DropdownItem icon={Edit2} label="Rename" onClick={(e) => { e.stopPropagation(); toast?.('Rename not yet implemented', 'info'); setOpenProjectMenuId(null); }} />
+                              <DropdownItem icon={Edit2} label="Rename" onClick={(e) => { e.stopPropagation(); handleRenameProject(p.id, p.name); setOpenProjectMenuId(null); }} />
                               <DropdownItem icon={Pin} label="Pin" onClick={(e) => { e.stopPropagation(); toast?.('Pin not yet implemented', 'info'); setOpenProjectMenuId(null); }} />
                               <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                               <DropdownItem icon={Trash2} label="Delete" danger onClick={(e) => { e.stopPropagation(); handleDeleteProject(p.id); }} />
@@ -479,7 +511,7 @@ export default function Sidebar({
                                       boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 50, minWidth: 160,
                                       backdropFilter: 'blur(10px)'
                                     }}>
-                                      <DropdownItem icon={Edit2} label="Rename" onClick={(e) => { e.stopPropagation(); toast?.('Rename not yet implemented', 'info'); setOpenSessionMenuId(null); }} />
+                                      <DropdownItem icon={Edit2} label="Rename" onClick={(e) => { e.stopPropagation(); handleRenameSession(s.id, p.id, s.title); setOpenSessionMenuId(null); }} />
                                       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                                       <DropdownItem icon={Trash2} label="Delete" danger onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id); }} />
                                     </div>

@@ -115,6 +115,7 @@ function preprocessTextForMarkdown(text) {
 export default function WorkspacePage({ projectId, activeSessionId, setSessions, onRefreshProjects, isMobile, onOpenMobileMenu }) {
     // Project info
     const [project, setProject] = useState(null);
+    const [sessionTitle, setSessionTitle] = useState('');
 
     // Docs & ingestion
     const [docs, setDocs] = useState([]);
@@ -211,6 +212,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             setTraceResults([]);
             setStreamingText('');
             setIsStreaming(false);
+            setSessionTitle('');
         }
     }, [activeSessionId]);
 
@@ -233,6 +235,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         try {
             const s = await api.getSession(sid);
             if (!s) throw new Error("Session not found");
+            setSessionTitle(s.title || 'Chat');
             setMessages((s.messages || []).map(m => ({
                 id: m.id,
                 role: m.role,
@@ -260,6 +263,35 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             } catch (err) {
                 toast?.('Failed to delete workspace.', 'error');
             }
+        }
+    };
+
+    const handleRenameProject = async () => {
+        const newName = window.prompt('Rename workspace:', project?.name || '');
+        if (!newName || newName.trim() === '' || newName.trim() === project?.name) return;
+        try {
+            await api.updateProject(projectId, { name: newName.trim() });
+            setProject(prev => ({ ...prev, name: newName.trim() }));
+            toast?.('Workspace renamed.', 'success');
+            onRefreshProjects?.();
+        } catch (err) {
+            toast?.('Failed to rename workspace.', 'error');
+        }
+    };
+
+    const handleRenameSession = async () => {
+        const newTitle = window.prompt('Rename session:', sessionTitle || '');
+        if (!newTitle || newTitle.trim() === '' || newTitle.trim() === sessionTitle) return;
+        if (!activeSessionId) return;
+        try {
+            await api.renameSession(activeSessionId, newTitle.trim());
+            setSessionTitle(newTitle.trim());
+            if (setSessions) {
+                setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, title: newTitle.trim() } : s));
+            }
+            toast?.('Session renamed.', 'success');
+        } catch (err) {
+            toast?.('Failed to rename session.', 'error');
         }
     };
 
@@ -417,6 +449,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 sid = s.id;
                 navigate(`/p/${projectId}/c/${sid}`, { replace: true });
                 if (setSessions) setSessions(prev => [s, ...prev]);
+                setSessionTitle(s.title || 'New Chat');
                 onRefreshProjects?.();
             }
 
@@ -440,6 +473,20 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 });
             }
             onRefreshProjects?.();
+
+            // Refresh session title after first message (backend auto-names)
+            if (sid) {
+                try {
+                    const updatedSession = await api.getSession(sid);
+                    if (updatedSession?.title) {
+                        setSessionTitle(updatedSession.title);
+                        // Also update in sidebar sessions list
+                        if (setSessions) {
+                            setSessions(prev => prev.map(s => s.id === sid ? { ...s, title: updatedSession.title } : s));
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+            }
 
             setSearching(false);
             const answerTime = new Date().toISOString();
@@ -620,85 +667,113 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             {/* ═══════ CENTER: Main Chat ═══════ */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--bg-0)' }}>
 
-                {/* Workspace Header - Minimal & Rich */}
-                <header className="workspace-header" style={{
-                    padding: '12px 32px', borderBottom: '1px solid var(--border)',
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', zIndex: 10, position: 'sticky', top: 0,
-                    backdropFilter: 'blur(30px)', background: 'var(--bg-glass)'
+                {/* Workspace Header — SOTA Minimal */}
+                <header style={{
+                    padding: '0 20px', height: 52, borderBottom: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    zIndex: 10, position: 'sticky', top: 0,
+                    backdropFilter: 'blur(30px)', background: 'var(--bg-glass)',
+                    gap: 12, flexShrink: 0
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    {/* Left: Navigation + Title */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         {isMobile && (
-                            <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu">
-                                <Menu size={20} />
+                            <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu" style={{
+                                width: 34, height: 34, borderRadius: 8, border: 'none',
+                                background: 'transparent', color: 'var(--text-3)', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                            }}>
+                                <Menu size={18} />
                             </button>
                         )}
-                        <div className="header-text-container">
-                            <h2 className="header-title" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.01em', marginBottom: 2 }}>
+                        {/* Project chip */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+                            background: 'var(--bg-2)', borderRadius: 6, border: '1px solid var(--border)',
+                            flexShrink: 0, maxWidth: isMobile ? 120 : 200
+                        }}>
+                            <Layers size={12} color="var(--accent)" style={{ flexShrink: 0 }} />
+                            <span style={{
+                                fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                            }}>
                                 {project?.name || 'Workspace'}
-                            </h2>
-                            <div className="header-metrics" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-4)', fontWeight: 500 }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <Clock size={12} /> {lastActive}
-                                </span>
-                                {docs.length > 0 && (
-                                    <>
-                                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--border)' }} />
-                                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                            {pdfCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><FileText size={12} color="var(--red)" /> {pdfCount} PDFs</span>}
-                                            {wordCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><FileType size={12} color="#2b579a" /> {wordCount} Words</span>}
-                                            {txtCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><AlignLeft size={12} color="var(--text-2)" /> {txtCount} Texts</span>}
-                                            {mdCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><FileCode size={12} color="#e34c26" /> {mdCount} MDs</span>}
-                                            {githubCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><Github size={12} color="var(--text)" /> {githubCount} Repos</span>}
-                                            {linkCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><Globe size={12} color="var(--accent)" /> {linkCount} Links</span>}
-                                            {otherCount > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><FileArchive size={12} color="var(--text-4)" /> {otherCount} Docs</span>}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                            </span>
                         </div>
+                        {/* Separator */}
+                        <ChevronRight size={14} color="var(--text-4)" style={{ flexShrink: 0 }} />
+                        {/* Session name — clickable to rename */}
+                        <span
+                            onClick={handleRenameSession}
+                            title={sessionTitle || 'New Chat'}
+                            style={{
+                                fontSize: 14, fontWeight: 600, color: 'var(--text)',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                cursor: 'pointer', minWidth: 0, letterSpacing: '-0.01em',
+                                transition: 'color 0.15s ease'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'var(--text)'}
+                        >
+                            {sessionTitle || 'New Chat'}
+                        </span>
                     </div>
-                    {/* Header Quick Actions */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <button className="header-action-btn hide-on-small-mobile" title="Pin Workspace" style={{
-                            width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
-                            color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.2s ease'
-                        }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
-                            <Pin size={16} />
-                        </button>
-                        <button className="header-action-btn hide-on-small-mobile" title="Rename Workspace" style={{
-                            width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
-                            color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.2s ease'
-                        }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
-                            <Edit2 size={16} />
-                        </button>
-                        <button className="header-action-btn" title="Delete Workspace" onClick={handleDeleteProject} style={{
-                            width: 32, height: 32, borderRadius: 8, border: 'none', background: 'transparent',
-                            color: 'var(--text-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.2s ease'
-                        }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--red-dim)'; e.currentTarget.style.color = 'var(--red)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-3)'; }}>
-                            <Trash2 size={16} />
-                        </button>
+
+                    {/* Right: Compact action strip */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                        {[
+                            { icon: Pencil, title: 'Rename', onClick: handleRenameSession, hideOnMobile: true },
+                            { icon: Trash2, title: 'Delete Workspace', onClick: handleDeleteProject, danger: true, hideOnMobile: true },
+                        ].map(({ icon: Icon, title, onClick, danger, hideOnMobile }, i) => (
+                            <button
+                                key={i}
+                                title={title}
+                                onClick={onClick}
+                                className={hideOnMobile ? 'hide-on-small-mobile' : ''}
+                                style={{
+                                    width: 32, height: 32, borderRadius: 8, border: 'none',
+                                    background: 'transparent', color: 'var(--text-4)',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    transition: 'all 0.15s ease'
+                                }}
+                                onMouseEnter={e => {
+                                    e.currentTarget.style.background = danger ? 'var(--red-dim)' : 'var(--bg-hover)';
+                                    e.currentTarget.style.color = danger ? 'var(--red)' : 'var(--text)';
+                                }}
+                                onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = 'var(--text-4)';
+                                }}
+                            >
+                                <Icon size={15} />
+                            </button>
+                        ))}
+                        {/* Divider */}
                         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+                        {/* Sources panel toggle with badge */}
                         <button
-                            className="header-action-btn"
-                            title={rightPanelOpen ? 'Hide Sources Panel' : 'Show Sources Panel'}
+                            title={rightPanelOpen ? 'Hide Sources' : 'Show Sources'}
                             onClick={() => setRightPanelOpen(p => !p)}
                             style={{
-                                width: 32, height: 32, borderRadius: 8, border: 'none',
+                                height: 32, borderRadius: 8, border: 'none',
+                                padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5,
                                 background: rightPanelOpen ? 'var(--accent-dim)' : 'transparent',
-                                color: rightPanelOpen ? 'var(--accent)' : 'var(--text-3)',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                transition: 'all 0.2s ease'
+                                color: rightPanelOpen ? 'var(--accent)' : 'var(--text-4)',
+                                cursor: 'pointer', transition: 'all 0.2s ease', fontSize: 12, fontWeight: 600
                             }}
                             onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; } }}
+                            onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; } }}
                         >
-                            <Library size={16} />
+                            <Library size={15} />
+                            {docs.length > 0 && (
+                                <span style={{
+                                    fontSize: 10, fontWeight: 700, background: rightPanelOpen ? 'var(--accent)' : 'var(--text-4)',
+                                    color: 'var(--bg-0)', borderRadius: 4, padding: '1px 5px',
+                                    lineHeight: '16px', minWidth: 18, textAlign: 'center'
+                                }}>
+                                    {docs.length}
+                                </span>
+                            )}
                         </button>
                     </div>
                 </header>
@@ -1327,6 +1402,29 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </button>
                         )}
                     </div>
+                    {/* Source type breakdown badges */}
+                    {docs.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+                            {[
+                                { count: pdfCount, label: 'PDF', icon: FileText, color: '#ef4444' },
+                                { count: wordCount, label: 'DOCX', icon: FileType, color: '#2b579a' },
+                                { count: txtCount, label: 'TXT', icon: AlignLeft, color: 'var(--text-2)' },
+                                { count: mdCount, label: 'MD', icon: FileCode, color: '#e34c26' },
+                                { count: githubCount, label: 'Repo', icon: Github, color: '#10b981' },
+                                { count: linkCount, label: 'Web', icon: Globe, color: 'var(--accent)' },
+                                { count: otherCount, label: 'Other', icon: FileArchive, color: 'var(--text-4)' },
+                            ].filter(s => s.count > 0).map(({ count, label, icon: Icon, color }) => (
+                                <span key={label} style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                    fontSize: 10, fontWeight: 600, color: color,
+                                    background: 'var(--bg-2)', border: '1px solid var(--border)',
+                                    borderRadius: 5, padding: '3px 7px', letterSpacing: '0.02em'
+                                }}>
+                                    <Icon size={10} /> {count} {label}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <label
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
