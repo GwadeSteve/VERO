@@ -261,7 +261,7 @@ export default function Sidebar({
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingTop: 16 }}>
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '16px 0 40px 0' }}>
         {/* 2. Quick Actions */}
         <div style={{ padding: collapsed ? '0 12px' : '0 16px', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 32 }}>
           {quickActions.map((action, i) => {
@@ -326,7 +326,7 @@ export default function Sidebar({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 14 }}>
                 {projectsListOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </div>
-              Recent Projects
+              Recent Workspaces
             </div>
 
             <div style={{ display: projectsListOpen ? 'flex' : 'none', flexDirection: 'column', gap: 6, padding: '0 16px' }}>
@@ -525,6 +525,22 @@ export default function Sidebar({
                     </div>
                   );
                 })
+              )}
+              {recentProjects.length > 0 && (
+                <div style={{ padding: '8px 12px', marginTop: 8 }}>
+                  <button 
+                    onClick={() => onNavigate('/')}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--text-4)', fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4,
+                      transition: 'color 0.15s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-4)'}
+                  >
+                    View all in Library <ChevronRight size={12} />
+                  </button>
+                </div>
               )}
             </div>
           </div>
