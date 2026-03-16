@@ -664,19 +664,6 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         if (!isFile(t)) return { icon: Globe, color: 'var(--accent)' };
         return { icon: FileArchive, color: 'var(--text-4)' };
     };
-
-    const pdfCount = docs.filter(d => d.title?.toLowerCase()?.endsWith('.pdf')).length;
-    const wordCount = docs.filter(d => d.title?.toLowerCase()?.endsWith('.doc') || d.title?.toLowerCase()?.endsWith('.docx')).length;
-    const txtCount = docs.filter(d => d.title?.toLowerCase()?.endsWith('.txt')).length;
-    const mdCount = docs.filter(d => d.title?.toLowerCase()?.endsWith('.md')).length;
-    const githubCount = docs.filter(d => d.title?.toLowerCase()?.includes('github')).length;
-
-    // Web links usually don't have file extensions, and are not github repos
-    const linkCount = docs.filter(d => !isFile(d.title) && !d.title?.toLowerCase()?.includes('github')).length;
-
-    // For anything absolutely unknown
-    const otherCount = docs.length - (pdfCount + wordCount + txtCount + mdCount + githubCount + linkCount);
-
     const lastActive = project?.updated_at ? new Date(project.updated_at).toLocaleDateString() : 'Active Now';
 
     // Pre-calculate traces by doc
@@ -1680,29 +1667,6 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </button>
                         )}
                     </div>
-                    {/* Source type breakdown badges */}
-                    {docs.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
-                            {[
-                                { count: pdfCount, label: 'PDF', icon: FileText, color: '#ef4444' },
-                                { count: wordCount, label: 'DOCX', icon: FileType, color: '#2b579a' },
-                                { count: txtCount, label: 'TXT', icon: AlignLeft, color: 'var(--text-2)' },
-                                { count: mdCount, label: 'MD', icon: FileCode, color: '#e34c26' },
-                                { count: githubCount, label: 'Repo', icon: Github, color: '#10b981' },
-                                { count: linkCount, label: 'Web', icon: Globe, color: 'var(--accent)' },
-                                { count: otherCount, label: 'Other', icon: FileArchive, color: 'var(--text-4)' },
-                            ].filter(s => s.count > 0).map(({ count, label, icon: Icon, color }) => (
-                                <span key={label} style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    fontSize: 10, fontWeight: 600, color: color,
-                                    background: 'var(--bg-2)', border: '1px solid var(--border)',
-                                    borderRadius: 5, padding: '3px 7px', letterSpacing: '0.02em'
-                                }}>
-                                    <Icon size={10} /> {count} {label}
-                                </span>
-                            ))}
-                        </div>
-                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <label
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
