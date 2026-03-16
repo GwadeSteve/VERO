@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
+from pydantic import BaseModel 
 
 from app.database import get_db
 from app.models import ProjectModel, DocumentModel, ChunkModel, SessionModel, SessionMessageModel

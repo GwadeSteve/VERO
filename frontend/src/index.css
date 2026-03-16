@@ -920,3 +920,82 @@ input[type="url"] {
     max-width: 100% !important;
   }
 }
+/* Premium Shimmer and Glow Animations */
+@keyframes shimmer-bg {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+
+@keyframes float-icon {
+    0%, 100% { transform: translateY(0) scale(1.05); }
+    50% { transform: translateY(-4px) scale(1); }
+}
+
+@keyframes pulse-glow {
+    0% { box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2); }
+    50% { box-shadow: 0 0 25px rgba(var(--accent-rgb), 0.6); }
+    100% { box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2); }
+}
+
+/* ─── Premium Model Knowledge Badge ────────── */
+.ai-knowledge-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  overflow: hidden;
+  cursor: default;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.ai-knowledge-badge:hover {
+  border-color: var(--accent-border);
+  background: var(--bg-1);
+  color: var(--text);
+  box-shadow: 0 4px 12px var(--accent-dim);
+}
+
+/* Elegant moving shine effect */
+.ai-knowledge-badge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+      to right,
+      transparent,
+      var(--bg-hover),
+      transparent
+  );
+  transform: skewX(-20deg);
+  animation: sota-shimmer-sweep 5s infinite cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-icon-sparkle {
+  color: var(--accent);
+  transition: transform 0.3s ease;
+  animation: sota-gentle-pulse 3.5s ease-in-out infinite;
+}
+
+@keyframes sota-shimmer-sweep {
+  0% { left: -100%; }
+  15% { left: 200%; }
+  100% { left: 200%; }
+}
+
+@keyframes sota-gentle-pulse {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; filter: drop-shadow(0 0 2px var(--accent-dim)); }
+  50% { transform: scale(1.1) rotate(6deg); opacity: 1; filter: drop-shadow(0 0 6px var(--accent-border)); }
+}

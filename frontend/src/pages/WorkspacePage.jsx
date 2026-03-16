@@ -8,7 +8,7 @@ import 'katex/dist/katex.min.css';
 import { api } from '../api';
 import { useToast } from '../components/ui/Toast';
 import {
-    Send, Search, Loader2, FileText, ArrowUp,
+    Send, Search, Loader2, FileText, ArrowUp, Sparkles,
     RefreshCw, User, Bot, CheckCircle2, UploadCloud, Globe,
     X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2, Cpu, Zap,
     FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library, MessageSquare
@@ -962,13 +962,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                     {m.timestamp && <span style={{ fontSize: 13, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
                                                     {m.stopped && <span style={{ fontSize: 13, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
                                                     {m.usedModelKnowledge && (
-                                                        <span style={{
-                                                            fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
-                                                            color: 'var(--accent)', background: 'var(--accent-dim)',
-                                                            border: '1px solid var(--accent-border)',
-                                                            padding: '1px 6px', borderRadius: 4,
-                                                            textTransform: 'uppercase',
-                                                        }}>✦ Enhanced</span>
+                                                        <div className="ai-knowledge-badge" title="This response leveraged the AI's built-in model knowledge">
+                                                            <Sparkles size={13} className="ai-icon-sparkle" />
+                                                            <span>Model Knowledge</span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -1667,65 +1664,90 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </button>
                         )}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px', background: 'var(--bg-0)', borderRadius: 16, border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
                         <label
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                             onDragLeave={() => setDragOver(false)}
                             onDrop={handleDrop}
-                            title="Click or drag & drop files here (PDF, DOCX, TXT, MD, CSV)"
                             style={{
-                                width: '100%', height: 40, borderRadius: 8,
-                                border: `1px ${dragOver ? 'solid' : 'dashed'} ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
-                                background: dragOver ? 'var(--bg-hover)' : 'var(--bg-2)',
-                                color: dragOver ? 'var(--accent)' : 'var(--text-3)', fontSize: 13, fontWeight: 600,
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                transition: 'all 0.15s ease', margin: 0
+                                width: '100%', padding: '24px 16px', borderRadius: 12,
+                                border: `2px ${dragOver ? 'solid' : 'dashed'} ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
+                                background: dragOver ? 'var(--bg-hover)' : 'transparent',
+                                color: dragOver ? 'var(--text)' : 'var(--text-3)',
+                                cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)', position: 'relative', overflow: 'hidden'
                             }}
                             onMouseEnter={e => {
                                 if (!dragOver) {
-                                    e.currentTarget.style.borderColor = 'var(--accent-dim)';
-                                    e.currentTarget.style.background = 'var(--bg-hover)';
-                                    e.currentTarget.style.color = 'var(--text)';
+                                    e.currentTarget.style.borderColor = 'var(--text-4)';
+                                    e.currentTarget.style.color = 'var(--text-2)';
+                                    e.currentTarget.style.background = 'var(--bg-1)';
                                 }
                             }}
                             onMouseLeave={e => {
                                 if (!dragOver) {
                                     e.currentTarget.style.borderColor = 'var(--border)';
-                                    e.currentTarget.style.background = 'var(--bg-2)';
                                     e.currentTarget.style.color = 'var(--text-3)';
+                                    e.currentTarget.style.background = 'transparent';
                                 }
                             }}
                         >
-                            <UploadCloud size={16} /> {ingesting ? 'Processing...' : 'Upload File'}
+                            <div style={{
+                                width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-2)', border: '1px solid var(--border)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)',
+                                transition: 'transform 0.2s ease', transform: dragOver ? 'scale(1.1)' : 'scale(1)', flexShrink: 0
+                            }}>
+                                <UploadCloud size={20} color={dragOver ? 'var(--accent)' : 'currentColor'} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center' }}>
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>{ingesting ? 'Processing Upload...' : 'Click or drag files to upload'}</span>
+                                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>Supports PDF, DOCX, TXT, MD, CSV</span>
+                            </div>
                             <input ref={fileRef} type="file" multiple onChange={e => handleFiles(e.target.files)} style={{ display: 'none' }} accept=".pdf,.txt,.md,.docx,.csv" />
                         </label>
-                        <form onSubmit={handleUrlIngest} style={{ display: 'flex', width: '100%', gap: 6 }}>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ height: 1, flex: 1, background: 'var(--border)' }} />
+                            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>OR IMPORT URL</span>
+                            <div style={{ height: 1, flex: 1, background: 'var(--border)' }} />
+                        </div>
+
+                        <form onSubmit={handleUrlIngest} style={{ display: 'flex', width: '100%', gap: 6, position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: 10, top: 0, bottom: 0, display: 'flex', alignItems: 'center', pointerEvents: 'none', color: 'var(--text-4)' }}>
+                                <Globe size={14} />
+                            </div>
                             <input
                                 value={url}
                                 onChange={e => setUrl(e.target.value)}
-                                placeholder="Paste URL or GitHub link..."
+                                placeholder="Paste website or repo..."
                                 style={{
-                                    flex: 1, height: 40, padding: '0 12px', background: 'var(--bg-2)',
+                                    flex: 1, height: 36, padding: '0 10px 0 32px', background: 'var(--bg-2)',
                                     border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
-                                    fontSize: 13, outline: 'none', fontWeight: 500
+                                    fontSize: 12, outline: 'none', fontWeight: 500,
+                                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease', minWidth: 0
                                 }}
+                                onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-dim)'; e.currentTarget.style.boxShadow = '0 0 0 2px var(--bg-hover)'; }}
+                                onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                             />
                             <button type="submit" disabled={!url.trim() || ingesting} style={{
-                                width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                                 background: (!url.trim() || ingesting) ? 'var(--bg-3)' : 'var(--accent)',
                                 color: (!url.trim() || ingesting) ? 'var(--text-4)' : 'var(--bg-0)',
                                 border: 'none', borderRadius: 8, cursor: (!url.trim() || ingesting) ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s ease'
-                            }}>
-                                {ingesting ? <Loader2 size={16} className="spin" /> : <Globe size={16} />}
+                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                            }}
+                            onMouseEnter={e => { if(url.trim() && !ingesting) e.currentTarget.style.transform = 'scale(1.05)'; }}
+                            onMouseLeave={e => { if(url.trim() && !ingesting) e.currentTarget.style.transform = 'scale(1)'; }}
+                            >
+                                {ingesting ? <Loader2 size={14} className="spin" /> : <Plus size={16} />}
                             </button>
                         </form>
+                        {ingesting && (
+                            <div style={{ height: 3, borderRadius: 2, background: 'var(--bg-3)', overflow: 'hidden', marginTop: 4 }}>
+                                <div style={{ height: '100%', width: '40%', background: 'var(--accent)', borderRadius: 2, animation: 'shimmer 1.5s infinite' }} />
+                            </div>
+                        )}
                     </div>
-                    {ingesting && (
-                        <div style={{ marginTop: 8, height: 2, borderRadius: 1, background: 'var(--bg-3)', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: '40%', background: 'var(--accent)', borderRadius: 1, animation: 'shimmer 1.5s infinite' }} />
-                        </div>
-                    )}
                 </div>
 
                 {/* ── Citation Chunk Drill-Down ── */}
