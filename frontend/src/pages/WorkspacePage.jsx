@@ -10,7 +10,7 @@ import { useToast } from '../components/ui/Toast';
 import {
     Send, Search, Loader2, FileText, ArrowUp,
     RefreshCw, User, Bot, CheckCircle2, UploadCloud, Globe,
-    X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2,
+    X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2, Cpu, Zap,
     FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library, MessageSquare
 } from 'lucide-react';
 
@@ -139,6 +139,23 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         const saved = localStorage.getItem('vero-model-knowledge');
         return saved === 'true';
     });
+
+    // Chat Input UI State
+    const [modelMenuOpen, setModelMenuOpen] = useState(false);
+    const modelMenuRef = useRef(null);
+
+    // Click-away listener for Model Menu
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (modelMenuRef.current && !modelMenuRef.current.contains(event.target)) {
+                setModelMenuOpen(false);
+            }
+        };
+        if (modelMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [modelMenuOpen]);
     const [loadingText, setLoadingText] = useState('Analyzing sources...');
     const [rightPanelOpen, setRightPanelOpen] = useState(() => {
         const saved = localStorage.getItem('vero-right-panel');
@@ -1358,33 +1375,33 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 </div>
 
                 {/* Input Zone */}
-                <div className="chat-input-zone" style={{ padding: '0px 32px 16px', background: 'var(--bg-0)' }}>
+                <div className="chat-input-zone" style={{ padding: '0px 32px 32px', background: 'var(--bg-0)', position: 'relative', zIndex: 10 }}>
                     <form onSubmit={send} style={{
                         maxWidth: 840, margin: '0 auto', position: 'relative',
                         background: 'var(--input-bg)',
-                        border: '1px solid var(--input-border)',
-                        borderRadius: 16, padding: '10px 14px',
-                        display: 'flex', flexDirection: 'column', gap: 10,
-                        boxShadow: 'var(--shadow-md)',
-                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 24, padding: '16px 20px',
+                        display: 'flex', flexDirection: 'column', gap: 14,
+                        boxShadow: '0 12px 32px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04)',
+                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                         ...(docs.length === 0 ? { opacity: 0.5, pointerEvents: 'none', filter: 'grayscale(1)' } : {})
                     }}
                         onFocusCapture={e => {
-                            e.currentTarget.style.borderColor = 'var(--input-focus-border)';
-                            e.currentTarget.style.boxShadow = 'var(--shadow-md), var(--input-focus-shadow)';
+                            e.currentTarget.style.borderColor = 'var(--accent-dim)';
+                            e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.08), 0 0 0 3px var(--accent-dim)';
                         }}
                         onBlurCapture={e => {
-                            e.currentTarget.style.borderColor = 'var(--input-border)';
-                            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04)';
                         }}
                     >
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                             <textarea
                                 value={query}
                                 onChange={e => {
                                     setQuery(e.target.value);
                                     e.target.style.height = 'auto';
-                                    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                                    e.target.style.height = Math.min(e.target.scrollHeight, 240) + 'px';
                                 }}
                                 onKeyDown={e => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1393,27 +1410,27 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                     }
                                 }}
                                 disabled={docs.length === 0}
-                                placeholder={docs.length === 0 ? "Import documents to start..." : (isStreaming || searching) ? "VERO is answering..." : "Ask VERO anything..."}
+                                placeholder={docs.length === 0 ? "Import documents to start typing..." : (isStreaming || searching) ? "VERO is answering..." : "Ask VERO anything..."}
                                 rows={1}
                                 style={{
                                     flex: 1, border: 'none', background: 'transparent', color: 'var(--text)',
-                                    padding: '4px 0', fontSize: 14, fontFamily: 'var(--font)',
+                                    padding: '4px 0', fontSize: 15, fontFamily: 'var(--font)',
                                     outline: 'none', fontWeight: 500, resize: 'none',
-                                    minHeight: 28, maxHeight: 200, lineHeight: 1.5,
+                                    minHeight: 28, maxHeight: 240, lineHeight: 1.6,
                                     overflowY: 'auto'
                                 }}
                             />
                             <button type="submit" disabled={!query.trim() || searching || isStreaming || docs.length === 0}
                                 title={isStreaming ? 'Wait for VERO to finish' : 'Send message'}
                                 style={{
-                                    width: 36, height: 36, borderRadius: '50%', border: 'none', flexShrink: 0,
-                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--bg-2)' : 'var(--submit-bg)',
-                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-4)' : 'var(--submit-fg)',
+                                    width: 40, height: 40, borderRadius: '50%', border: 'none', flexShrink: 0,
+                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--bg-2)' : 'var(--text)',
+                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-4)' : 'var(--bg-0)',
                                     cursor: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'not-allowed' : 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                     transform: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'scale(0.9)' : 'scale(1)',
-                                    boxShadow: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'none' : 'var(--submit-shadow)'
+                                    boxShadow: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'none' : '0 4px 12px rgba(0,0,0,0.15)'
                                 }}
                                 onMouseEnter={e => {
                                     if (query.trim() && !searching && !isStreaming && docs.length > 0) {
@@ -1430,52 +1447,188 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </button>
                         </div>
 
-                        {/* Compact Toolbar */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
-                            <div
-                                onClick={() => {
-                                    const next = !modelKnowledge;
-                                    setModelKnowledge(next);
-                                    localStorage.setItem('vero-model-knowledge', String(next));
-                                }}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-                                    padding: '4px 10px 4px 6px', borderRadius: 100,
-                                    background: modelKnowledge ? 'var(--accent-dim)' : 'transparent',
-                                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                                }}
-                                onMouseEnter={e => {
-                                    if (!modelKnowledge) e.currentTarget.style.background = 'var(--bg-hover)';
-                                }}
-                                onMouseLeave={e => {
-                                    if (!modelKnowledge) e.currentTarget.style.background = 'transparent';
-                                }}
-                            >
-                                {/* The Switch Track */}
-                                <div style={{
-                                    width: 32, height: 18, borderRadius: 9,
-                                    background: modelKnowledge ? 'var(--accent)' : 'var(--bg-3)',
-                                    border: `1px solid ${modelKnowledge ? 'transparent' : 'var(--border)'}`,
-                                    position: 'relative', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                }}>
-                                    {/* The Switch Thumb */}
+                        {/* Premium Compact Toolbar */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                            
+                            {/* Left Side: Agentic Toggles */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                
+                                {/* Model Switcher Dropdown (Exhaustive & SOTA) */}
+                                <div style={{ position: 'relative' }} ref={modelMenuRef}>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setModelMenuOpen(!modelMenuOpen);
+                                        }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                                            padding: '8px 16px', borderRadius: 14,
+                                            background: 'var(--accent)', border: '1px solid var(--accent-border)',
+                                            color: 'var(--bg-0)', fontSize: 14, fontWeight: 700,
+                                            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)', outline: 'none',
+                                            boxShadow: '0 4px 14px var(--accent-dim)'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px var(--accent-dim)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px var(--accent-dim)'; }}
+                                    >
+                                        <Cpu size={16} color="var(--bg-0)" />
+                                        Groq Llama 3
+                                        <ChevronDown size={16} color="var(--bg-0)" style={{ opacity: 0.9, transform: modelMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }} />
+                                    </button>
+                                    
+                                    {/* Dropdown Menu (Popup) */}
                                     <div style={{
-                                        position: 'absolute', top: 1, left: modelKnowledge ? 15 : 1,
-                                        width: 14, height: 14, borderRadius: '50%',
-                                        background: modelKnowledge ? '#fff' : 'var(--text-3)',
+                                        position: 'absolute', bottom: 'calc(100% + 14px)', left: 0,
+                                        width: 260, background: 'var(--bg-0)',
+                                        border: '1px solid var(--border)', borderRadius: 20,
+                                        padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2,
+                                        boxShadow: '0 32px 64px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
+                                        opacity: modelMenuOpen ? 1 : 0, 
+                                        pointerEvents: modelMenuOpen ? 'auto' : 'none', 
+                                        transform: modelMenuOpen ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.98)',
+                                        transformOrigin: 'bottom left',
                                         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                    }} />
+                                        zIndex: 100
+                                    }}>
+                                        <div style={{ padding: '4px 12px 8px', fontSize: 11, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                            Available Models
+                                        </div>
+                                        
+                                        <div style={{ padding: '8px 12px 4px', fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>Groq (Ultra-Fast)</div>
+                                        {[
+                                            { id: 'llama3-70b', name: 'Llama 3.3 70B', icon: Zap, desc: 'Highest reasoning' },
+                                            { id: 'llama3-8b', name: 'Llama 3.1 8B', icon: Zap, desc: 'Instant responses' },
+                                        ].map(m => (
+                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Switched to ${m.name}. Architecture update coming soon.`, 'success'); }} style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '8px 12px', borderRadius: 12, border: 'none',
+                                                background: 'transparent', cursor: 'pointer',
+                                                transition: 'all 0.15s ease', textAlign: 'left', outline: 'none'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <m.icon size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
+                                                    <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>{m.desc}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+
+                                        <div style={{ padding: '12px 12px 4px', fontSize: 11, fontWeight: 700, color: '#e34c26' }}>Google (Multimodal)</div>
+                                        {[
+                                            { id: 'gemini-2-flash', name: 'Gemini 2.0 Flash', icon: Wand2, desc: 'Speed & intelligence' }
+                                        ].map(m => (
+                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Switched to ${m.name}. Architecture update coming soon.`, 'success'); }} style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '8px 12px', borderRadius: 12, border: 'none',
+                                                background: 'transparent', cursor: 'pointer',
+                                                transition: 'all 0.15s ease', textAlign: 'left', outline: 'none'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <m.icon size={16} color="#e34c26" style={{ flexShrink: 0 }} />
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
+                                                    <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>{m.desc}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+
+                                        <div style={{ padding: '12px 12px 4px', fontSize: 11, fontWeight: 700, color: '#10b981' }}>Local (Offline)</div>
+                                        {[
+                                            { id: 'ollama-llama3', name: 'Ollama Llama 3', icon: Layers, desc: '100% private logic' }
+                                        ].map(m => (
+                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Local models currently unconfigured.`, 'error'); }} style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '8px 12px', borderRadius: 12, border: 'none',
+                                                background: 'transparent', cursor: 'pointer',
+                                                transition: 'all 0.15s ease', textAlign: 'left', outline: 'none'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <m.icon size={16} color="#10b981" style={{ flexShrink: 0 }} />
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
+                                                    <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>{m.desc}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <span style={{
-                                    fontSize: 11, fontWeight: 600,
-                                    color: modelKnowledge ? 'var(--accent)' : 'var(--text-4)',
-                                    transition: 'color 0.3s ease'
-                                }}>
-                                    Model Knowledge
-                                </span>
+
+                                {/* Web Search Pivot */}
+                                <button type="button"
+                                    onClick={() => toast?.('Live Web Search capability is still in development.', 'info')}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                                        padding: '6px 12px', borderRadius: 12, outline: 'none',
+                                        background: 'transparent', border: '1px solid transparent',
+                                        color: 'var(--text-4)', fontSize: 13, fontWeight: 600,
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; }}
+                                >
+                                    <Globe size={15} />
+                                    Search Web
+                                </button>
+                                
+                                <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+                                {/* Upgraded Model Knowledge Toggle */}
+                                <button type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        const next = !modelKnowledge;
+                                        setModelKnowledge(next);
+                                        localStorage.setItem('vero-model-knowledge', String(next));
+                                    }}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', outline: 'none',
+                                        padding: '6px 12px 6px 8px', borderRadius: 100,
+                                        background: modelKnowledge ? 'var(--accent-dim)' : 'transparent',
+                                        border: `1px solid ${modelKnowledge ? 'var(--accent-border)' : 'transparent'}`,
+                                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                                    }}
+                                    onMouseEnter={e => {
+                                        if (!modelKnowledge) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-2)'; }
+                                    }}
+                                    onMouseLeave={e => {
+                                        if (!modelKnowledge) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; }
+                                    }}
+                                >
+                                    <div style={{
+                                        width: 36, height: 20, borderRadius: 10,
+                                        background: modelKnowledge ? 'var(--accent)' : 'var(--bg-3)',
+                                        border: `1px solid ${modelKnowledge ? 'transparent' : 'var(--border)'}`,
+                                        position: 'relative', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                    }}>
+                                        <div style={{
+                                            position: 'absolute', top: 1, left: modelKnowledge ? 17 : 1,
+                                            width: 16, height: 16, borderRadius: '50%',
+                                            background: modelKnowledge ? '#fff' : 'var(--text-3)',
+                                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        }} />
+                                    </div>
+                                    <span style={{
+                                        fontSize: 13, fontWeight: 600,
+                                        color: modelKnowledge ? 'var(--accent)' : 'var(--text-4)',
+                                        transition: 'color 0.3s ease'
+                                    }}>
+                                        Model Knowledge
+                                    </span>
+                                </button>
                             </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-4)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4, opacity: 0.6 }}>
-                                <Info size={10} /> ⏎ Send · ⇧⏎ Newline
+
+                            {/* Right Side Hint */}
+                            <div className="hide-on-mobile" style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Info size={12} /> <span><strong>Enter</strong> to Send</span> <span>·</span> <span><strong>Shift + Enter</strong> for Newline</span>
                             </div>
                         </div>
                     </form>
