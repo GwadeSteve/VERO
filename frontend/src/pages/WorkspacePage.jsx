@@ -180,14 +180,14 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     const [projectSessions, setProjectSessions] = useState([]);
     const [loadingSessions, setLoadingSessions] = useState(false);
     const sessionMenuRef = useRef(null);
-    
+
     useEffect(() => {
         if (sessionMenuOpen && projectId) {
             setLoadingSessions(true);
             api.getSessions(projectId)
-               .then(data => setProjectSessions(data))
-               .catch(err => console.error(err))
-               .finally(() => setLoadingSessions(false));
+                .then(data => setProjectSessions(data))
+                .catch(err => console.error(err))
+                .finally(() => setLoadingSessions(false));
         }
     }, [sessionMenuOpen, projectId]);
 
@@ -515,7 +515,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
             setSearching(false);
             const answerTime = new Date().toISOString();
-            
+
             // Push an empty streaming message first
             setMessages(prev => [...prev, {
                 role: 'assistant', text: '',
@@ -527,7 +527,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 usedModelKnowledge: modelKnowledge,
             }]);
 
-            streamText(cr?.answer || "No response generated.", 
+            streamText(cr?.answer || "No response generated.",
                 (chunk) => {
                     setMessages(prev => {
                         const next = [...prev];
@@ -672,10 +672,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     // ── Pre-process Text for ReactMarkdown Citations ────────────────
     const preprocessTextForMarkdown = (text) => {
         if (!text) return '';
-        
+
         // This regex aggressively looks for bracketed numbers like [Source 1], [1], [Sources 1, 2], [1 and 2]
         const citationPattern = /\[(?:Sources?\s*)?((?:\d+(?:,\s*|\s+and\s+)*)+)\]/gi;
-        
+
         return text.replace(citationPattern, (match, numbersStr) => {
             const numbers = numbersStr.match(/\d+/g);
             if (numbers) {
@@ -727,7 +727,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         </div>
                         {/* Separator */}
                         <ChevronRight size={14} color="var(--text-4)" style={{ flexShrink: 0 }} />
-                        
+
                         {/* Session dropdown container */}
                         <div ref={sessionMenuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
                             <div
@@ -757,12 +757,12 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             {sessionMenuOpen && (
                                 <div
                                     style={{
-                                        position: isMobile ? 'fixed' : 'absolute', 
-                                        top: isMobile ? 64 : '100%', 
-                                        left: isMobile ? 12 : 0, 
+                                        position: isMobile ? 'fixed' : 'absolute',
+                                        top: isMobile ? 64 : '100%',
+                                        left: isMobile ? 12 : 0,
                                         right: isMobile ? 12 : 'auto',
                                         marginTop: isMobile ? 0 : 8,
-                                        width: isMobile ? 'auto' : 280, 
+                                        width: isMobile ? 'auto' : 280,
                                         background: 'var(--bg-0)',
                                         border: '1px solid var(--border)', borderRadius: 12,
                                         boxShadow: '0 12px 32px rgba(0,0,0,0.15)', zIndex: 100,
@@ -771,7 +771,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 >
                                     <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-1)' }}>
                                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>All Sessions</span>
-                                        <button 
+                                        <button
                                             onClick={(e) => { e.stopPropagation(); setSessionMenuOpen(false); navigate(`/p/${projectId}`); }}
                                             style={{
                                                 background: 'var(--accent)', color: 'var(--bg-0)', border: 'none',
@@ -789,7 +789,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                         ) : projectSessions.length === 0 && !activeSessionId ? (
                                             <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-4)', fontSize: 12 }}>No existing sessions</div>
                                         ) : (
-                                            projectSessions.sort((a,b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)).map(s => (
+                                            projectSessions.sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)).map(s => (
                                                 <div
                                                     key={s.id}
                                                     onClick={() => { setSessionMenuOpen(false); navigate(`/p/${projectId}/c/${s.id}`); }}
@@ -812,13 +812,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                 >
                                                     <MessageSquare size={14} color={s.id === activeSessionId ? 'var(--accent)' : 'var(--text-4)'} fill={s.id === activeSessionId ? 'var(--accent-dim)' : 'transparent'} style={{ flexShrink: 0 }} />
                                                     <span style={{ fontSize: 13, fontWeight: s.id === activeSessionId ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{s.title || 'Untitled Session'}</span>
-                                                    
+
                                                     {/* Inline Actions (visible on hover) */}
-                                                    <div className="session-actions" style={{ 
-                                                        display: 'flex', alignItems: 'center', gap: 6, 
+                                                    <div className="session-actions" style={{
+                                                        display: 'flex', alignItems: 'center', gap: 6,
                                                         opacity: 0, transition: 'opacity 0.2s', flexShrink: 0
                                                     }}>
-                                                        <button 
+                                                        <button
                                                             onClick={e => { e.stopPropagation(); setSessionMenuOpen(false); handleRenameSession(s.id, projectId, s.title); }}
                                                             style={{
                                                                 background: 'transparent', border: 'none', color: 'var(--text-4)',
@@ -831,9 +831,9 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         >
                                                             <Pencil size={13} />
                                                         </button>
-                                                        <button 
-                                                            onClick={e => { 
-                                                                e.stopPropagation(); 
+                                                        <button
+                                                            onClick={e => {
+                                                                e.stopPropagation();
                                                                 if (window.confirm('Delete this conversation?')) {
                                                                     api.deleteSession(s.id).then(() => {
                                                                         setProjectSessions(prev => prev.filter(x => x.id !== s.id));
@@ -869,23 +869,21 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             title={rightPanelOpen ? 'Hide Sources' : 'Show Sources'}
                             onClick={() => setRightPanelOpen(p => !p)}
                             style={{
-                                height: 36, borderRadius: 10,
-                                border: rightPanelOpen ? '1px solid transparent' : '1px solid var(--border-light)',
+                                height: 36, borderRadius: 10, border: 'none',
                                 padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6,
-                                background: rightPanelOpen ? 'var(--accent-dim)' : 'var(--bg-2)',
-                                color: rightPanelOpen ? 'var(--accent)' : 'var(--text-2)',
-                                cursor: 'pointer', transition: 'all 0.2s ease', fontSize: 13, fontWeight: 700,
-                                boxShadow: rightPanelOpen ? 'none' : '0 2px 4px rgba(0,0,0,0.05)'
+                                background: rightPanelOpen ? 'var(--accent-dim)' : 'transparent',
+                                color: rightPanelOpen ? 'var(--accent)' : 'var(--text-4)',
+                                cursor: 'pointer', transition: 'all 0.2s ease', fontSize: 13, fontWeight: 700
                             }}
-                            onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-3)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border)'; } }}
-                            onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-light)'; } }}
+                            onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; } }}
+                            onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; } }}
                         >
                             <Library size={16} />
                             {docs.length > 0 && (
                                 <span style={{
-                                    fontSize: 11, fontWeight: 800, 
+                                    fontSize: 11, fontWeight: 800,
                                     background: rightPanelOpen ? 'var(--accent)' : 'var(--bg-0)',
-                                    color: rightPanelOpen ? 'var(--bg-0)' : 'var(--accent)', 
+                                    color: rightPanelOpen ? 'var(--bg-0)' : 'var(--accent)',
                                     border: `1.5px solid ${rightPanelOpen ? 'transparent' : 'var(--accent)'}`,
                                     borderRadius: 14, padding: '2px 8px',
                                     lineHeight: '1', minWidth: 24, textAlign: 'center',
@@ -957,8 +955,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>VERO</span>
-                                                    {m.timestamp && <span style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
-                                                    {m.stopped && <span style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
+                                                    {m.timestamp && <span style={{ fontSize: 12, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
+                                                    {m.stopped && <span style={{ fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
                                                     {m.usedModelKnowledge && (
                                                         <span style={{
                                                             fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
@@ -970,7 +968,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                     )}
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Content / Text */}
                                             <div className="ai-message-content" style={{ paddingLeft: 44, width: '100%' }}>
                                                 <div className={`vero-md ${m.isStreaming ? "streaming-cursor" : ""}`} style={{
@@ -1003,14 +1001,14 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                                 onClick={() => { navigator.clipboard.writeText(String(children).replace(/\n$/, '')); /* Optional: toast here */ }}
                                                                                 style={{
                                                                                     background: 'none', border: 'none', color: 'var(--text-4)',
-                                                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                                                                                    fontSize: 11, fontWeight: 500, padding: '4px 8px', borderRadius: 4,
+                                                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                                                                                    fontSize: 12, fontWeight: 500, padding: '4px 8px', borderRadius: 4,
                                                                                     transition: 'all 0.15s ease'
                                                                                 }}
                                                                                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'var(--bg-hover)'; }}
                                                                                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                                             >
-                                                                                <Copy size={12} /> Copy
+                                                                                <Copy size={14} /> Copy
                                                                             </button>
                                                                         </div>
                                                                         <pre style={{
@@ -1039,9 +1037,9 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                     if (!trace) return <span style={{ opacity: 0.5 }}>[{num}]</span>;
 
                                                                     const isChunkActive = activeCitationChunk?.srcNum === num;
-                                                                    
+
                                                                     return (
-                                                                        <span 
+                                                                        <span
                                                                             onClick={() => {
                                                                                 setActiveCitationChunk(isChunkActive ? null : { srcNum: num, text: trace.text, doc_title: trace.doc_title, score: trace.score });
                                                                                 setActiveCitationDoc(trace.doc_title);
@@ -1088,13 +1086,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                 display: 'flex', alignItems: 'center', gap: 4,
                                                                 padding: '4px 8px', borderRadius: 6, border: 'none',
                                                                 background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
-                                                                cursor: 'pointer', fontSize: 11, fontWeight: 500,
+                                                                cursor: 'pointer', fontSize: 12, fontWeight: 500,
                                                                 transition: 'all 0.15s ease'
                                                             }}
                                                             onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-2)'; }}
                                                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; }}
                                                         >
-                                                            {copiedIndex === i ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                                                            {copiedIndex === i ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
                                                         </button>
                                                     </div>
                                                 )}
@@ -1200,17 +1198,17 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                                                         cursor: 'pointer', lineHeight: '20px',
                                                                                                         transition: 'all 0.15s ease'
                                                                                                     }}
-                                                                                                    onMouseEnter={e => { 
-                                                                                                        if (!isChunkActive) { 
-                                                                                                            e.currentTarget.style.background = 'var(--accent)'; 
-                                                                                                            e.currentTarget.style.color = 'var(--bg-0)'; 
-                                                                                                        } 
+                                                                                                    onMouseEnter={e => {
+                                                                                                        if (!isChunkActive) {
+                                                                                                            e.currentTarget.style.background = 'var(--accent)';
+                                                                                                            e.currentTarget.style.color = 'var(--bg-0)';
+                                                                                                        }
                                                                                                     }}
-                                                                                                    onMouseLeave={e => { 
-                                                                                                        if (!isChunkActive) { 
-                                                                                                            e.currentTarget.style.background = 'var(--accent-dim)'; 
-                                                                                                            e.currentTarget.style.color = 'var(--accent)'; 
-                                                                                                        } 
+                                                                                                    onMouseLeave={e => {
+                                                                                                        if (!isChunkActive) {
+                                                                                                            e.currentTarget.style.background = 'var(--accent-dim)';
+                                                                                                            e.currentTarget.style.color = 'var(--accent)';
+                                                                                                        }
                                                                                                     }}
                                                                                                 >
                                                                                                     {item.srcNum}
@@ -1242,7 +1240,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                             {/* User message actions + timestamp row */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                                                 {m.timestamp && (
-                                                    <span style={{ fontSize: 10, color: 'var(--text-4)', fontWeight: 500, paddingRight: 2 }}>
+                                                    <span style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500, paddingRight: 4 }}>
                                                         {formatTimestamp(m.timestamp)}
                                                     </span>
                                                 )}
@@ -1253,13 +1251,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         display: 'flex', alignItems: 'center', gap: 3,
                                                         padding: '2px 6px', borderRadius: 5, border: 'none',
                                                         background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 10, fontWeight: 500,
+                                                        cursor: 'pointer', fontSize: 11, fontWeight: 500, padding: '4px 6px',
                                                         transition: 'all 0.15s ease'
                                                     }}
-                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                 >
-                                                    {copiedIndex === i ? <Check size={10} /> : <Copy size={10} />}
+                                                    {copiedIndex === i ? <Check size={13} /> : <Copy size={13} />}
                                                 </button>
                                                 <button
                                                     onClick={() => toast?.('Edit feature coming soon.', 'info')}
@@ -1268,13 +1266,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         display: 'flex', alignItems: 'center', gap: 3,
                                                         padding: '2px 6px', borderRadius: 5, border: 'none',
                                                         background: 'transparent', color: 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 10, fontWeight: 500,
+                                                        cursor: 'pointer', fontSize: 11, fontWeight: 500, padding: '4px 6px',
                                                         transition: 'all 0.15s ease'
                                                     }}
-                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                 >
-                                                    <Pencil size={10} />
+                                                    <Pencil size={13} />
                                                 </button>
                                                 <button
                                                     onClick={() => { if (window.confirm('Delete this Q&A pair?')) deleteMessagePair(i); }}
@@ -1283,13 +1281,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         display: 'flex', alignItems: 'center', gap: 3,
                                                         padding: '2px 6px', borderRadius: 5, border: 'none',
                                                         background: 'transparent', color: 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 10, fontWeight: 500,
+                                                        cursor: 'pointer', fontSize: 11, fontWeight: 500, padding: '4px 6px',
                                                         transition: 'all 0.15s ease'
                                                     }}
-                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-dim)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                 >
-                                                    <Trash2 size={10} />
+                                                    <Trash2 size={13} />
                                                 </button>
                                             </div>
                                         </div>
@@ -1495,23 +1493,23 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     style={{ zIndex: 997 }}
                 />
             )}
-            <div 
+            <div
                 className={isMobile ? `right-panel-mobile ${rightPanelOpen ? 'open' : ''}` : ''}
                 style={{
-                width: rightPanelOpen ? (isMobile ? 320 : 300) : 0, flexShrink: 0, background: 'var(--bg-1)',
-                borderLeft: rightPanelOpen ? '1px solid var(--border)' : 'none',
-                display: 'flex', flexDirection: 'column',
-                overflow: 'hidden',
-                transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                zIndex: isMobile ? 998 : 'auto'
-            }}>
+                    width: rightPanelOpen ? (isMobile ? 320 : 300) : 0, flexShrink: 0, background: 'var(--bg-1)',
+                    borderLeft: rightPanelOpen ? '1px solid var(--border)' : 'none',
+                    display: 'flex', flexDirection: 'column',
+                    overflow: 'hidden',
+                    transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                    zIndex: isMobile ? 998 : 'auto'
+                }}>
                 {/* ── Compact Unified Ingest Zone ── */}
                 <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>Add Sources</span>
                         {ingesting && <Loader2 size={14} className="spin" color="var(--accent)" />}
                         {isMobile && (
-                            <button 
+                            <button
                                 onClick={() => setRightPanelOpen(false)}
                                 style={{
                                     width: 24, height: 24, borderRadius: 6, background: 'transparent', border: 'none',
@@ -1523,7 +1521,29 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </button>
                         )}
                     </div>
-
+                    {/* Source type breakdown badges */}
+                    {docs.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+                            {[
+                                { count: pdfCount, label: 'PDF', icon: FileText, color: '#ef4444' },
+                                { count: wordCount, label: 'DOCX', icon: FileType, color: '#2b579a' },
+                                { count: txtCount, label: 'TXT', icon: AlignLeft, color: 'var(--text-2)' },
+                                { count: mdCount, label: 'MD', icon: FileCode, color: '#e34c26' },
+                                { count: githubCount, label: 'Repo', icon: Github, color: '#10b981' },
+                                { count: linkCount, label: 'Web', icon: Globe, color: 'var(--accent)' },
+                                { count: otherCount, label: 'Other', icon: FileArchive, color: 'var(--text-4)' },
+                            ].filter(s => s.count > 0).map(({ count, label, icon: Icon, color }) => (
+                                <span key={label} style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                    fontSize: 10, fontWeight: 600, color: color,
+                                    background: 'var(--bg-2)', border: '1px solid var(--border)',
+                                    borderRadius: 5, padding: '3px 7px', letterSpacing: '0.02em'
+                                }}>
+                                    <Icon size={10} /> {count} {label}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <label
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -1633,7 +1653,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         </button>
                     </div>
 
-                    <div className="smooth-scroll no-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 4, paddingBottom: 20 }}>
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {docsLoading ? [1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 44, borderRadius: 8 }} />) :
                             docs.length === 0 ? (
                                 <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-4)' }}>
