@@ -869,14 +869,16 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             title={rightPanelOpen ? 'Hide Sources' : 'Show Sources'}
                             onClick={() => setRightPanelOpen(p => !p)}
                             style={{
-                                height: 36, borderRadius: 10, border: 'none',
+                                height: 36, borderRadius: 10,
+                                border: rightPanelOpen ? '1px solid transparent' : '1px solid var(--border-light)',
                                 padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6,
-                                background: rightPanelOpen ? 'var(--accent-dim)' : 'transparent',
-                                color: rightPanelOpen ? 'var(--accent)' : 'var(--text-4)',
-                                cursor: 'pointer', transition: 'all 0.2s ease', fontSize: 13, fontWeight: 700
+                                background: rightPanelOpen ? 'var(--accent-dim)' : 'var(--bg-2)',
+                                color: rightPanelOpen ? 'var(--accent)' : 'var(--text-2)',
+                                cursor: 'pointer', transition: 'all 0.2s ease', fontSize: 13, fontWeight: 700,
+                                boxShadow: rightPanelOpen ? 'none' : '0 2px 4px rgba(0,0,0,0.05)'
                             }}
-                            onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; } }}
-                            onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; } }}
+                            onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-3)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border)'; } }}
+                            onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-light)'; } }}
                         >
                             <Library size={16} />
                             {docs.length > 0 && (
@@ -1521,29 +1523,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </button>
                         )}
                     </div>
-                    {/* Source type breakdown badges */}
-                    {docs.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
-                            {[
-                                { count: pdfCount, label: 'PDF', icon: FileText, color: '#ef4444' },
-                                { count: wordCount, label: 'DOCX', icon: FileType, color: '#2b579a' },
-                                { count: txtCount, label: 'TXT', icon: AlignLeft, color: 'var(--text-2)' },
-                                { count: mdCount, label: 'MD', icon: FileCode, color: '#e34c26' },
-                                { count: githubCount, label: 'Repo', icon: Github, color: '#10b981' },
-                                { count: linkCount, label: 'Web', icon: Globe, color: 'var(--accent)' },
-                                { count: otherCount, label: 'Other', icon: FileArchive, color: 'var(--text-4)' },
-                            ].filter(s => s.count > 0).map(({ count, label, icon: Icon, color }) => (
-                                <span key={label} style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    fontSize: 10, fontWeight: 600, color: color,
-                                    background: 'var(--bg-2)', border: '1px solid var(--border)',
-                                    borderRadius: 5, padding: '3px 7px', letterSpacing: '0.02em'
-                                }}>
-                                    <Icon size={10} /> {count} {label}
-                                </span>
-                            ))}
-                        </div>
-                    )}
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <label
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -1653,7 +1633,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         </button>
                     </div>
 
-                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div className="smooth-scroll no-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 4, paddingBottom: 20 }}>
                         {docsLoading ? [1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 44, borderRadius: 8 }} />) :
                             docs.length === 0 ? (
                                 <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-4)' }}>
