@@ -955,8 +955,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>VERO</span>
-                                                    {m.timestamp && <span style={{ fontSize: 12, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
-                                                    {m.stopped && <span style={{ fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
+                                                    {m.timestamp && <span style={{ fontSize: 13, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
+                                                    {m.stopped && <span style={{ fontSize: 13, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
                                                     {m.usedModelKnowledge && (
                                                         <span style={{
                                                             fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
@@ -1002,13 +1002,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                                 style={{
                                                                                     background: 'none', border: 'none', color: 'var(--text-4)',
                                                                                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                                                                                    fontSize: 12, fontWeight: 500, padding: '4px 8px', borderRadius: 4,
+                                                                                    fontSize: 13, fontWeight: 500, padding: '6px 10px', borderRadius: 4,
                                                                                     transition: 'all 0.15s ease'
                                                                                 }}
                                                                                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'var(--bg-hover)'; }}
                                                                                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                                             >
-                                                                                <Copy size={14} /> Copy
+                                                                                <Copy size={15} /> Copy
                                                                             </button>
                                                                         </div>
                                                                         <pre style={{
@@ -1086,13 +1086,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                                 display: 'flex', alignItems: 'center', gap: 4,
                                                                 padding: '4px 8px', borderRadius: 6, border: 'none',
                                                                 background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
-                                                                cursor: 'pointer', fontSize: 12, fontWeight: 500,
+                                                                cursor: 'pointer', fontSize: 13, fontWeight: 500,
                                                                 transition: 'all 0.15s ease'
                                                             }}
                                                             onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-2)'; }}
                                                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; }}
                                                         >
-                                                            {copiedIndex === i ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                                                            {copiedIndex === i ? <><Check size={16} /> Copied</> : <><Copy size={16} /> Copy</>}
                                                         </button>
                                                     </div>
                                                 )}
@@ -1240,7 +1240,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                             {/* User message actions + timestamp row */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                                                 {m.timestamp && (
-                                                    <span style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500, paddingRight: 4 }}>
+                                                    <span style={{ fontSize: 12, color: 'var(--text-4)', fontWeight: 500, paddingRight: 4 }}>
                                                         {formatTimestamp(m.timestamp)}
                                                     </span>
                                                 )}
@@ -1251,13 +1251,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         display: 'flex', alignItems: 'center', gap: 3,
                                                         padding: '2px 6px', borderRadius: 5, border: 'none',
                                                         background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 11, fontWeight: 500, padding: '4px 6px',
-                                                        transition: 'all 0.15s ease'
+                                                        cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 6px',
+                                                        transition: 'all 0.15s ease', gap: 6
                                                     }}
                                                     onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
                                                     onMouseLeave={e => { e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                 >
-                                                    {copiedIndex === i ? <Check size={13} /> : <Copy size={13} />}
+                                                    {copiedIndex === i ? <Check size={15} /> : <Copy size={15} />}
                                                 </button>
                                                 <button
                                                     onClick={() => toast?.('Edit feature coming soon.', 'info')}
@@ -1266,13 +1266,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         display: 'flex', alignItems: 'center', gap: 3,
                                                         padding: '2px 6px', borderRadius: 5, border: 'none',
                                                         background: 'transparent', color: 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 11, fontWeight: 500, padding: '4px 6px',
-                                                        transition: 'all 0.15s ease'
+                                                        cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 6px',
+                                                        transition: 'all 0.15s ease', gap: 6
                                                     }}
                                                     onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
                                                     onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                 >
-                                                    <Pencil size={13} />
+                                                    <Pencil size={15} />
                                                 </button>
                                                 <button
                                                     onClick={() => { if (window.confirm('Delete this Q&A pair?')) deleteMessagePair(i); }}
@@ -1281,13 +1281,13 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                                         display: 'flex', alignItems: 'center', gap: 3,
                                                         padding: '2px 6px', borderRadius: 5, border: 'none',
                                                         background: 'transparent', color: 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 11, fontWeight: 500, padding: '4px 6px',
-                                                        transition: 'all 0.15s ease'
+                                                        cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 6px',
+                                                        transition: 'all 0.15s ease', gap: 6
                                                     }}
                                                     onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-dim)'; }}
                                                     onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
                                                 >
-                                                    <Trash2 size={13} />
+                                                    <Trash2 size={15} />
                                                 </button>
                                             </div>
                                         </div>
