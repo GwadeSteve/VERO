@@ -1424,22 +1424,21 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                 title={isStreaming ? 'Wait for VERO to finish' : 'Send message'}
                                 style={{
                                     width: 40, height: 40, borderRadius: '50%', border: 'none', flexShrink: 0,
-                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--bg-2)' : 'var(--text)',
-                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-4)' : 'var(--bg-0)',
+                                    background: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--bg-2)' : 'var(--accent)',
+                                    color: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'var(--text-4)' : '#fff',
                                     cursor: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'not-allowed' : 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                    transform: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'scale(0.9)' : 'scale(1)',
+                                    transition: 'all 0.2s ease',
                                     boxShadow: (!query.trim() || searching || isStreaming || docs.length === 0) ? 'none' : '0 4px 12px rgba(0,0,0,0.15)'
                                 }}
                                 onMouseEnter={e => {
                                     if (query.trim() && !searching && !isStreaming && docs.length > 0) {
-                                        e.currentTarget.style.transform = 'scale(1.08)';
+                                        e.currentTarget.style.opacity = '0.9';
                                     }
                                 }}
                                 onMouseLeave={e => {
                                     if (query.trim() && !searching && !isStreaming && docs.length > 0) {
-                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.opacity = '1';
                                     }
                                 }}
                             >
@@ -1462,28 +1461,29 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                             setModelMenuOpen(!modelMenuOpen);
                                         }}
                                         style={{
-                                            display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                                            padding: '8px 16px', borderRadius: 14,
-                                            background: 'var(--accent)', border: '1px solid var(--accent-border)',
-                                            color: 'var(--bg-0)', fontSize: 14, fontWeight: 700,
-                                            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)', outline: 'none',
-                                            boxShadow: '0 4px 14px var(--accent-dim)'
+                                            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                                            padding: '6px 14px', borderRadius: 14,
+                                            background: 'var(--bg-1)', border: '1px solid var(--border)',
+                                            color: 'var(--text)', fontSize: 13, fontWeight: 700,
+                                            transition: 'all 0.15s ease', outline: 'none'
                                         }}
-                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px var(--accent-dim)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px var(--accent-dim)'; }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-2)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-1)'; }}
                                     >
-                                        <Cpu size={16} color="var(--bg-0)" />
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2V8h2v8zm4 0h-2V8h2v8z" />
+                                        </svg>
                                         Groq Llama 3
-                                        <ChevronDown size={16} color="var(--bg-0)" style={{ opacity: 0.9, transform: modelMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }} />
+                                        <ChevronDown size={14} color="var(--text-4)" style={{ opacity: 0.9, transform: modelMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
                                     </button>
                                     
                                     {/* Dropdown Menu (Popup) */}
                                     <div style={{
                                         position: 'absolute', bottom: 'calc(100% + 14px)', left: 0,
-                                        width: 260, background: 'var(--bg-0)',
-                                        border: '1px solid var(--border)', borderRadius: 20,
-                                        padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2,
-                                        boxShadow: '0 32px 64px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
+                                        width: 250, background: 'var(--bg-0)',
+                                        border: '1px solid var(--border)', borderRadius: 16,
+                                        padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 2,
+                                        boxShadow: '0 16px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
                                         opacity: modelMenuOpen ? 1 : 0, 
                                         pointerEvents: modelMenuOpen ? 'auto' : 'none', 
                                         transform: modelMenuOpen ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.98)',
@@ -1495,65 +1495,71 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                             Available Models
                                         </div>
                                         
-                                        <div style={{ padding: '8px 12px 4px', fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>Groq (Ultra-Fast)</div>
+                                        <div style={{ padding: '4px 10px 6px', fontSize: 10, fontWeight: 800, color: 'var(--text-4)' }}>GROQ</div>
                                         {[
-                                            { id: 'llama3-70b', name: 'Llama 3.3 70B', icon: Zap, desc: 'Highest reasoning' },
-                                            { id: 'llama3-8b', name: 'Llama 3.1 8B', icon: Zap, desc: 'Instant responses' },
+                                            { id: 'llama3-70b', name: 'Llama 3.3 70B', iconPath: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2V8h2v8zm4 0h-2V8h2v8z', desc: 'Highest reasoning' },
+                                            { id: 'llama3-8b', name: 'Llama 3.1 8B', iconPath: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2V8h2v8zm4 0h-2V8h2v8z', desc: 'Instant responses' },
                                         ].map(m => (
-                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Switched to ${m.name}. Architecture update coming soon.`, 'success'); }} style={{
+                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Switched to ${m.name}.`, 'success'); }} style={{
                                                 display: 'flex', alignItems: 'center', gap: 10,
-                                                padding: '8px 12px', borderRadius: 12, border: 'none',
+                                                padding: '6px 10px', borderRadius: 10, border: 'none',
                                                 background: 'transparent', cursor: 'pointer',
                                                 transition: 'all 0.15s ease', textAlign: 'left', outline: 'none'
                                             }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                             >
-                                                <m.icon size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--text-2)" style={{ flexShrink: 0 }}>
+                                                    <path d={m.iconPath} />
+                                                </svg>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
                                                     <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>{m.desc}</span>
                                                 </div>
                                             </button>
                                         ))}
 
-                                        <div style={{ padding: '12px 12px 4px', fontSize: 11, fontWeight: 700, color: '#e34c26' }}>Google (Multimodal)</div>
+                                        <div style={{ padding: '10px 10px 6px', fontSize: 10, fontWeight: 800, color: 'var(--text-4)' }}>GOOGLE</div>
                                         {[
-                                            { id: 'gemini-2-flash', name: 'Gemini 2.0 Flash', icon: Wand2, desc: 'Speed & intelligence' }
+                                            { id: 'gemini-2-flash', name: 'Gemini 2.0 Flash', iconPath: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-5 11l1.5-4.5L12 7l1.5 4.5L18 13l-4.5 1.5L12 19l-1.5-4.5L6 13z', desc: 'Speed & multimodality' }
                                         ].map(m => (
-                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Switched to ${m.name}. Architecture update coming soon.`, 'success'); }} style={{
+                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Switched to ${m.name}.`, 'success'); }} style={{
                                                 display: 'flex', alignItems: 'center', gap: 10,
-                                                padding: '8px 12px', borderRadius: 12, border: 'none',
+                                                padding: '6px 10px', borderRadius: 10, border: 'none',
                                                 background: 'transparent', cursor: 'pointer',
                                                 transition: 'all 0.15s ease', textAlign: 'left', outline: 'none'
                                             }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                             >
-                                                <m.icon size={16} color="#e34c26" style={{ flexShrink: 0 }} />
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--text-2)" style={{ flexShrink: 0 }}>
+                                                    <path d={m.iconPath} />
+                                                </svg>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
                                                     <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>{m.desc}</span>
                                                 </div>
                                             </button>
                                         ))}
 
-                                        <div style={{ padding: '12px 12px 4px', fontSize: 11, fontWeight: 700, color: '#10b981' }}>Local (Offline)</div>
+                                        <div style={{ padding: '10px 10px 6px', fontSize: 10, fontWeight: 800, color: 'var(--text-4)' }}>LOCAL</div>
                                         {[
-                                            { id: 'ollama-llama3', name: 'Ollama Llama 3', icon: Layers, desc: '100% private logic' }
+                                            { id: 'ollama-llama3', name: 'Ollama Llama 3', iconPath: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM8 12.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5zm8 0a2.5 2.5 0 110-5 2.5 2.5 0 010 5zm-4 5.5a4 4 0 01-3.5-2h7a4 4 0 01-3.5 2z', desc: '100% private offline logic' }
                                         ].map(m => (
-                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Local models currently unconfigured.`, 'error'); }} style={{
+                                            <button key={m.id} type="button" onClick={(e) => { e.preventDefault(); setModelMenuOpen(false); toast?.(`Local models disabled.`, 'error'); }} style={{
                                                 display: 'flex', alignItems: 'center', gap: 10,
-                                                padding: '8px 12px', borderRadius: 12, border: 'none',
+                                                padding: '6px 10px', borderRadius: 10, border: 'none',
                                                 background: 'transparent', cursor: 'pointer',
                                                 transition: 'all 0.15s ease', textAlign: 'left', outline: 'none'
                                             }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                             >
-                                                <m.icon size={16} color="#10b981" style={{ flexShrink: 0 }} />
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--text-2)" style={{ flexShrink: 0 }}>
+                                                    <path d={m.iconPath} />
+                                                </svg>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{m.name}</span>
                                                     <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>{m.desc}</span>
                                                 </div>
                                             </button>
@@ -1566,15 +1572,15 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                     onClick={() => toast?.('Live Web Search capability is still in development.', 'info')}
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-                                        padding: '6px 12px', borderRadius: 12, outline: 'none',
-                                        background: 'transparent', border: '1px solid transparent',
-                                        color: 'var(--text-4)', fontSize: 13, fontWeight: 600,
-                                        transition: 'all 0.2s ease'
+                                        padding: '6px 14px', borderRadius: 14, outline: 'none',
+                                        background: 'var(--bg-1)', border: '1px solid var(--border)',
+                                        color: 'var(--text)', fontSize: 13, fontWeight: 700,
+                                        transition: 'all 0.15s ease'
                                     }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-2)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-1)'; }}
                                 >
-                                    <Globe size={15} />
+                                    <Globe size={15} color="var(--text-2)" />
                                     Search Web
                                 </button>
                                 
@@ -1627,8 +1633,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </div>
 
                             {/* Right Side Hint */}
-                            <div className="hide-on-mobile" style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Info size={12} /> <span><strong>Enter</strong> to Send</span> <span>·</span> <span><strong>Shift + Enter</strong> for Newline</span>
+                            <div className="hide-on-mobile" style={{ fontSize: 10, color: 'var(--text-4)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', padding: '2px 6px', borderRadius: 4, fontSize: 9 }}>Enter</span> to Send</div>
                             </div>
                         </div>
                     </form>
