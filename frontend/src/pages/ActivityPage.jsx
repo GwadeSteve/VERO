@@ -102,15 +102,20 @@ export default function ActivityPage({ isMobile, onOpenMobileMenu }) {
 
         {/* Workspace-style Header */}
         <header className="workspace-header" style={{
-            padding: isMobile ? '12px 16px' : '12px 32px', borderBottom: '1px solid var(--border)',
+            padding: '0 20px', height: 60, borderBottom: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
             zIndex: 10, position: 'sticky', top: 0,
-            backdropFilter: 'blur(30px)', background: 'var(--bg-glass)'
+            backdropFilter: 'blur(30px)', background: 'var(--bg-glass)',
+            flexShrink: 0
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {isMobile && (
-                    <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu">
-                        <Menu size={20} />
+                    <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu" style={{
+                        width: 34, height: 34, borderRadius: 8, border: 'none',
+                        background: 'transparent', color: 'var(--text-3)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    }}>
+                        <Menu size={18} />
                     </button>
                 )}
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.01em', margin: 0 }}>
@@ -119,7 +124,7 @@ export default function ActivityPage({ isMobile, onOpenMobileMenu }) {
             </div>
         </header>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="smooth-scroll" style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 40px' }}>
 
             {/* Page Header */}

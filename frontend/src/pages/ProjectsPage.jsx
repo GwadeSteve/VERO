@@ -94,15 +94,20 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
 
                 {/* Shared Workspace-style Header */}
                 <header className="workspace-header" style={{
-                    padding: '12px 32px', borderBottom: '1px solid var(--border)',
+                    padding: '0 20px', height: 60, borderBottom: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
                     zIndex: 10, position: 'sticky', top: 0,
-                    backdropFilter: 'blur(30px)', background: 'var(--bg-glass)'
+                    backdropFilter: 'blur(30px)', background: 'var(--bg-glass)',
+                    flexShrink: 0
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         {isMobile && (
-                            <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu">
-                                <Menu size={20} />
+                            <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu" style={{
+                                width: 34, height: 34, borderRadius: 8, border: 'none',
+                                background: 'transparent', color: 'var(--text-3)', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                            }}>
+                                <Menu size={18} />
                             </button>
                         )}
                         <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.01em', margin: 0 }}>
@@ -111,7 +116,7 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                     </div>
                 </header>
 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div className="smooth-scroll" style={{ flex: 1, overflowY: 'auto' }}>
                     <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 40px' }}>
 
                         {/* Header Context */}
@@ -122,11 +127,12 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                             </div>
                             {projects.length > 0 && (
                                 <button onClick={() => setShowForm(f => !f)} style={{
-                                    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 18px',
                                     fontSize: 13, fontWeight: 500, fontFamily: 'var(--font)',
                                     background: 'var(--accent)', color: 'var(--accent-text)',
                                     border: 'none', borderRadius: 'var(--r)',
-                                    cursor: 'pointer', flexShrink: 0
+                                    cursor: 'pointer', flexShrink: 0,
+                                    width: isMobile ? '100%' : 'auto'
                                 }}
                                     onMouseEnter={e => { e.currentTarget.style.opacity = 0.9; }}
                                     onMouseLeave={e => { e.currentTarget.style.opacity = 1; }}
@@ -139,38 +145,52 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                         {/* Create Form */}
                         {showForm && (
                             <form onSubmit={create} style={{
-                                display: 'flex', gap: 12, marginBottom: 32,
-                                padding: 24, background: 'var(--bg-1)', borderRadius: 'var(--r-lg)',
-                                border: '1px solid var(--border)', alignItems: 'flex-end',
+                                display: 'flex', 
+                                flexDirection: isMobile ? 'column' : 'row',
+                                gap: isMobile ? 10 : 12, marginBottom: 32,
+                                padding: isMobile ? 16 : 24, background: 'var(--bg-1)', borderRadius: 'var(--r-lg)',
+                                border: '1px solid var(--border)', 
+                                alignItems: isMobile ? 'stretch' : 'flex-end',
                                 animation: 'fadeIn 0.2s ease both',
                             }}>
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Project Name</label>
                                     <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Q4 Financial Reports"
-                                        style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
+                                        style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: isMobile ? '8px 12px' : '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
                                         onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
                                         onBlur={e => e.target.style.borderColor = 'var(--border)'}
                                     />
                                 </div>
-                                <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <div style={{ flex: isMobile ? 'none' : 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description (Optional)</label>
                                     <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="What is this workspace for?"
-                                        style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
+                                        style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: isMobile ? '8px 12px' : '10px 14px', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%' }}
                                         onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
                                         onBlur={e => e.target.style.borderColor = 'var(--border)'}
                                     />
                                 </div>
-                                <button type="button" onClick={() => setShowForm(false)} style={{
-                                    padding: '10px 16px', background: 'none', border: '1px solid var(--border)',
-                                    color: 'var(--text-3)', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font)',
-                                }}>Cancel</button>
-                                <button type="submit" disabled={creating || !name.trim()} style={{
-                                    padding: '10px 24px', background: 'var(--accent)', color: 'var(--accent-text)',
-                                    border: 'none', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13,
-                                    fontWeight: 600, fontFamily: 'var(--font)', opacity: (creating || !name.trim()) ? 0.4 : 1
+                                
+                                <div style={{ 
+                                    display: 'flex', 
+                                    gap: 12, 
+                                    marginTop: isMobile ? 4 : 0,
+                                    width: isMobile ? '100%' : 'auto' 
                                 }}>
-                                    {creating ? <Loader2 size={14} className="spin" /> : 'Create'}
-                                </button>
+                                    <button type="button" onClick={() => setShowForm(false)} style={{
+                                        flex: isMobile ? 1 : 'none',
+                                        padding: isMobile ? '8px 16px' : '10px 16px', background: 'none', border: '1px solid var(--border)',
+                                        color: 'var(--text-3)', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font)',
+                                    }}>Cancel</button>
+                                    <button type="submit" disabled={creating || !name.trim()} style={{
+                                        flex: isMobile ? 1 : 'none',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        padding: isMobile ? '8px 24px' : '10px 24px', background: 'var(--accent)', color: 'var(--accent-text)',
+                                        border: 'none', borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 13,
+                                        fontWeight: 600, fontFamily: 'var(--font)', opacity: (creating || !name.trim()) ? 0.4 : 1
+                                    }}>
+                                        {creating ? <Loader2 size={14} className="spin" /> : 'Create'}
+                                    </button>
+                                </div>
                             </form>
                         )}
 

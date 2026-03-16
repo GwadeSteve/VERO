@@ -11,7 +11,7 @@ import {
     Send, Search, Loader2, FileText, ArrowUp,
     RefreshCw, User, Bot, CheckCircle2, UploadCloud, Globe,
     X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2,
-    FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library
+    FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library, MessageSquare
 } from 'lucide-react';
 
 /**
@@ -176,6 +176,31 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         }
     }, [messages, isStreaming]);
     const [copiedIndex, setCopiedIndex] = useState(null);
+    const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
+    const [projectSessions, setProjectSessions] = useState([]);
+    const [loadingSessions, setLoadingSessions] = useState(false);
+    const sessionMenuRef = useRef(null);
+    
+    useEffect(() => {
+        if (sessionMenuOpen && projectId) {
+            setLoadingSessions(true);
+            api.getSessions(projectId)
+               .then(data => setProjectSessions(data))
+               .catch(err => console.error(err))
+               .finally(() => setLoadingSessions(false));
+        }
+    }, [sessionMenuOpen, projectId]);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (sessionMenuOpen && sessionMenuRef.current && !sessionMenuRef.current.contains(e.target)) {
+                setSessionMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [sessionMenuOpen]);
+
     const toast = useToast();
     const navigate = useNavigate();
 
@@ -669,7 +694,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
                 {/* Workspace Header — SOTA Minimal */}
                 <header style={{
-                    padding: '0 20px', height: 52, borderBottom: '1px solid var(--border)',
+                    padding: '0 20px', height: 60, borderBottom: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     zIndex: 10, position: 'sticky', top: 0,
                     backdropFilter: 'blur(30px)', background: 'var(--bg-glass)',
@@ -702,74 +727,168 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         </div>
                         {/* Separator */}
                         <ChevronRight size={14} color="var(--text-4)" style={{ flexShrink: 0 }} />
-                        {/* Session name — clickable to rename */}
-                        <span
-                            onClick={handleRenameSession}
-                            title={sessionTitle || 'New Chat'}
-                            style={{
-                                fontSize: 14, fontWeight: 600, color: 'var(--text)',
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                cursor: 'pointer', minWidth: 0, letterSpacing: '-0.01em',
-                                transition: 'color 0.15s ease'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
-                            onMouseLeave={e => e.currentTarget.style.color = 'var(--text)'}
-                        >
-                            {sessionTitle || 'New Chat'}
-                        </span>
+                        
+                        {/* Session dropdown container */}
+                        <div ref={sessionMenuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                            <div
+                                onClick={() => setSessionMenuOpen(!sessionMenuOpen)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 6,
+                                    cursor: 'pointer', minWidth: 0, padding: '4px 8px',
+                                    borderRadius: 6, transition: 'background 0.15s ease'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span
+                                    title={sessionTitle || 'New Chat'}
+                                    style={{
+                                        fontSize: 14, fontWeight: 600, color: 'var(--text)',
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                        letterSpacing: '-0.01em',
+                                    }}
+                                >
+                                    {sessionTitle || 'New Chat'}
+                                </span>
+                                <ChevronDown size={14} color="var(--text-4)" />
+                            </div>
+
+                            {/* Dropdown Menu */}
+                            {sessionMenuOpen && (
+                                <div
+                                    style={{
+                                        position: isMobile ? 'fixed' : 'absolute', 
+                                        top: isMobile ? 64 : '100%', 
+                                        left: isMobile ? 12 : 0, 
+                                        right: isMobile ? 12 : 'auto',
+                                        marginTop: isMobile ? 0 : 8,
+                                        width: isMobile ? 'auto' : 280, 
+                                        background: 'var(--bg-0)',
+                                        border: '1px solid var(--border)', borderRadius: 12,
+                                        boxShadow: '0 12px 32px rgba(0,0,0,0.15)', zIndex: 100,
+                                        display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                                    }}
+                                >
+                                    <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-1)' }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>All Sessions</span>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setSessionMenuOpen(false); navigate(`/p/${projectId}`); }}
+                                            style={{
+                                                background: 'var(--accent)', color: 'var(--bg-0)', border: 'none',
+                                                borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                                            }}
+                                        >
+                                            <Plus size={12} strokeWidth={3} /> New
+                                        </button>
+                                    </div>
+                                    <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: 8, gap: 4 }}>
+                                        {loadingSessions ? (
+                                            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-4)' }}><Loader2 size={16} className="spin" /></div>
+                                        ) : projectSessions.length === 0 && !activeSessionId ? (
+                                            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-4)', fontSize: 12 }}>No existing sessions</div>
+                                        ) : (
+                                            projectSessions.sort((a,b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)).map(s => (
+                                                <div
+                                                    key={s.id}
+                                                    onClick={() => { setSessionMenuOpen(false); navigate(`/p/${projectId}/c/${s.id}`); }}
+                                                    style={{
+                                                        padding: '10px 12px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10,
+                                                        cursor: 'pointer', background: s.id === activeSessionId ? 'var(--bg-2)' : 'transparent',
+                                                        color: s.id === activeSessionId ? 'var(--text)' : 'var(--text-2)',
+                                                        position: 'relative'
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.background = s.id === activeSessionId ? 'var(--bg-2)' : 'var(--bg-hover)';
+                                                        const actions = e.currentTarget.querySelector('.session-actions');
+                                                        if (actions) actions.style.opacity = '1';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.background = s.id === activeSessionId ? 'var(--bg-2)' : 'transparent';
+                                                        const actions = e.currentTarget.querySelector('.session-actions');
+                                                        if (actions) actions.style.opacity = '0';
+                                                    }}
+                                                >
+                                                    <MessageSquare size={14} color={s.id === activeSessionId ? 'var(--accent)' : 'var(--text-4)'} fill={s.id === activeSessionId ? 'var(--accent-dim)' : 'transparent'} style={{ flexShrink: 0 }} />
+                                                    <span style={{ fontSize: 13, fontWeight: s.id === activeSessionId ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{s.title || 'Untitled Session'}</span>
+                                                    
+                                                    {/* Inline Actions (visible on hover) */}
+                                                    <div className="session-actions" style={{ 
+                                                        display: 'flex', alignItems: 'center', gap: 6, 
+                                                        opacity: 0, transition: 'opacity 0.2s', flexShrink: 0
+                                                    }}>
+                                                        <button 
+                                                            onClick={e => { e.stopPropagation(); setSessionMenuOpen(false); handleRenameSession(s.id, projectId, s.title); }}
+                                                            style={{
+                                                                background: 'transparent', border: 'none', color: 'var(--text-4)',
+                                                                padding: 4, borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'var(--text)'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; }}
+                                                            title="Rename"
+                                                        >
+                                                            <Pencil size={13} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={e => { 
+                                                                e.stopPropagation(); 
+                                                                if (window.confirm('Delete this conversation?')) {
+                                                                    api.deleteSession(s.id).then(() => {
+                                                                        setProjectSessions(prev => prev.filter(x => x.id !== s.id));
+                                                                        if (s.id === activeSessionId) navigate(`/p/${projectId}`);
+                                                                    });
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                background: 'transparent', border: 'none', color: 'var(--text-4)',
+                                                                padding: 4, borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--red-dim)'; e.currentTarget.style.color = 'var(--red)'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; }}
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={13} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Right: Compact action strip */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-                        {[
-                            { icon: Pencil, title: 'Rename', onClick: handleRenameSession, hideOnMobile: true },
-                            { icon: Trash2, title: 'Delete Workspace', onClick: handleDeleteProject, danger: true, hideOnMobile: true },
-                        ].map(({ icon: Icon, title, onClick, danger, hideOnMobile }, i) => (
-                            <button
-                                key={i}
-                                title={title}
-                                onClick={onClick}
-                                className={hideOnMobile ? 'hide-on-small-mobile' : ''}
-                                style={{
-                                    width: 32, height: 32, borderRadius: 8, border: 'none',
-                                    background: 'transparent', color: 'var(--text-4)',
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    transition: 'all 0.15s ease'
-                                }}
-                                onMouseEnter={e => {
-                                    e.currentTarget.style.background = danger ? 'var(--red-dim)' : 'var(--bg-hover)';
-                                    e.currentTarget.style.color = danger ? 'var(--red)' : 'var(--text)';
-                                }}
-                                onMouseLeave={e => {
-                                    e.currentTarget.style.background = 'transparent';
-                                    e.currentTarget.style.color = 'var(--text-4)';
-                                }}
-                            >
-                                <Icon size={15} />
-                            </button>
-                        ))}
-                        {/* Divider */}
-                        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
                         {/* Sources panel toggle with badge */}
                         <button
                             title={rightPanelOpen ? 'Hide Sources' : 'Show Sources'}
                             onClick={() => setRightPanelOpen(p => !p)}
                             style={{
-                                height: 32, borderRadius: 8, border: 'none',
-                                padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5,
+                                height: 36, borderRadius: 10, border: 'none',
+                                padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6,
                                 background: rightPanelOpen ? 'var(--accent-dim)' : 'transparent',
                                 color: rightPanelOpen ? 'var(--accent)' : 'var(--text-4)',
-                                cursor: 'pointer', transition: 'all 0.2s ease', fontSize: 12, fontWeight: 600
+                                cursor: 'pointer', transition: 'all 0.2s ease', fontSize: 13, fontWeight: 700
                             }}
                             onMouseEnter={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; } }}
                             onMouseLeave={e => { if (!rightPanelOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-4)'; } }}
                         >
-                            <Library size={15} />
+                            <Library size={16} />
                             {docs.length > 0 && (
                                 <span style={{
-                                    fontSize: 10, fontWeight: 700, background: rightPanelOpen ? 'var(--accent)' : 'var(--text-4)',
-                                    color: 'var(--bg-0)', borderRadius: 4, padding: '1px 5px',
-                                    lineHeight: '16px', minWidth: 18, textAlign: 'center'
+                                    fontSize: 11, fontWeight: 800, 
+                                    background: rightPanelOpen ? 'var(--accent)' : 'var(--bg-0)',
+                                    color: rightPanelOpen ? 'var(--bg-0)' : 'var(--accent)', 
+                                    border: `1.5px solid ${rightPanelOpen ? 'transparent' : 'var(--accent)'}`,
+                                    borderRadius: 14, padding: '2px 8px',
+                                    lineHeight: '1', minWidth: 24, textAlign: 'center',
+                                    letterSpacing: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 20,
+                                    boxShadow: rightPanelOpen ? 'none' : '0 2px 8px var(--accent-dim)'
                                 }}>
                                     {docs.length}
                                 </span>
@@ -1527,7 +1646,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 <div style={{ padding: '12px 16px 12px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                            Sources ({docs.length})
+                            Sources
                         </span>
                         <button onClick={fetchDocs} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', padding: 2 }}>
                             <RefreshCw size={12} className={docsLoading ? 'spin' : ''} />

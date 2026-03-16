@@ -202,6 +202,12 @@ textarea {
   border-radius: 6px;
 }
 
+/* ─── Utilities ────────────────────────────── */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* ─── Headings ─────────────────────────────── */
 h1,
 h2,

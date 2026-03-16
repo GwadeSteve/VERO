@@ -274,13 +274,13 @@ export default function Sidebar({
                 onClick={action.action}
                 title={collapsed ? action.label : undefined}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: collapsed ? '12px 0' : (isPrimary ? '10px 14px' : '8px 12px'),
+                  display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 12,
+                  padding: collapsed ? '12px 0' : (isPrimary ? (isMobile ? '12px 16px' : '10px 14px') : (isMobile ? '12px 16px' : '8px 12px')),
                   justifyContent: collapsed ? 'center' : 'flex-start',
                   background: isPrimary ? 'var(--accent)' : (isActive ? 'var(--bg-3)' : 'transparent'),
                   color: isPrimary ? 'var(--accent-text)' : (isActive ? 'var(--text)' : 'var(--text-2)'),
                   border: '1px solid transparent',
-                  borderRadius: 8, cursor: 'pointer', fontSize: 13,
+                  borderRadius: 8, cursor: 'pointer', fontSize: isMobile ? 14 : 13,
                   fontWeight: isPrimary ? 600 : (isActive ? 600 : 500),
                   width: '100%',
                   boxShadow: 'none',
@@ -301,7 +301,7 @@ export default function Sidebar({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, flexShrink: 0 }}>
-                  <Icon size={18} strokeWidth={isPrimary ? 2.5 : 2} color={isPrimary ? 'var(--accent-text)' : undefined} />
+                  <Icon size={isMobile ? 20 : 18} strokeWidth={isPrimary ? 2.5 : 2} color={isPrimary ? 'var(--accent-text)' : undefined} />
                 </div>
                 {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>{action.label}</span>}
               </button>
@@ -373,9 +373,9 @@ export default function Sidebar({
                             }
                           }}
                           style={{
-                            flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '8px 4px', cursor: 'pointer',
-                            fontSize: 13, fontWeight: isProjectActive ? 600 : 500,
+                            flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 8,
+                            padding: isMobile ? '12px 8px' : '8px 4px', cursor: 'pointer',
+                            fontSize: isMobile ? 14 : 13, fontWeight: isProjectActive ? 600 : 500,
                             color: 'inherit',
                             overflow: 'hidden'
                           }}
@@ -462,8 +462,8 @@ export default function Sidebar({
                                   onMouseLeave={() => setHoveredSessionId(null)}
                                   style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '6px 10px', borderRadius: 6, cursor: 'pointer',
-                                    fontSize: 13, minHeight: 34,
+                                    padding: isMobile ? '10px 12px' : '6px 10px', borderRadius: 6, cursor: 'pointer',
+                                    fontSize: isMobile ? 14 : 13, minHeight: isMobile ? 40 : 34,
                                     color: isActive ? 'var(--text)' : (isHovered ? 'var(--text)' : 'var(--text-3)'),
                                     background: isActive ? 'var(--bg-hover)' : (isHovered ? 'var(--bg-hover)' : 'transparent'),
                                     position: 'relative',
@@ -558,25 +558,25 @@ export default function Sidebar({
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: collapsed ? '10px 0' : '8px 12px',
+            display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 12,
+            padding: collapsed ? '12px 0' : (isMobile ? '12px 16px' : '8px 12px'),
             justifyContent: collapsed ? 'center' : 'flex-start',
             background: 'transparent', border: '1px solid transparent',
-            borderRadius: 10, cursor: 'pointer', width: '100%',
-            color: 'var(--text-2)', fontSize: 13, fontWeight: 500,
-            transition: 'all 0.2s ease'
+            borderRadius: 8, cursor: 'pointer', width: '100%',
+            color: 'var(--text-2)', fontSize: isMobile ? 14 : 13, fontWeight: 500,
+            transition: 'padding 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, color 0.15s ease'
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-2)'; }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, flexShrink: 0 }}>
-            {theme === 'dark' ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}
+            {theme === 'dark' ? <Sun size={isMobile ? 20 : 18} strokeWidth={2} /> : <Moon size={isMobile ? 20 : 18} strokeWidth={2} />}
           </div>
           {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
         </button>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: collapsed ? '12px 0' : '10px 12px',
+          display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 12,
+          padding: collapsed ? '12px 0' : (isMobile ? '12px 14px' : '10px 12px'),
           justifyContent: collapsed ? 'center' : 'flex-start',
           borderRadius: 12, cursor: 'pointer', position: 'relative',
           background: profileMenuOpen ? 'var(--bg-hover)' : 'transparent',
@@ -599,10 +599,10 @@ export default function Sidebar({
           </div>
           {!collapsed && (
             <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: isMobile ? 14 : 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 Admin User
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 500 }}>
+              <div style={{ fontSize: isMobile ? 12 : 11, color: 'var(--text-4)', fontWeight: 500 }}>
                 AI Researcher
               </div>
             </div>
