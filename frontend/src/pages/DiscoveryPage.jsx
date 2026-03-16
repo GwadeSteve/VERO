@@ -106,9 +106,9 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {isMobile && (
               <button className="hamburger-btn" onClick={onOpenMobileMenu} title="Open Menu" style={{
-                  width: 34, height: 34, borderRadius: 8, border: 'none',
-                  background: 'transparent', color: 'var(--text-3)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                width: 34, height: 34, borderRadius: 8, border: 'none',
+                background: 'transparent', color: 'var(--text-3)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
                 <Menu size={18} />
               </button>
@@ -299,13 +299,13 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
                         <>
                           {/* Table Header */}
                           <div style={{
-                            display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 120px 80px 90px',
+                            display: 'grid', gridTemplateColumns: '40% 30% 15% 15%',
                             padding: '12px 24px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
                             letterSpacing: '0.06em', color: 'var(--text-4)', borderBottom: '1px solid var(--border)'
                           }}>
-                            <span>Source</span>
-                            <span>Workspace</span>
-                            <span>Size</span>
+                            <span style={{ paddingRight: 16 }}>Source</span>
+                            <span style={{ paddingRight: 16 }}>Workspace</span>
+                            <span style={{ paddingRight: 16 }}>Size</span>
                             <span style={{ textAlign: 'right' }}>Status</span>
                           </div>
 
@@ -314,7 +314,7 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
                             const c = sc(doc);
                             return (
                               <div key={doc.id} onClick={() => navigate(`/p/${doc.project_id}`)} style={{
-                                display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 120px 80px 90px',
+                                display: 'grid', gridTemplateColumns: '40% 30% 15% 15%',
                                 padding: '16px 24px', alignItems: 'center', cursor: 'pointer',
                                 borderBottom: i < rest.length - 1 ? '1px solid var(--border)' : 'none',
                                 transition: 'background 0.15s ease',
@@ -322,7 +322,7 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
                                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, paddingRight: 24 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, paddingRight: 16 }}>
                                   <div style={{ width: 32, height: 32, borderRadius: 'var(--r)', background: c.dim, color: c.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     {SOURCE_ICONS[getEffectiveType(doc)]}
                                   </div>
@@ -331,17 +331,17 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
                                   </div>
                                 </div>
 
-                                <div className="workspace-link" style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 24, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.15s ease' }}>
-                                  <Folder size={14} color="var(--text-4)" />
-                                  {doc.project_name}
+                                <div className="workspace-link" style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 16, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.15s ease' }}>
+                                  <Folder size={14} color="var(--text-4)" style={{ flexShrink: 0 }} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.project_name}</span>
                                 </div>
 
-                                <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
+                                <div style={{ fontSize: 13, color: 'var(--text-3)', paddingRight: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {(doc.char_count / 1000).toFixed(0)}k chars
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, fontSize: 12, color: 'var(--text-3)' }}>
-                                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
+                                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
                                   Ready
                                 </div>
                               </div>

@@ -343,10 +343,10 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                                             <div onClick={toggleAll} style={{ width: 36, cursor: 'pointer', display: 'flex', color: selected.size === projects.length ? 'var(--accent)' : 'var(--text-4)' }}>
                                                 {selected.size === projects.length ? <CheckSquare size={16} /> : <Square size={16} />}
                                             </div>
-                                            <div style={{ flex: 1.5 }}>Name</div>
-                                            <div style={{ flex: 2 }}>Description</div>
-                                            <div style={{ width: 140 }}>Last Activity</div>
-                                            <div style={{ width: 100 }}>Documents</div>
+                                            <div style={{ width: '30%', paddingRight: 16 }}>Name</div>
+                                            <div style={{ width: '40%', paddingRight: 16 }}>Description</div>
+                                            <div style={{ width: '20%', paddingRight: 16 }}>Last Activity</div>
+                                            <div style={{ width: '10%' }}>Documents</div>
                                             <div style={{ width: 60 }}></div>
                                         </div>
                                         {/* Rows */}
@@ -365,20 +365,23 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                                                         transition: 'background 0.15s ease',
                                                     }}
                                                 >
-                                                    <div onClick={e => toggleSelect(e, p.id)} style={{ width: 36, display: 'flex', color: isSelected ? 'var(--accent)' : 'var(--text-4)', cursor: 'pointer' }}>
+                                                    <div onClick={e => toggleSelect(e, p.id)} style={{ width: 36, display: 'flex', color: isSelected ? 'var(--accent)' : 'var(--text-4)', cursor: 'pointer', flexShrink: 0 }}>
                                                         {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
                                                     </div>
-                                                    <div style={{ flex: 1.5, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        <span style={{ fontWeight: 500, fontSize: 14 }}>{p.name}</span>
+                                                    <div style={{ width: '30%', paddingRight: 16, display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                                                        <span style={{ fontWeight: 500, fontSize: 14, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{p.name}</span>
                                                     </div>
-                                                    <div style={{ flex: 2, color: 'var(--text-3)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 20 }}>
+                                                    <div style={{ width: '40%', paddingRight: 16, color: 'var(--text-3)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {p.description || 'No description'}
                                                     </div>
-                                                    <div style={{ width: 140, fontSize: 12, color: 'var(--text-4)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                        <Clock size={14} /> {new Date(p.updated_at).toLocaleDateString()}
+                                                    <div style={{ width: '20%', paddingRight: 16, fontSize: 12, color: 'var(--text-4)', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        <Clock size={14} style={{ flexShrink: 0 }} /> 
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {new Date(p.updated_at).toLocaleString([], { year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
                                                     </div>
-                                                    <div style={{ width: 100, fontSize: 13, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                        <FileText size={14} color="var(--text-4)" /> {p.document_count ?? 0}
+                                                    <div style={{ width: '10%', fontSize: 13, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                                        <FileText size={14} color="var(--text-4)" style={{ flexShrink: 0 }} /> {p.document_count ?? 0}
                                                     </div>
                                                     <div style={{ width: 60, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                                                         <button
