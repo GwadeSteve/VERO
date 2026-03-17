@@ -289,3 +289,5 @@ GET  /sessions/{id}                 # Retrieve full conversation history
 - [x] **Layer 5** — Grounded Answering: multi-provider LLM, mandatory citations, refusal logic
 - [x] **Layer 6** — Conversational Memory: background auto-pipeline, persistent sessions
 - [ ] **Layer 7** — UI Implementation (pending)
+
+Let's build the agentic version.
