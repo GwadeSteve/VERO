@@ -290,4 +290,4 @@ GET  /sessions/{id}                 # Retrieve full conversation history
 - [x] **Layer 6** — Conversational Memory: background auto-pipeline, persistent sessions
 - [ ] **Layer 7** — UI Implementation (pending)
 
-Let's build the agentic version.
+Let's build the agentic version. 
