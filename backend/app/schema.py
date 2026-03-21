@@ -278,3 +278,11 @@ class ChatResponse(BaseModel):
     answer: str
     citations: List[SearchResultItem]
     found_sufficient_info: bool
+    thought_steps: List[Dict[str, Any]] = []
+
+
+class AgentEventResponse(BaseModel):
+    """A single event from the ReAct agent, streamed via SSE."""
+    type: str  # thinking, tool_call, tool_result, answer, error
+    content: str
+    metadata: Dict[str, Any] = {}

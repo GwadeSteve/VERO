@@ -9,6 +9,7 @@ import re
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,7 +23,6 @@ from app.schema import (
     ChatRequest,
     ChatResponse,
 )
-from app.retrieval import search as retrieval_search
 from app.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -373,7 +373,9 @@ async def chat(
     body: ChatRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Send a message and get a grounded answer with conversation history."""
+    """Send a message and get a grounded answer via the ReAct agent."""
+    from app.agent import ResearchAgent, EventType
+
     # Load session with messages
     result = await db.execute(
         select(SessionModel)
@@ -393,63 +395,57 @@ async def chat(
     db.add(user_msg)
     await db.flush()
 
-    # Search for relevant context
-    search_results = await retrieval_search(
+    # Build conversation history
+    recent_messages = session.messages[-MAX_HISTORY_MESSAGES:]
+    if recent_messages and recent_messages[0].role != "user":
+        recent_messages = recent_messages[1:]
+
+    history_messages: list[dict] = []
+    for msg in recent_messages:
+        role = "user" if msg.role == "user" else "assistant"
+        clean_content = sanitize_history_content(msg.content) if role == "assistant" else msg.content
+        if clean_content:
+            history_messages.append({"role": role, "content": clean_content})
+
+    # Run the agent
+    agent = ResearchAgent(
         db=db,
         project_id=session.project_id,
-        query=body.message,
+        allow_model_knowledge=body.allow_model_knowledge,
         top_k=body.top_k,
         mode=body.mode,
         min_score=body.min_score,
     )
 
-    # Build conversation history as proper multi-turn messages
-    # This prevents Llama models from echoing prompt scaffold text back
-    recent_messages = session.messages[-MAX_HISTORY_MESSAGES:]
-    # Ensure history always starts with a user message
-    if recent_messages and recent_messages[0].role != "user":
-        recent_messages = recent_messages[1:]
+    answer = ""
+    thought_steps: list[dict] = []
 
-    # Build source context block (only appended to the final user turn)
-    context_lines = ["--- SOURCES ---"]
-    for i, r in enumerate(search_results, 1):
-        source_header = f"[Source {i}] {r.doc_title}"
-        if r.source_url:
-            source_header += f" ({r.source_url})"
-        context_lines.append(f"{source_header}:\n{r.text}\n")
-    context_block = "\n".join(context_lines)
+    async for event in agent.run(query=body.message, history_messages=history_messages):
+        if event.type == EventType.THINKING:
+            thought_steps.append({"type": "thinking", "content": event.content})
+        elif event.type == EventType.TOOL_CALL:
+            thought_steps.append({"type": "tool_call", "content": event.content, **event.metadata})
+        elif event.type == EventType.TOOL_RESULT:
+            thought_steps.append({"type": "tool_result", "content": event.content, **event.metadata})
+        elif event.type == EventType.ANSWER:
+            answer = event.content
+        elif event.type == EventType.ERROR:
+            answer = event.content
 
-    # Assemble multi-turn messages array:
-    # [system, user_1, assistant_1, ..., user_N_with_context]
-    system_prompt = SYSTEM_PROMPT_WITH_HISTORY_AUGMENTED if body.allow_model_knowledge else SYSTEM_PROMPT_WITH_HISTORY
-    chat_messages: list[dict] = [{"role": "system", "content": system_prompt}]
+    # Sanitize the answer
+    answer = sanitize_answer(answer)
 
-    for msg in recent_messages:
-        role = "user" if msg.role == "user" else "assistant"
-        # Sanitize old stored messages to prevent contamination from previously leaked content
-        clean_content = sanitize_history_content(msg.content) if role == "assistant" else msg.content
-        if clean_content:  # Skip empty messages after sanitization
-            chat_messages.append({"role": role, "content": clean_content})
+    # Extract citations from the agent's accumulated search results
+    all_agent_results = agent.get_all_search_results()
 
-    # Final user turn: attach sources + question
-    final_user_content = f"{context_block}\n\nQuestion: {body.message}"
-    chat_messages.append({"role": "user", "content": final_user_content})
+    # Map agent source numbers → SearchResultItem
+    agent_source_map = {}
+    for entry in all_agent_results:
+        agent_source_map[entry["source_num"]] = entry["result"]
 
-    # Generate answer
-    try:
-        llm = get_llm()
-        raw_answer = await llm.generate_response(
-            system_prompt=system_prompt,
-            user_prompt=final_user_content,
-            messages=chat_messages,
-        )
-        answer = sanitize_answer(raw_answer)
-    except Exception as e:
-        logger.error("Chat LLM error: %s", e)
-        answer = f"Error generating answer: {str(e)}"
-
-    # Refine sufficient info logic:
-    # 1. Start with negative phrase check
+    # Find cited sources in the answer and remap to dense indices (1, 2, 3...)
+    used_citations = []
+    idx_mapping = {}
     refusal_phrases = [
         "cannot answer", "do not know", "don't know",
         "don't have enough information", "not enough information",
@@ -459,45 +455,32 @@ async def chat(
         "don't have any relevant",
     ]
     sufficient = not any(p in answer.lower() for p in refusal_phrases)
-    
-    # 2. Extract used citations and rewrite the answer text with dense indices (1, 2, 3...)
-    used_citations = []
-    if search_results:
-        # Find all unique source numbers the LLM actually cited, matching [1] or [Source 1]
-        referenced = sorted(list(set(int(m) for m in re.findall(r'\[(?:Source\s*)?(\d+)\]', answer, re.IGNORECASE))))
-        
-        # Build a mapping from Original Index -> New Dense Index (1-based)
-        # e.g., if it cited 3 and 8, mapping is {3: 1, 8: 2}
-        idx_mapping = {}
+
+    if agent_source_map:
+        referenced = sorted(list(set(
+            int(m) for m in re.findall(r'\[(?:Source\s*)?([0-9]+)\]', answer, re.IGNORECASE)
+        )))
         for original_idx in referenced:
-            if 1 <= original_idx <= len(search_results):
-                used_citations.append(search_results[original_idx - 1])
+            if original_idx in agent_source_map:
+                used_citations.append(agent_source_map[original_idx])
                 idx_mapping[original_idx] = len(used_citations)
-                
-        # Rewrite the text to use the new dense indices
+
+        # Rewrite citations to dense indices
         def replace_cite(match):
             old_idx = int(match.group(1))
             new_idx = idx_mapping.get(old_idx)
             if new_idx:
                 return f"[Source {new_idx}]"
-            return match.group(0) # Leaf it alone if out of bounds (shouldn't happen)
-            
+            return match.group(0)
+
         if idx_mapping:
-            answer = re.sub(r'\[(?:Source\s*)?(\d+)\]', replace_cite, answer, flags=re.IGNORECASE)
-    
-    # 3. OVERRIDE: If the LLM referenced a source, it FOUND sufficient info.
+            answer = re.sub(r'\[(?:Source\s*)?([0-9]+)\]', replace_cite, answer, flags=re.IGNORECASE)
+
     if used_citations:
         sufficient = True
-        
-    # 4. FALLBACK: If the LLM didn't use [Source N] format but the answer looks 
-    # sufficient (no refusal phrases), return all results as citations rather than empty.
-    if sufficient and not used_citations and search_results:
-        used_citations = search_results
-
-    final_citations = used_citations
-        
-    # Determine if grounding was actually used
-    grounding_found = sufficient and len(used_citations) > 0
+    if sufficient and not used_citations and all_agent_results:
+        # Fallback: use all results if sufficient but no explicit citations
+        used_citations = [e["result"] for e in all_agent_results]
 
     # Save the assistant's response
     assistant_msg = SessionMessageModel(
@@ -508,13 +491,13 @@ async def chat(
     )
     db.add(assistant_msg)
 
-    # Auto-title on first message using LLM
+    # Auto-title on first message
     if len(session.messages) <= 1:
         try:
             title_llm = get_llm()
             title_prompt = (
-                f"Generate a concise 3-6 word title for a research conversation that starts with this message: "
-                f"\"{body.message[:200]}\". Return ONLY the title text, nothing else. No quotes, no punctuation at the end."
+                f'Generate a concise 3-6 word title for a research conversation that starts with this message: '
+                f'\"{body.message[:200]}\". Return ONLY the title text, nothing else. No quotes, no punctuation at the end.'
             )
             generated_title = await title_llm.generate_response(
                 system_prompt="You are a helpful assistant that generates short, descriptive conversation titles.",
@@ -532,7 +515,7 @@ async def chat(
     # Touch project and session activity
     from datetime import datetime, timezone
     session.updated_at = datetime.now(timezone.utc)
-    
+
     result = await db.execute(select(ProjectModel).where(ProjectModel.id == session.project_id))
     proj = result.scalar_one_or_none()
     if proj:
@@ -545,4 +528,112 @@ async def chat(
         answer=answer,
         citations=used_citations,
         found_sufficient_info=sufficient,
+        thought_steps=thought_steps,
+    )
+
+
+@router.post("/sessions/{session_id}/chat/stream")
+async def chat_stream(
+    session_id: str,
+    body: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream agent events via Server-Sent Events for real-time thought visibility."""
+    from app.agent import ResearchAgent
+
+    # Load session with messages
+    result = await db.execute(
+        select(SessionModel)
+        .options(selectinload(SessionModel.messages))
+        .where(SessionModel.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Save the user's message
+    user_msg = SessionMessageModel(
+        session_id=session.id,
+        role="user",
+        content=body.message,
+    )
+    db.add(user_msg)
+    await db.flush()
+
+    # Build conversation history
+    recent_messages = session.messages[-MAX_HISTORY_MESSAGES:]
+    if recent_messages and recent_messages[0].role != "user":
+        recent_messages = recent_messages[1:]
+
+    history_messages: list[dict] = []
+    for msg in recent_messages:
+        role = "user" if msg.role == "user" else "assistant"
+        clean_content = sanitize_history_content(msg.content) if role == "assistant" else msg.content
+        if clean_content:
+            history_messages.append({"role": role, "content": clean_content})
+
+    agent = ResearchAgent(
+        db=db,
+        project_id=session.project_id,
+        allow_model_knowledge=body.allow_model_knowledge,
+        top_k=body.top_k,
+        mode=body.mode,
+        min_score=body.min_score,
+    )
+
+    async def event_generator():
+        answer = ""
+        async for event in agent.run(query=body.message, history_messages=history_messages):
+            yield event.to_sse()
+            if event.type.value == "answer":
+                answer = event.content
+
+        # After streaming completes, save the assistant response
+        clean_answer = sanitize_answer(answer)
+        all_agent_results = agent.get_all_search_results()
+        used_citations = [e["result"] for e in all_agent_results] if all_agent_results else []
+
+        assistant_msg = SessionMessageModel(
+            session_id=session.id,
+            role="assistant",
+            content=clean_answer,
+            citations_json=json.dumps([c.model_dump() for c in used_citations]),
+        )
+        db.add(assistant_msg)
+
+        # Auto-title on first message
+        if len(session.messages) <= 1:
+            try:
+                title_llm = get_llm()
+                title_prompt = (
+                    f'Generate a concise 3-6 word title: \"{body.message[:200]}\"'
+                )
+                generated_title = await title_llm.generate_response(
+                    system_prompt="Generate short conversation titles.",
+                    user_prompt=title_prompt,
+                )
+                session.title = generated_title.strip().strip('"').strip("'").strip(".")[:60] or body.message[:50]
+            except Exception:
+                session.title = body.message[:50]
+
+        from datetime import datetime, timezone
+        session.updated_at = datetime.now(timezone.utc)
+        proj_result = await db.execute(select(ProjectModel).where(ProjectModel.id == session.project_id))
+        proj = proj_result.scalar_one_or_none()
+        if proj:
+            proj.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+
+        # Send a final "done" event
+        done_payload = json.dumps({"type": "done", "content": "", "metadata": {}})
+        yield f"data: {done_payload}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
