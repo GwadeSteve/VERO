@@ -190,6 +190,13 @@ class ResearchAgent:
 
         # ReAct Loop
         for iteration in range(self.MAX_ITERATIONS):
+            # Yield an initial thinking event to immediately show activity in the UI
+            yield AgentEvent(
+                type=EventType.THINKING,
+                content=f"Analyzing { 'query' if iteration == 0 else 'results' }...",
+                metadata={"iteration": iteration + 1}
+            )
+
             try:
                 response_text = await llm.generate_response(
                     system_prompt=system_prompt,
@@ -203,6 +210,15 @@ class ResearchAgent:
                     content=f"Error generating response: {str(e)}",
                 )
                 return
+
+            # Guard against None responses (rate limits, empty replies, etc.)
+            if not response_text:
+                logger.warning("LLM returned empty/None on iteration %d", iteration)
+                yield AgentEvent(
+                    type=EventType.THINKING,
+                    content="Retrying — received an empty response...",
+                )
+                continue
 
             # Check if the LLM wants to use a tool
             action_match = _ACTION_RE.search(response_text)
@@ -229,7 +245,7 @@ class ResearchAgent:
             yield AgentEvent(
                 type=EventType.TOOL_CALL,
                 content=f"{tool_name}(\"{tool_arg}\")",
-                metadata={"tool": tool_name, "argument": tool_arg},
+                metadata={"tool_name": tool_name, "argument": tool_arg},
             )
 
             # Execute the tool
@@ -321,8 +337,10 @@ class ResearchAgent:
             "summary": f"Found {len(results)} relevant passages.",
             "detail": "\n\n---\n\n".join(formatted_lines),
             "metadata": {
+                "tool_name": "search_docs",
                 "result_count": len(results),
                 "sources": new_results_info,
+                "results": [r.model_dump() for r in results]
             },
         }
 

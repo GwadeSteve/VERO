@@ -591,7 +591,43 @@ async def chat_stream(
         # After streaming completes, save the assistant response
         clean_answer = sanitize_answer(answer)
         all_agent_results = agent.get_all_search_results()
-        used_citations = [e["result"] for e in all_agent_results] if all_agent_results else []
+        
+        # Map agent source numbers → SearchResultItem
+        agent_source_map = {entry["source_num"]: entry["result"] for entry in all_agent_results}
+        
+        used_citations = []
+        idx_mapping = {}
+        refusal_phrases = [
+            "cannot answer", "do not know", "don't know", "not enough information", 
+            "no relevant information", "insufficient", "unable to answer",
+            "not found in", "cannot find", "no information", "not contain",
+            "don't have any relevant"
+        ]
+        sufficient = not any(p in clean_answer.lower() for p in refusal_phrases)
+
+        if agent_source_map:
+            referenced = sorted(list(set(
+                int(m) for m in re.findall(r'\[(?:Source\s*)?([0-9]+)\]', clean_answer, re.IGNORECASE)
+            )))
+            for original_idx in referenced:
+                if original_idx in agent_source_map:
+                    used_citations.append(agent_source_map[original_idx])
+                    idx_mapping[original_idx] = len(used_citations)
+
+            # Rewrite citations to dense indices
+            def replace_cite(match):
+                old_idx = int(match.group(1))
+                new_idx = idx_mapping.get(old_idx)
+                return f"[Source {new_idx}]" if new_idx else match.group(0)
+
+            if idx_mapping:
+                clean_answer = re.sub(r'\[(?:Source\s*)?([0-9]+)\]', replace_cite, clean_answer, flags=re.IGNORECASE)
+
+        if used_citations:
+            sufficient = True
+        if sufficient and not used_citations and all_agent_results:
+            # Fallback: use all results if sufficient but no explicit citations
+            used_citations = [e["result"] for e in all_agent_results]
 
         assistant_msg = SessionMessageModel(
             session_id=session.id,
@@ -624,8 +660,16 @@ async def chat_stream(
             proj.updated_at = datetime.now(timezone.utc)
         await db.commit()
 
-        # Send a final "done" event
-        done_payload = json.dumps({"type": "done", "content": "", "metadata": {}})
+        # Send a final special 'rewrite' event to fix the text with dense indices if needed
+        # We also send the citations array here
+        done_payload = json.dumps({
+            "type": "done", 
+            "content": clean_answer, 
+            "metadata": {
+                "citations": [c.model_dump() for c in used_citations],
+                "found_sufficient_info": sufficient
+            }
+        })
         yield f"data: {done_payload}\n\n"
 
     return StreamingResponse(
