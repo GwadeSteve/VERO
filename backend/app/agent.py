@@ -232,11 +232,13 @@ class ResearchAgent:
             action_start = action_match.start()
             thinking_text = response_text[:action_start].strip()
             if thinking_text:
-                self._thought_steps.append(thinking_text)
-                yield AgentEvent(
-                    type=EventType.THINKING,
-                    content=thinking_text,
-                )
+                clean_thought = self._clean_thinking_text(thinking_text)
+                if clean_thought:
+                    self._thought_steps.append(clean_thought)
+                    yield AgentEvent(
+                        type=EventType.THINKING,
+                        content=clean_thought,
+                    )
 
             # Parse the tool call
             tool_name = action_match.group(1)
@@ -286,6 +288,39 @@ class ResearchAgent:
                 type=EventType.ERROR,
                 content=f"Error generating final answer: {str(e)}",
             )
+
+    @staticmethod
+    def _clean_thinking_text(raw: str) -> str:
+        """Strip verbose LLM chain-of-thought formatting into a clean UI string."""
+        import re as _re
+
+        text = raw.strip()
+
+        # Remove numbered list prefixes: "1. ", "2. ", etc.
+        text = _re.sub(r'^\d+\.\s*', '', text, flags=_re.MULTILINE)
+
+        # Remove **Think**: / **Act**: / **Thought**: style prefixes
+        text = _re.sub(
+            r'\*{0,2}(Think|Act|Thought|Reasoning|Step|Plan|Observe)\s*:?\*{0,2}\s*:?\s*',
+            '', text, flags=_re.IGNORECASE
+        )
+
+        # Strip remaining markdown bold markers
+        text = _re.sub(r'\*{1,2}', '', text)
+
+        # Collapse multiple whitespace/newlines into single spaces
+        text = ' '.join(text.split())
+
+        # Truncate overly long thoughts to keep the UI clean
+        if len(text) > 200:
+            # Try to cut at a sentence boundary
+            cutoff = text[:200].rfind('. ')
+            if cutoff > 80:
+                text = text[:cutoff + 1]
+            else:
+                text = text[:197] + '...'
+
+        return text.strip()
 
     async def _execute_tool(self, tool_name: str, argument: str) -> dict:
         """Dispatch a tool call and return the observation."""
