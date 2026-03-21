@@ -588,10 +588,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 const msgObj = next[next.length - 1];
                 const newThoughts = [...(msgObj.thoughts || []), { ...event, content: displayContent }];
                 
-                // If this is a search tool result, update the global traces so citations work
+                // If this is a search tool result, append traces in order so [Source N] maps to traces[N-1]
                 let updatedTraces = msgObj.traces || [];
                 if (event.type === 'tool_result' && event.metadata?.tool_name === 'search_docs' && Array.isArray(event.metadata?.results)) {
-                    updatedTraces = [...event.metadata.results, ...updatedTraces];
+                    updatedTraces = [...updatedTraces, ...event.metadata.results];
                     setTraceResults(updatedTraces);
                 }
 
@@ -626,14 +626,26 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 setMessages(prev => {
                     const next = [...prev];
                     const msgObj = next[next.length - 1];
+                    // Use citations from the done event as the authoritative trace list
+                    // These are properly filtered and re-indexed by the backend
+                    const finalCitations = event.metadata?.citations;
+                    const finalTraces = (Array.isArray(finalCitations) && finalCitations.length > 0) 
+                        ? finalCitations 
+                        : msgObj.traces || [];
                     next[next.length - 1] = { 
                         ...msgObj, 
                         isStreaming: false,
                         text: event.content || msgObj.text,
-                        citations: event.metadata?.citations || msgObj.citations || [],
+                        traces: finalTraces,
+                        citations: finalCitations || [],
                         sufficient: event.metadata?.found_sufficient_info ?? msgObj.sufficient ?? true
                     };
                     return next;
+                });
+                setTraceResults(prev => {
+                    // Also update global trace state
+                    const finalCitations = event.metadata?.citations;
+                    return (Array.isArray(finalCitations) && finalCitations.length > 0) ? finalCitations : prev;
                 });
                 setIsStreaming(false);
             };
