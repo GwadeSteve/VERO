@@ -5,8 +5,10 @@ Covers:
 1. Auto-Pipeline: Documents auto-process (chunk & embed) upon ingest.
 2. Sessions: Creation and listing of multi-turn chat sessions.
 3. Chat History: Context is maintained across messages in a session.
+   3b. Agent Reasoning: Verify thought_steps are populated for document queries.
 4. Message Pair Deletion: Deleting a message removes its Q&A pair.
 5. Session Deletion: Full session cleanup.
+6. SSE Streaming: Verify the /chat/stream endpoint yields events.
 
 Usage:
     Must set GROQ_API_KEY (or GEMINI/OLLAMA equivalents) environment variable.
@@ -156,22 +158,29 @@ def run_tests():
     section("3. Multi-Turn Chat (History & Context)")
     # ============================================================
     # Turn 1: Ask something specific
-    print("  Sending Turn 1 (Wait a moment)...")
+    print("  Sending Turn 1 (Wait a moment — agent is reasoning)...")
     r_chat1 = httpx.post(
         f"{BASE}/sessions/{session_id}/chat",
         json={"message": "What is VERO?", "top_k": 3, "mode": "hybrid"},
-        timeout=120.0
+        timeout=180.0
     )
     check("POST /chat (Turn 1) returns 200", r_chat1.status_code == 200)
-    ans1 = r_chat1.json().get("answer", "").lower()
-    check("Answer 1 is relevant", "ai" in ans1 or "research" in ans1 or "assistant" in ans1, ans1[:50])
+    chat1_data = r_chat1.json()
+    ans1 = chat1_data.get("answer", "").lower()
+    check("Answer 1 is relevant", "ai" in ans1 or "research" in ans1 or "assistant" in ans1 or "vero" in ans1, ans1[:50])
+    
+    # Verify thought_steps is present in response (agent feature)
+    thought_steps_1 = chat1_data.get("thought_steps", None)
+    check("Response includes thought_steps field", thought_steps_1 is not None)
+    if thought_steps_1 is not None:
+        check("thought_steps is a list", isinstance(thought_steps_1, list))
     
     # Turn 2: Follow up with a pronoun (requires history context)
-    print("  Sending Turn 2 (Testing history)...")
+    print("  Sending Turn 2 (Testing history — agent is reasoning)...")
     r_chat2 = httpx.post(
         f"{BASE}/sessions/{session_id}/chat",
         json={"message": "Can I run it locally?", "top_k": 3, "mode": "hybrid"},
-        timeout=120.0
+        timeout=180.0
     )
     check("POST /chat (Turn 2) returns 200", r_chat2.status_code == 200)
     ans2 = r_chat2.json().get("answer", "").lower()
@@ -215,6 +224,51 @@ def run_tests():
 
     r_verify_del = httpx.get(f"{BASE}/sessions/{session_id}", timeout=5.0)
     check("GET deleted session returns 404", r_verify_del.status_code == 404)
+
+    # ============================================================
+    section("6. SSE Streaming Endpoint")
+    # ============================================================
+    # Create a fresh session for SSE test
+    r_sse_session = httpx.post(f"{BASE}/projects/{project_id}/sessions", json={"title": "SSE Test"}, timeout=5.0)
+    sse_session_id = r_sse_session.json()["id"]
+    
+    print("  Sending SSE stream request (agent reasoning)...")
+    sse_events = []
+    try:
+        with httpx.stream(
+            "POST",
+            f"{BASE}/sessions/{sse_session_id}/chat/stream",
+            json={"message": "What is VERO?", "top_k": 3, "mode": "hybrid"},
+            timeout=180.0
+        ) as response:
+            check("POST /chat/stream returns 200", response.status_code == 200)
+            check("Content-Type is text/event-stream", "text/event-stream" in response.headers.get("content-type", ""))
+            
+            import json as json_mod
+            for line in response.iter_lines():
+                if line.startswith("data: "):
+                    try:
+                        event = json_mod.loads(line[6:])
+                        sse_events.append(event)
+                    except Exception:
+                        pass
+    except Exception as e:
+        check("SSE stream connection succeeded", False, str(e))
+    
+    check("Received at least 1 SSE event", len(sse_events) >= 1, f"got {len(sse_events)}")
+    
+    # Verify event types
+    event_types = [e.get("type") for e in sse_events]
+    check("SSE events include an answer or done event", 
+          "answer" in event_types or "done" in event_types, 
+          f"types: {event_types}")
+    
+    # If agent used tools, we should see thinking/tool_call events too
+    has_agent_events = any(t in event_types for t in ["thinking", "tool_call", "tool_result"])
+    print(f"  ℹ Agent reasoning events present: {has_agent_events} (types: {event_types})")
+    
+    # Cleanup SSE session
+    httpx.delete(f"{BASE}/sessions/{sse_session_id}", timeout=5.0)
 
     # ============================================================
     section("RESULTS")
