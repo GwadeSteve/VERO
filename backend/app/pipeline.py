@@ -119,8 +119,13 @@ async def _chunk_document(db: AsyncSession, doc: DocumentModel):
     if doc.summary and doc.summary != "No summary available.":
         context_header += f" - {doc.summary}"
 
+    # 4. Generate chunks
     chunk_responses = await run_in_threadpool(
-        chunker.chunk, text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id, doc_title=context_header
+        chunker.chunk,
+        text=doc.raw_text, 
+        doc_id=doc.id, 
+        project_id=doc.project_id, 
+        doc_title=context_header
     )
     
     for cr in chunk_responses:

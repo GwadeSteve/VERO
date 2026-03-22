@@ -383,8 +383,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         toast?.(`Processing "${docTitle}": Step ${doc.processing_status}`, 'info');
                     }
                 }
-            } catch { clearInterval(iv); }
-        }, 2500);
+            } catch (err) {
+                console.warn(`Polling dropped a request for ${docTitle} (server likely busy), retrying...`); 
+                // Do not clear the interval! The server event loop is just temporarily blocked.
+            }
+        }, 3000);
         setTimeout(() => clearInterval(iv), 1200000); // 20 minutes
     };
 
