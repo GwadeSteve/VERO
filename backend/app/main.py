@@ -37,8 +37,11 @@ async def lifespan(app: FastAPI):
     t0 = time.time()
     print("\n  [VERO] Pre-warming ML models...")
     from app.embeddings import get_embedder
-    get_embedder()
-    print("  ✓ Embedder loaded (BAAI/bge-base-en-v1.5)")
+    try:
+        e = get_embedder()
+        print(f"  ✓ Embedder loaded ({e._model_name})")
+    except Exception as exc:
+        print(f"  ✗ Failed to load Embedder: {exc}")
     from app.reranker import _get_model as get_reranker
     get_reranker()
     print(f"  ✓ Cross-encoder loaded (BAAI/bge-reranker-base)")

@@ -41,7 +41,7 @@ class LocalEmbedder(BaseEmbedder):
     Lazy-loads the model on first use. Thread-safe via singleton pattern.
     """
 
-    def __init__(self, model_name: str = "BAAI/bge-base-en-v1.5"):
+    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5"):
         super().__init__(model_name=model_name)
         self._dimension: int | None = None
 
