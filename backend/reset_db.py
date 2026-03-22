@@ -6,6 +6,7 @@ Usage: Stop the server first, then run:
 import asyncio
 import logging
 import sys
+import shutil
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -25,6 +26,12 @@ async def reset_database():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+
+    # Delete ChromaDB directory to clear old vectors
+    chroma_dir = Path(__file__).resolve().parent / "data" / "chromadb"
+    if chroma_dir.exists():
+        logger.warning(f"Deleting ChromaDB vectors at {chroma_dir}...")
+        shutil.rmtree(chroma_dir)
 
     logger.info("Database reset complete. All tables recreated.")
 
