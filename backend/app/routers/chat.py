@@ -667,7 +667,9 @@ async def chat_stream(
             "content": clean_answer, 
             "metadata": {
                 "citations": [c.model_dump() for c in used_citations],
-                "found_sufficient_info": sufficient
+                "found_sufficient_info": sufficient,
+                "user_message_id": user_msg.id,
+                "ai_message_id": assistant_msg.id
             }
         })
         yield f"data: {done_payload}\n\n"

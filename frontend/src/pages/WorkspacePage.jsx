@@ -385,7 +385,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 }
             } catch { clearInterval(iv); }
         }, 2500);
-        setTimeout(() => clearInterval(iv), 180000);
+        setTimeout(() => clearInterval(iv), 1200000); // 20 minutes
     };
 
     // ── Ingestion ────────────────────────────────────
@@ -630,6 +630,11 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 setMessages(prev => {
                     const next = [...prev];
                     const msgObj = next[next.length - 1];
+                    
+                    if (next.length > 1 && event.metadata?.user_message_id) {
+                        next[next.length - 2] = { ...next[next.length - 2], id: event.metadata.user_message_id };
+                    }
+
                     // Use citations from the done event as the authoritative trace list
                     // These are properly filtered and re-indexed by the backend
                     const finalCitations = event.metadata?.citations;
@@ -639,6 +644,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     next[next.length - 1] = { 
                         ...msgObj, 
                         isStreaming: false,
+                        id: event.metadata?.ai_message_id || msgObj.id,
                         text: event.content || msgObj.text,
                         traces: finalTraces,
                         citations: finalCitations || [],
