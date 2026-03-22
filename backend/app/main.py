@@ -39,6 +39,7 @@ async def lifespan(app: FastAPI):
     from app.embeddings import get_embedder
     try:
         e = get_embedder()
+        _ = e.dimension  # Forces instantiation and download
         print(f"  ✓ Embedder loaded ({e._model_name})")
     except Exception as exc:
         print(f"  ✗ Failed to load Embedder: {exc}")
