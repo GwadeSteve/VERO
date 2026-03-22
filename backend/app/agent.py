@@ -49,73 +49,46 @@ class AgentEvent:
 # ── Tool definitions ──────────────────────────────────────────────
 
 
-TOOL_DESCRIPTIONS = """You have access to the following tools to research the user's questions:
+TOOL_DESCRIPTIONS = """You have access to these tools:
 
-1. search_docs(query: str)
-   Search the user's uploaded documents using hybrid semantic + keyword search.
-   Returns the most relevant text passages with source information.
-   Use this when you need to find specific information in the documents.
+1. search_docs("query") — Search the user's uploaded documents. Returns relevant text passages with source numbers.
+2. read_document("doc_id") — Fetch a document's summary and metadata.
 
-2. read_document(doc_id: str)
-   Fetch the summary and metadata of a specific document.
-   Use this when you want broader context about a document found in search results.
-
-To use a tool, output EXACTLY this format on its own line:
+To use a tool, output EXACTLY this on its own line:
 Action: tool_name("argument")
 
-Examples:
-Action: search_docs("attention mechanism in transformers")
-Action: read_document("abc123")
-
-After receiving tool results in an Observation, continue reasoning.
-When you have enough information, write your final answer directly (no Action line).
-"""
+IMPORTANT: Only ONE Action per response. Never write multiple Action lines."""
 
 
 # ── Agent system prompt ──────────────────────────────────────────
 
 
-AGENT_SYSTEM_PROMPT = """You are VERO, a brilliant AI research partner with access to the user's documents.
+AGENT_SYSTEM_PROMPT = """You are VERO, a precise AI research assistant.
 
-### How you work:
-You solve questions step-by-step using a Think → Act → Observe loop:
-1. **Think**: Reason about what information you need.
-2. **Act**: Use a tool to retrieve information.
-3. **Observe**: Read the results and decide if you need more info.
-4. Repeat until you can write a confident, grounded answer.
+You answer questions using the user's uploaded documents. You work in a loop:
+- First, decide what information you need and call a tool.
+- After receiving results, decide if you need more info or can answer.
+- When ready, write your answer directly (no Action line).
 
 {tool_descriptions}
 
-### Rules:
-- For simple greetings or follow-ups that don't need document search, answer directly without using tools.
-- For questions about the user's documents, ALWAYS search first. Never guess.
-- If a question is complex (comparing concepts, connecting ideas), decompose it into sub-searches.
-- Cite sources as [Source N] in your final answer, matching the source numbers from search results.
-- Keep your thinking concise — focus on what you need, not lengthy analysis.
-- When you have enough information, write your final answer. Do NOT keep searching unnecessarily.
-- Maximum 5 tool calls per question. After 5, synthesize what you have.
-
-### Citation Rules (CRITICAL):
-- Back up EVERY factual claim with [Source N].
+STRICT RULES:
+- Output ONE Action per turn. After writing an Action line, STOP. Do not write anything after it.
+- Do NOT write "Think:", "Act:", "Observe:", or numbered steps. Just reason briefly, then either call a tool OR write your answer.
+- For simple greetings or follow-ups that don't need documents, answer directly.
+- For document questions, search first. Never guess.
+- Do NOT repeat the same search query you already used.
+- Maximum 3 tool calls per question. Synthesize what you have.
+- Cite sources as [Source N] matching the numbers from search results.
 - Do NOT include file names next to citations.
-- NEVER generate a "References" list at the end.
-
-### Mathematical Notation:
-- Inline math: $E = mc^2$
-- Block math: $$\\theta^* = \\arg\\min ...$$
-- NEVER use raw Unicode math symbols.
-
-### Output:
-- Use professional Markdown: **bold**, headers, lists, code blocks.
-- Keep answers concise — under 300 words unless asked for detail.
-- Start your response directly with content. No preamble.
-"""
+- Do NOT generate a "References" list at the end.
+- Keep answers under 300 words unless asked for detail.
+- Use Markdown formatting: **bold**, headers, lists, code blocks.
+- Use LaTeX for math: $E = mc^2$ (inline), $$formula$$ (block).
+- Start your response directly with content. No preamble like "Sure!" or "Great question!"."""
 
 AGENT_SYSTEM_PROMPT_AUGMENTED = AGENT_SYSTEM_PROMPT + """
-### Knowledge Blending:
-If you provide information from your own knowledge beyond the documents, mention it naturally
-(e.g., "While your documents don't cover this, generally...").
-"""
+If you provide information from your own knowledge beyond the documents, mention it naturally."""
 
 
 # ── The Research Agent ───────────────────────────────────────────
@@ -126,11 +99,19 @@ _ACTION_RE = re.compile(
     re.MULTILINE,
 )
 
+# Patterns to strip from final answers
+_REASONING_PATTERNS = [
+    re.compile(r'^\d+\.\s*\*{0,2}(Think|Act|Observe|Thought|Action|Step|Plan)\*{0,2}\s*:?\s*', re.MULTILINE | re.IGNORECASE),
+    re.compile(r'^(Think|Act|Observe|Thought|Action|Step|Plan)\s*:\s*', re.MULTILINE | re.IGNORECASE),
+    re.compile(r'Action:\s*\w+\s*\(".*?"\)\s*', re.IGNORECASE),
+    re.compile(r'Observation:\s*', re.IGNORECASE),
+]
+
 
 class ResearchAgent:
     """ReAct agent that reasons over VERO's document corpus."""
 
-    MAX_ITERATIONS = 5
+    MAX_ITERATIONS = 4
 
     def __init__(
         self,
@@ -152,21 +133,14 @@ class ResearchAgent:
         self._all_results: list = []
         self._source_counter = 0
         self._thought_steps: list[str] = []
+        self._used_queries: set[str] = set()  # Dedup search queries
 
     async def run(
         self,
         query: str,
         history_messages: list[dict] | None = None,
     ) -> AsyncGenerator[AgentEvent, None]:
-        """Execute the ReAct loop, yielding events as we go.
-
-        Args:
-            query: The user's question.
-            history_messages: Prior conversation messages [{role, content}, ...].
-
-        Yields:
-            AgentEvent objects for each step (thinking, tool calls, final answer).
-        """
+        """Execute the ReAct loop, yielding events as we go."""
         from app.llm import get_llm
 
         llm = get_llm()
@@ -190,10 +164,10 @@ class ResearchAgent:
 
         # ReAct Loop
         for iteration in range(self.MAX_ITERATIONS):
-            # Yield an initial thinking event to immediately show activity in the UI
+            # Yield an initial thinking event for immediate UI feedback
             yield AgentEvent(
                 type=EventType.THINKING,
-                content=f"Analyzing { 'query' if iteration == 0 else 'results' }...",
+                content=f"Analyzing {'query' if iteration == 0 else 'results'}...",
                 metadata={"iteration": iteration + 1}
             )
 
@@ -211,7 +185,7 @@ class ResearchAgent:
                 )
                 return
 
-            # Guard against None responses (rate limits, empty replies, etc.)
+            # Guard against None responses
             if not response_text:
                 logger.warning("LLM returned empty/None on iteration %d", iteration)
                 yield AgentEvent(
@@ -220,12 +194,13 @@ class ResearchAgent:
                 )
                 continue
 
-            # Check if the LLM wants to use a tool
+            # Find the FIRST Action: line only
             action_match = _ACTION_RE.search(response_text)
 
             if not action_match:
-                # No tool call — this is the final answer
-                yield AgentEvent(type=EventType.ANSWER, content=response_text)
+                # No tool call — this is the final answer. Clean it up.
+                clean_answer = self._sanitize_answer(response_text)
+                yield AgentEvent(type=EventType.ANSWER, content=clean_answer)
                 return
 
             # Extract reasoning before the Action line
@@ -244,6 +219,25 @@ class ResearchAgent:
             tool_name = action_match.group(1)
             tool_arg = action_match.group(2)
 
+            # Dedup: skip if we already searched this exact query
+            normalized_query = tool_arg.strip().lower()
+            if tool_name == "search_docs" and normalized_query in self._used_queries:
+                logger.info("Skipping duplicate search: %s", tool_arg)
+                # Tell the LLM to use what it already has
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append({
+                    "role": "user",
+                    "content": f"You already searched for \"{tool_arg}\". Use the results you already have. Write your answer now.",
+                })
+                yield AgentEvent(
+                    type=EventType.THINKING,
+                    content="Already searched this — synthesizing existing results...",
+                )
+                continue
+
+            if tool_name == "search_docs":
+                self._used_queries.add(normalized_query)
+
             yield AgentEvent(
                 type=EventType.TOOL_CALL,
                 content=f"{tool_name}(\"{tool_arg}\")",
@@ -260,7 +254,9 @@ class ResearchAgent:
             )
 
             # Append the assistant's response + observation to messages
-            messages.append({"role": "assistant", "content": response_text})
+            # Only include text up to and including the Action line to avoid hallucinated content after it
+            clean_assistant_text = response_text[:action_match.end()].strip()
+            messages.append({"role": "assistant", "content": clean_assistant_text})
             messages.append({
                 "role": "user",
                 "content": f"Observation:\n{observation['detail']}",
@@ -271,8 +267,8 @@ class ResearchAgent:
         messages.append({
             "role": "user",
             "content": (
-                "You have used all available tool calls. Based on what you've found so far, "
-                "write your final answer now. Synthesize all the information gathered."
+                "You have used all available tool calls. Write your final answer now "
+                "using the information you've gathered. Be concise and cite sources."
             ),
         })
 
@@ -282,7 +278,8 @@ class ResearchAgent:
                 user_prompt=query,
                 messages=messages,
             )
-            yield AgentEvent(type=EventType.ANSWER, content=final_response)
+            clean_answer = self._sanitize_answer(final_response or "")
+            yield AgentEvent(type=EventType.ANSWER, content=clean_answer)
         except Exception as e:
             yield AgentEvent(
                 type=EventType.ERROR,
@@ -292,33 +289,65 @@ class ResearchAgent:
     @staticmethod
     def _clean_thinking_text(raw: str) -> str:
         """Strip verbose LLM chain-of-thought formatting into a clean UI string."""
-        import re as _re
-
         text = raw.strip()
 
-        # Remove numbered list prefixes: "1. ", "2. ", etc.
-        text = _re.sub(r'^\d+\.\s*', '', text, flags=_re.MULTILINE)
+        # Remove numbered list prefixes: "1. ", "2. "
+        text = re.sub(r'^\d+\.\s*', '', text, flags=re.MULTILINE)
 
         # Remove **Think**: / **Act**: / **Thought**: style prefixes
-        text = _re.sub(
+        text = re.sub(
             r'\*{0,2}(Think|Act|Thought|Reasoning|Step|Plan|Observe)\s*:?\*{0,2}\s*:?\s*',
-            '', text, flags=_re.IGNORECASE
+            '', text, flags=re.IGNORECASE
         )
 
+        # Remove any hallucinated Action: lines
+        text = re.sub(r'Action:\s*\w+\s*\(".*?"\)', '', text, flags=re.IGNORECASE)
+
         # Strip remaining markdown bold markers
-        text = _re.sub(r'\*{1,2}', '', text)
+        text = re.sub(r'\*{1,2}', '', text)
 
         # Collapse multiple whitespace/newlines into single spaces
         text = ' '.join(text.split())
 
-        # Truncate overly long thoughts to keep the UI clean
+        # Truncate to keep the UI clean
         if len(text) > 200:
-            # Try to cut at a sentence boundary
             cutoff = text[:200].rfind('. ')
             if cutoff > 80:
                 text = text[:cutoff + 1]
             else:
                 text = text[:197] + '...'
+
+        return text.strip()
+
+    @staticmethod
+    def _sanitize_answer(text: str) -> str:
+        """Remove reasoning artifacts that leaked into the final answer."""
+        if not text:
+            return text
+
+        # Strip all reasoning pattern lines
+        for pattern in _REASONING_PATTERNS:
+            text = pattern.sub('', text)
+
+        # Remove any hallucinated Action: lines
+        text = re.sub(r'Action:\s*\w+\s*\(".*?"\)\s*', '', text, flags=re.IGNORECASE)
+
+        # Remove "Observe:" / "Observation:" blocks
+        text = re.sub(r'Observ(?:e|ation):\s*.*?(?=\n\n|\Z)', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+        # Remove duplicate paragraphs (exact match)
+        paragraphs = text.split('\n\n')
+        seen = set()
+        unique = []
+        for p in paragraphs:
+            normalized = p.strip()
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                unique.append(p)
+        text = '\n\n'.join(unique)
+
+        # Clean up excess whitespace
+        text = re.sub(r'\n{3,}', '\n\n', text)
 
         return text.strip()
 
@@ -403,17 +432,12 @@ class ResearchAgent:
             "detail": (
                 f"Title: {doc.title}\n"
                 f"Type: {doc.source_type}\n"
-                f"Summary: {doc.summary or 'No summary available.'}\n"
-                f"Characters: {len(doc.raw_text or '')}\n"
-                f"Source URL: {doc.source_url or 'N/A'}"
+                f"Status: {doc.processing_status}\n"
+                f"Chunks: {doc.chunk_count or 'N/A'}\n"
             ),
-            "metadata": {"doc_id": doc.id, "title": doc.title},
+            "metadata": {"tool_name": "read_document", "doc_id": doc_id, "title": doc.title},
         }
 
-    def get_all_search_results(self):
-        """Return all accumulated search results for citation extraction."""
+    def get_all_search_results(self) -> list:
+        """Return all accumulated search results across iterations."""
         return self._all_results
-
-    def get_thought_steps(self) -> list[str]:
-        """Return all thinking steps for inclusion in the response."""
-        return self._thought_steps
