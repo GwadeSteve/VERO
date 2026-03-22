@@ -146,12 +146,36 @@ class ResearchAgent:
 
         llm = get_llm()
 
-        # Build the system prompt
+        # ── Step 0: Query Intelligence ────────────────────────
+        # Decompose complex queries into focused sub-queries
+        yield AgentEvent(
+            type=EventType.THINKING,
+            content="Analyzing query complexity...",
+            metadata={"phase": "query_intelligence"}
+        )
+
+        sub_queries = await self._decompose_query(llm, query)
+
+        if sub_queries and len(sub_queries) > 1:
+            yield AgentEvent(
+                type=EventType.THINKING,
+                content=f"Decomposed into {len(sub_queries)} focused searches",
+                metadata={"sub_queries": sub_queries}
+            )
+
+        # Build the system prompt with search plan
         base_prompt = (
             AGENT_SYSTEM_PROMPT_AUGMENTED if self.allow_model_knowledge
             else AGENT_SYSTEM_PROMPT
         )
         system_prompt = base_prompt.format(tool_descriptions=TOOL_DESCRIPTIONS)
+
+        # Inject search plan if we have sub-queries
+        if sub_queries and len(sub_queries) > 1:
+            search_plan = "\n".join(f"  {i+1}. \"{sq}\"" for i, sq in enumerate(sub_queries))
+            system_prompt += f"\n\nSEARCH PLAN (use these as your search queries, one per turn):\n{search_plan}\nSearch each sub-query separately using search_docs. Do NOT combine them into one long query."
+        elif sub_queries and len(sub_queries) == 1:
+            system_prompt += f"\n\nSuggested search query: \"{sub_queries[0]}\""
 
         # Build messages
         messages: list[dict] = [{"role": "system", "content": system_prompt}]
@@ -162,6 +186,7 @@ class ResearchAgent:
 
         # Current query
         messages.append({"role": "user", "content": query})
+
 
         # ReAct Loop
         for iteration in range(self.MAX_ITERATIONS):
@@ -351,6 +376,66 @@ class ResearchAgent:
         text = re.sub(r'\n{3,}', '\n\n', text)
 
         return text.strip()
+
+    async def _decompose_query(self, llm, query: str) -> list[str]:
+        """Analyze query and decompose into focused sub-queries if complex.
+        
+        Returns a list of search queries. Single-element list for simple queries,
+        multiple elements for complex/multi-part queries.
+        """
+        # Skip decomposition for very short queries (greetings, simple lookups)
+        if len(query.split()) <= 5:
+            return [query]
+
+        decompose_prompt = (
+            "You are a query analyzer. Given a user question, decide if it's simple or complex.\n\n"
+            "SIMPLE: Can be answered with one focused search (e.g., 'What is X?', 'Summarize Y')\n"
+            "COMPLEX: Needs multiple searches (e.g., comparing things, asking for multiple aspects)\n\n"
+            "Respond in STRICT JSON only, no other text:\n"
+            '{"type": "simple", "queries": ["optimized search query"]}\n'
+            "or\n"
+            '{"type": "complex", "queries": ["sub-query 1", "sub-query 2", ...]}\n\n'
+            "Rules for generating search queries:\n"
+            "- Each query should be SHORT (3-8 words), focused, and good for semantic search\n"
+            "- Maximum 4 sub-queries for complex questions\n"
+            "- Remove filler words, keep the core concepts\n"
+            "- For 'summarize document X', just use the document name as query\n"
+        )
+
+        try:
+            response = await llm.generate_response(
+                system_prompt=decompose_prompt,
+                user_prompt=query,
+                messages=[
+                    {"role": "system", "content": decompose_prompt},
+                    {"role": "user", "content": query},
+                ],
+            )
+
+            if not response:
+                return [query]
+
+            # Extract JSON from response (handle markdown code blocks)
+            json_text = response.strip()
+            if "```" in json_text:
+                # Extract content between code fences
+                match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', json_text, re.DOTALL)
+                if match:
+                    json_text = match.group(1).strip()
+
+            parsed = json.loads(json_text)
+            queries = parsed.get("queries", [])
+
+            if not queries or not isinstance(queries, list):
+                return [query]
+
+            # Filter out empty strings and limit to 4
+            queries = [q.strip() for q in queries if q.strip()][:4]
+            return queries if queries else [query]
+
+        except (json.JSONDecodeError, KeyError, Exception) as e:
+            logger.warning("Query decomposition failed: %s", e)
+            return [query]
 
     async def _execute_tool(self, tool_name: str, argument: str) -> dict:
         """Dispatch a tool call and return the observation."""
