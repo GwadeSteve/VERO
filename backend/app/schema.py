@@ -159,6 +159,8 @@ class ChunkResponse(BaseModel):
     end_char: int
     token_count: int
     strategy: str
+    level: int = 0  # 0=section, 1=paragraph, 2=child
+    parent_id: str | None = None
     metadata: dict
 
     model_config = {"from_attributes": True}

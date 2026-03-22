@@ -133,6 +133,8 @@ async def _chunk_document(db: AsyncSession, doc: DocumentModel):
             end_char=cr.end_char,
             token_count=cr.token_count,
             strategy=cr.strategy,
+            level=cr.level,
+            parent_chunk_id=cr.parent_id,
             metadata_json=json.dumps(cr.metadata),
         ))
     
