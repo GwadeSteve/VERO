@@ -12,7 +12,7 @@ from app.models import DocumentModel, ChunkModel, EmbeddingModel
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_EMBED_MODEL = "all-MiniLM-L6-v2"
+DEFAULT_EMBED_MODEL = "BAAI/bge-base-en-v1.5"
 
 
 async def auto_pipeline(doc_id: str):

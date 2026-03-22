@@ -168,7 +168,7 @@ class ChunkResponse(BaseModel):
 
 class EmbedRequest(BaseModel):
     """Optional request body for embedding customization."""
-    model_name: str = "all-MiniLM-L6-v2"
+    model_name: str = "BAAI/bge-base-en-v1.5"
 
 
 class EmbeddingResponse(BaseModel):

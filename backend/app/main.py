@@ -38,10 +38,10 @@ async def lifespan(app: FastAPI):
     print("\n  [VERO] Pre-warming ML models...")
     from app.embeddings import get_embedder
     get_embedder()
-    print("  ✓ Embedder loaded (all-MiniLM-L6-v2)")
+    print("  ✓ Embedder loaded (BAAI/bge-base-en-v1.5)")
     from app.reranker import _get_model as get_reranker
     get_reranker()
-    print(f"  ✓ Cross-encoder loaded (ms-marco-MiniLM-L-6-v2)")
+    print(f"  ✓ Cross-encoder loaded (BAAI/bge-reranker-base)")
     print(f"  ✓ All models ready in {time.time() - t0:.1f}s\n")
 
     yield
