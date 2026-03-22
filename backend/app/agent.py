@@ -53,6 +53,7 @@ TOOL_DESCRIPTIONS = """You have access to these tools:
 
 1. search_docs("query") — Search the user's uploaded documents. Returns relevant text passages with source numbers.
 2. read_document("doc_id") — Fetch a document's summary and metadata.
+3. list_documents("all") — List all documents in the current project with their IDs and types.
 
 To use a tool, output EXACTLY this on its own line:
 Action: tool_name("argument")
@@ -118,7 +119,7 @@ class ResearchAgent:
         db: AsyncSession,
         project_id: str,
         allow_model_knowledge: bool = False,
-        top_k: int = 5,
+        top_k: int = 8,
         mode: str = "hybrid",
         min_score: float = 0.01,
     ):
@@ -357,10 +358,12 @@ class ResearchAgent:
             return await self._tool_search_docs(argument)
         elif tool_name == "read_document":
             return await self._tool_read_document(argument)
+        elif tool_name == "list_documents":
+            return await self._tool_list_documents()
         else:
             return {
                 "summary": f"Unknown tool: {tool_name}",
-                "detail": f"Tool '{tool_name}' is not available. Use search_docs or read_document.",
+                "detail": f"Tool '{tool_name}' is not available. Use search_docs, read_document, or list_documents.",
             }
 
     async def _tool_search_docs(self, query: str) -> dict:
@@ -410,8 +413,8 @@ class ResearchAgent:
 
     async def _tool_read_document(self, doc_id: str) -> dict:
         """Fetch a document's summary and metadata."""
-        from sqlalchemy import select
-        from app.models import DocumentModel
+        from sqlalchemy import select, func
+        from app.models import DocumentModel, ChunkModel
 
         result = await self.db.execute(
             select(DocumentModel).where(
@@ -427,15 +430,55 @@ class ResearchAgent:
                 "detail": f"No document with ID '{doc_id}' exists in this project.",
             }
 
+        # Get chunk count
+        chunk_count_result = await self.db.execute(
+            select(func.count()).where(ChunkModel.doc_id == doc_id)
+        )
+        chunk_count = chunk_count_result.scalar() or 0
+
+        detail_parts = [
+            f"Title: {doc.title}",
+            f"Type: {doc.source_type}",
+            f"Status: {doc.processing_status}",
+            f"Chunks: {chunk_count}",
+        ]
+        if doc.summary:
+            detail_parts.append(f"Summary: {doc.summary}")
+
         return {
             "summary": f"Read document: {doc.title}",
-            "detail": (
-                f"Title: {doc.title}\n"
-                f"Type: {doc.source_type}\n"
-                f"Status: {doc.processing_status}\n"
-                f"Chunks: {doc.chunk_count or 'N/A'}\n"
-            ),
+            "detail": "\n".join(detail_parts),
             "metadata": {"tool_name": "read_document", "doc_id": doc_id, "title": doc.title},
+        }
+
+    async def _tool_list_documents(self) -> dict:
+        """List all documents in the current project."""
+        from sqlalchemy import select, func
+        from app.models import DocumentModel, ChunkModel
+
+        result = await self.db.execute(
+            select(DocumentModel).where(
+                DocumentModel.project_id == self.project_id
+            ).order_by(DocumentModel.created_at.desc())
+        )
+        docs = result.scalars().all()
+
+        if not docs:
+            return {
+                "summary": "No documents found.",
+                "detail": "This project has no uploaded documents.",
+                "metadata": {"tool_name": "list_documents", "doc_count": 0},
+            }
+
+        lines = []
+        for doc in docs:
+            status = "\u2713" if doc.processing_status == "ready" else doc.processing_status
+            lines.append(f"- [{status}] {doc.title} (id: {doc.id}, type: {doc.source_type})")
+
+        return {
+            "summary": f"Found {len(docs)} documents in this project.",
+            "detail": "\n".join(lines),
+            "metadata": {"tool_name": "list_documents", "doc_count": len(docs)},
         }
 
     def get_all_search_results(self) -> list:

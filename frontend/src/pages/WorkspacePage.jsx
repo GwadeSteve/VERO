@@ -574,12 +574,16 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 const arg = event.metadata?.argument;
                 if (toolName === 'search_docs') displayContent = `Searching documents for "${arg}"`;
                 else if (toolName === 'read_document') displayContent = `Reading document: ${arg}`;
+                else if (toolName === 'list_documents') displayContent = 'Listing available documents...';
             }
             if (event.type === 'tool_result') {
                 const toolName = event.metadata?.tool_name;
                 if (toolName === 'search_docs') {
                     const count = event.metadata?.result_count || 0;
                     displayContent = `Found ${count} relevant passage${count !== 1 ? 's' : ''}`;
+                } else if (toolName === 'list_documents') {
+                    const count = event.metadata?.doc_count || 0;
+                    displayContent = `Found ${count} document${count !== 1 ? 's' : ''} in project`;
                 }
             }
 
