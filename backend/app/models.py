@@ -72,20 +72,13 @@ class ChunkModel(Base):
     end_char = Column(Integer, nullable=False)
     token_count = Column(Integer, nullable=False)
     strategy = Column(String, nullable=False)
-    level = Column(Integer, nullable=False, default=0)  # 0=section, 1=paragraph, 2=child
-    parent_chunk_id = Column(String, ForeignKey("chunks.id", ondelete="CASCADE"), nullable=True)
     metadata_json = Column(Text, default="{}")
     created_at = Column(DateTime, default=_utcnow)
 
     document = relationship("DocumentModel", back_populates="chunks")
-    parent = relationship("ChunkModel", remote_side="ChunkModel.id", backref="children")
-
-    __table_args__ = (
-        Index("ix_chunks_parent", "parent_chunk_id"),
-    )
 
     def __repr__(self):
-        return f"<Chunk {self.id} strategy={self.strategy} level={self.level}>"
+        return f"<Chunk {self.id} strategy={self.strategy}>"
 
 
 class EmbeddingModel(Base):

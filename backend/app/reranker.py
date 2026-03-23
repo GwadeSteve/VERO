@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _lock = threading.Lock()
 _model: Optional[object] = None
 
-RERANKER_MODEL = "BAAI/bge-reranker-base"
+RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
 
 def _get_model():
@@ -62,12 +62,12 @@ def rerank(
     # Score all pairs at once (batch inference)
     raw_scores = model.predict(pairs)
 
-    # Scale the cross-encoder logits to a 0-1 range using a sigmoid function.
-    # BGE reranker outputs raw logits. Sigmoid is mathematically robust.
+    # Scale the cross-encoder logits to a 0-1 range linearly for our 0.01 threshold.
+    # ms-marco models output raw logits typically roughly between -10 and +10.
+    # We clip to [-10, 10] and normalize to [0, 1].
     for chunk, raw in zip(chunks, raw_scores):
-        # Clip to prevent overflow in math.exp
-        clipped = max(-20.0, min(20.0, float(raw)))
-        chunk["rerank_score"] = 1.0 / (1.0 + math.exp(-clipped))
+        clipped = max(-10.0, min(10.0, float(raw)))
+        chunk["rerank_score"] = (clipped + 10.0) / 20.0
 
     reranked = sorted(chunks, key=lambda x: x["rerank_score"], reverse=True)
 

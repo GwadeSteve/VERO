@@ -11,7 +11,7 @@ import {
     Send, Search, Loader2, FileText, ArrowUp, Sparkles,
     RefreshCw, User, Bot, CheckCircle2, UploadCloud, Globe,
     X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2, Cpu, Zap,
-    FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library, MessageSquare, Brain
+    FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library, MessageSquare
 } from 'lucide-react';
 
 /**
@@ -383,12 +383,9 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         toast?.(`Processing "${docTitle}": Step ${doc.processing_status}`, 'info');
                     }
                 }
-            } catch (err) {
-                console.warn(`Polling dropped a request for ${docTitle} (server likely busy), retrying...`); 
-                // Do not clear the interval! The server event loop is just temporarily blocked.
-            }
-        }, 3000);
-        setTimeout(() => clearInterval(iv), 1200000); // 20 minutes
+            } catch { clearInterval(iv); }
+        }, 2500);
+        setTimeout(() => clearInterval(iv), 180000);
     };
 
     // ── Ingestion ────────────────────────────────────
@@ -475,8 +472,6 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     };
 
     // ── Chat ─────────────────────────────────────────
-    const abortControllerRef = useRef(null);
-
     const send = async (e) => {
         e?.preventDefault();
         if (!query.trim() || !projectId || searching || isStreaming || docs.length === 0) return;
@@ -486,14 +481,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         const now = new Date().toISOString();
         setMessages(prev => [...prev, { role: 'user', text: q, timestamp: now }]);
         setSearching(true);
-        setIsStreaming(true);
         setTraceResults([]); setActiveCitationDoc(null);
-
-        // Cancel previous request if still running
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-        abortControllerRef.current = new AbortController();
 
         try {
             let sid = activeSessionId;
@@ -507,109 +495,56 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 onRefreshProjects?.();
             }
 
-            // Create placeholder message
+            // 1. Semantic Retrieval
+            const sr = await api.hybridSearch(projectId, q);
+            const searchResults = sr?.results || [];
+            setTraceResults(searchResults);
+
+            // 2. LLM Chat
+            const cr = await api.chat(sid, q, modelKnowledge);
+
+            if (setSessions) {
+                setSessions(prev => {
+                    const idx = prev.findIndex(s => s.id === sid);
+                    if (idx >= 0) {
+                        const next = [...prev];
+                        next[idx] = { ...next[idx], updated_at: new Date().toISOString() };
+                        return next;
+                    }
+                    return prev;
+                });
+            }
+            onRefreshProjects?.();
+
+            // Refresh session title after first message (backend auto-names)
+            if (sid) {
+                try {
+                    const updatedSession = await api.getSession(sid);
+                    if (updatedSession?.title) {
+                        setSessionTitle(updatedSession.title);
+                        // Also update in sidebar sessions list
+                        if (setSessions) {
+                            setSessions(prev => prev.map(s => s.id === sid ? { ...s, title: updatedSession.title } : s));
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+            }
+
+            setSearching(false);
+            const answerTime = new Date().toISOString();
+
+            // Push an empty streaming message first
             setMessages(prev => [...prev, {
                 role: 'assistant', text: '',
-                citations: [], traces: [],
-                thoughts: [], // Holds the agent's reasoning events
+                citations: cr?.citations || [],
+                traces: searchResults,
+                sufficient: cr?.found_sufficient_info,
                 isStreaming: true,
-                timestamp: new Date().toISOString(),
+                timestamp: answerTime,
                 usedModelKnowledge: modelKnowledge,
             }]);
 
-            // Real SSE Fetch
-            const response = await fetch(`http://127.0.0.1:8000/sessions/${sid}/chat/stream`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: q, top_k: 5, mode: "hybrid", allow_model_knowledge: modelKnowledge }),
-                signal: abortControllerRef.current.signal
-            });
-
-            if (!response.ok) throw new Error("Stream connection failed.");
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedData = '';
-
-            setSearching(false);
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                accumulatedData += decoder.decode(value, { stream: true });
-                const lines = accumulatedData.split('\n');
-                accumulatedData = lines.pop(); // Keep the last incomplete line
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.substring(6).trim();
-                        if (dataStr === '[DONE]') break;
-                        
-                        try {
-                            const event = JSON.parse(dataStr);
-                            handleAgentEvent(event);
-                        } catch (e) {
-                            console.error("Failed to parse SSE event:", e);
-                        }
-                    }
-                }
-            }
-            
-            // Note: isStreaming is set to false by the 'done' event handler
-            // (with a delay to let streamText finish its animation)
-
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                setMessages(prev => [...prev, { role: 'error', text: 'Issues connecting to VERO intelligence.', timestamp: new Date().toISOString() }]);
-            }
-            setSearching(false);
-            setIsStreaming(false);
-        }
-    };
-
-    const handleAgentEvent = (event) => {
-        if (event.type === 'thinking' || event.type === 'tool_call' || event.type === 'tool_result' || event.type === 'error') {
-            // Build a human-readable thought content
-            let displayContent = event.content;
-            if (event.type === 'tool_call') {
-                const toolName = event.metadata?.tool_name;
-                const arg = event.metadata?.argument;
-                if (toolName === 'search_docs') displayContent = `Searching documents for "${arg}"`;
-                else if (toolName === 'read_document') displayContent = `Reading document: ${arg}`;
-                else if (toolName === 'list_documents') displayContent = 'Listing available documents...';
-            }
-            if (event.type === 'tool_result') {
-                const toolName = event.metadata?.tool_name;
-                if (toolName === 'search_docs') {
-                    const count = event.metadata?.result_count || 0;
-                    displayContent = `Found ${count} relevant passage${count !== 1 ? 's' : ''}`;
-                } else if (toolName === 'list_documents') {
-                    const count = event.metadata?.doc_count || 0;
-                    displayContent = `Found ${count} document${count !== 1 ? 's' : ''} in project`;
-                }
-            }
-
-            setMessages(prev => {
-                const next = [...prev];
-                const msgObj = next[next.length - 1];
-                const newThoughts = [...(msgObj.thoughts || []), { ...event, content: displayContent }];
-                
-                // If this is a search tool result, append traces in order so [Source N] maps to traces[N-1]
-                let updatedTraces = msgObj.traces || [];
-                if (event.type === 'tool_result' && event.metadata?.tool_name === 'search_docs' && Array.isArray(event.metadata?.results)) {
-                    updatedTraces = [...updatedTraces, ...event.metadata.results];
-                    setTraceResults(updatedTraces);
-                }
-
-                next[next.length - 1] = { ...msgObj, thoughts: newThoughts, traces: updatedTraces };
-                return next;
-            });
-        } 
-        else if (event.type === 'answer') {
-            // Use the existing streamText to simulate word-by-word typing
-            const fullAnswer = event.content || '';
-            streamText(fullAnswer,
+            streamText(cr?.answer || "No response generated.",
                 (chunk) => {
                     setMessages(prev => {
                         const next = [...prev];
@@ -617,69 +552,28 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                         return next;
                     });
                 },
-                (finalText) => {
+                (fullText) => {
                     setMessages(prev => {
                         const next = [...prev];
-                        if (next.length > 0) next[next.length - 1] = { ...next[next.length - 1], text: finalText };
+                        if (next.length > 0) next[next.length - 1] = { ...next[next.length - 1], text: fullText, isStreaming: false };
                         return next;
                     });
                 }
             );
-        }
-        else if (event.type === 'done') {
-            // Apply the final sanitized answer + citations after streaming finishes
-            // Wait for streamText to complete before applying final state
-            const applyDone = () => {
-                setMessages(prev => {
-                    const next = [...prev];
-                    const msgObj = next[next.length - 1];
-                    
-                    if (next.length > 1 && event.metadata?.user_message_id) {
-                        next[next.length - 2] = { ...next[next.length - 2], id: event.metadata.user_message_id };
-                    }
-
-                    // Use citations from the done event as the authoritative trace list
-                    // These are properly filtered and re-indexed by the backend
-                    const finalCitations = event.metadata?.citations;
-                    const finalTraces = (Array.isArray(finalCitations) && finalCitations.length > 0) 
-                        ? finalCitations 
-                        : msgObj.traces || [];
-                    next[next.length - 1] = { 
-                        ...msgObj, 
-                        isStreaming: false,
-                        id: event.metadata?.ai_message_id || msgObj.id,
-                        text: event.content || msgObj.text,
-                        traces: finalTraces,
-                        citations: finalCitations || [],
-                        sufficient: event.metadata?.found_sufficient_info ?? msgObj.sufficient ?? true
-                    };
-                    return next;
-                });
-                setTraceResults(prev => {
-                    // Also update global trace state
-                    const finalCitations = event.metadata?.citations;
-                    return (Array.isArray(finalCitations) && finalCitations.length > 0) ? finalCitations : prev;
-                });
-                setIsStreaming(false);
-            };
-            // Poll until streamText is done (streamIntervalRef becomes null)
-            const waitForStream = setInterval(() => {
-                if (!streamIntervalRef.current) {
-                    clearInterval(waitForStream);
-                    applyDone();
-                }
-            }, 100);
-            // Safety: apply after 15s max regardless
-            setTimeout(() => { clearInterval(waitForStream); applyDone(); }, 15000);
+        } catch (err) {
+            setMessages(prev => [...prev, { role: 'error', text: 'Issues connecting to VERO intelligence.', timestamp: new Date().toISOString() }]);
+            setSearching(false);
         }
     };
 
     const stopGenerating = () => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
+        if (streamIntervalRef.current) {
+            clearInterval(streamIntervalRef.current);
+            streamIntervalRef.current = null;
         }
         setIsStreaming(false);
         setSearching(false);
+        // Mark last message as done
         setMessages(prev => {
             const next = [...prev];
             if (next.length > 0 && next[next.length - 1].isStreaming) {
@@ -1045,160 +939,40 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                     maxWidth: 840, margin: '0 auto',
                                     display: 'flex', flexDirection: 'column',
                                     alignItems: m.role === 'user' ? 'flex-end' : 'flex-start',
-                                    marginBottom: 32,
+                                    marginBottom: 28,
                                 }}>
                                     {m.role === 'assistant' || m.role === 'error' ? (
                                         <div className="ai-message-container" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                                            {/* AI Header: Avatar + VERO + Status */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                                                {/* VERO Avatar — Pulsing glow when streaming */}
+                                            {/* AI Header: Avatar + VERO + Timestamp */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                                {/* VERO Avatar */}
                                                 <div style={{
-                                                    width: 34, height: 34, borderRadius: 12, flexShrink: 0,
-                                                    background: m.isStreaming 
-                                                        ? 'linear-gradient(135deg, var(--accent-dim), var(--accent))'
-                                                        : 'var(--accent-dim)',
+                                                    width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                                                    background: 'var(--accent-dim)',
                                                     border: `1.5px solid ${m.isStreaming ? 'var(--accent)' : 'var(--accent-border)'}`,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    boxShadow: m.isStreaming ? '0 0 20px var(--accent-dim), 0 0 40px rgba(99, 102, 241, 0.1)' : 'var(--shadow-sm)',
-                                                    transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                                                    boxShadow: m.isStreaming ? '0 0 12px var(--accent-dim)' : 'var(--shadow-sm)',
+                                                    transition: 'all 0.3s ease',
                                                     animation: m.isStreaming ? 'pulse 2s ease-in-out infinite' : 'none',
                                                 }}>
                                                     <img src="/vero.svg" alt="V" style={{ width: 16, height: 16, objectFit: 'contain' }} />
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', letterSpacing: '0.02em' }}>VERO</span>
-                                                    {m.isStreaming && (
-                                                        <span style={{
-                                                            fontSize: 10, fontWeight: 700, color: 'var(--accent)',
-                                                            background: 'var(--accent-dim)', padding: '2px 8px', borderRadius: 100,
-                                                            letterSpacing: '0.05em', textTransform: 'uppercase',
-                                                            animation: 'pulse 1.5s ease-in-out infinite'
-                                                        }}>LIVE</span>
-                                                    )}
-                                                    {m.timestamp && !m.isStreaming && <span style={{ fontSize: 12, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
-                                                    {m.stopped && <span style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 700, background: 'rgba(245, 158, 11, 0.1)', padding: '2px 8px', borderRadius: 100 }}>STOPPED</span>}
+                                                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>VERO</span>
+                                                    {m.timestamp && <span style={{ fontSize: 13, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
+                                                    {m.stopped && <span style={{ fontSize: 13, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
                                                     {m.usedModelKnowledge && (
-                                                        <div className="ai-knowledge-badge" title="This response leveraged the AI's built-in model knowledge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 100, background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-                                                            <Sparkles size={11} color="rgb(168, 85, 247)" />
-                                                            <span style={{ fontSize: 10, fontWeight: 700, color: 'rgb(168, 85, 247)', letterSpacing: '0.03em' }}>MODEL KNOWLEDGE</span>
+                                                        <div className="ai-knowledge-badge" title="This response leveraged the AI's built-in model knowledge">
+                                                            <Sparkles size={13} className="ai-icon-sparkle" />
+                                                            <span>Model Knowledge</span>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
 
                                             {/* Content / Text */}
-                                            <div className="ai-message-content" style={{ paddingLeft: 46, width: '100%' }}>
-                                                
-                                                {/* Agent Thought Process (Collapsible) */}
-                                                {m.thoughts && m.thoughts.length > 0 && (() => {
-                                                    const isAccordionOpen = !m.thoughtAccordionClosed;
-                                                    const isThinking = m.isStreaming && m.text.length === 0;
-                                                    
-                                                    return (
-                                                        <div style={{ marginBottom: 20 }}>
-                                                            {/* Accordion Toggle — Glassmorphic Pill */}
-                                                            <div 
-                                                                onClick={() => {
-                                                                    setMessages(prev => {
-                                                                        const next = [...prev];
-                                                                        next[i] = { ...next[i], thoughtAccordionClosed: !next[i].thoughtAccordionClosed };
-                                                                        return next;
-                                                                    });
-                                                                }}
-                                                                style={{ 
-                                                                    display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 16px 7px 10px',
-                                                                    background: isThinking 
-                                                                        ? 'linear-gradient(135deg, var(--bg-3), var(--bg-2))' 
-                                                                        : (isAccordionOpen ? 'var(--bg-2)' : 'var(--bg-1)'),
-                                                                    border: '1px solid', 
-                                                                    borderColor: isThinking ? 'var(--accent-border)' : (isAccordionOpen ? 'var(--border)' : 'var(--border)'),
-                                                                    borderRadius: 100, cursor: 'pointer', userSelect: 'none',
-                                                                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                                    boxShadow: isThinking ? '0 0 16px var(--accent-dim)' : 'none',
-                                                                }}
-                                                                onMouseEnter={e => { if (!isThinking) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.borderColor = 'var(--border)'; } }}
-                                                                onMouseLeave={e => { if (!isThinking) { e.currentTarget.style.background = isAccordionOpen ? 'var(--bg-2)' : 'var(--bg-1)'; e.currentTarget.style.borderColor = isAccordionOpen ? 'var(--border)' : 'var(--border)'; } }}
-                                                            >
-                                                                <div style={{ position: 'relative', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    {isThinking && (
-                                                                        <div style={{ 
-                                                                            position: 'absolute', width: '100%', height: '100%', borderRadius: '50%',
-                                                                            border: '2px solid var(--accent)', borderRightColor: 'transparent',
-                                                                            animation: 'spin 0.8s linear infinite',
-                                                                            opacity: 0.7
-                                                                        }} />
-                                                                    )}
-                                                                    <Brain size={14} color={isThinking ? 'var(--accent)' : 'var(--text-3)'} strokeWidth={2.5} />
-                                                                </div>
-                                                                <span style={{ fontSize: 13, fontWeight: 700, color: isThinking ? 'var(--accent)' : 'var(--text-3)', letterSpacing: '0.01em' }}>
-                                                                    {isThinking ? 'Reasoning...' : `${m.thoughts.length} reasoning steps`}
-                                                                </span>
-                                                                <ChevronDown size={14} color="var(--text-4)" style={{ marginLeft: 2, transform: isAccordionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}/>
-                                                            </div>
-                                                            
-                                                            {/* Thought Steps List */}
-                                                            <div style={{
-                                                                display: 'grid', gridTemplateRows: isAccordionOpen ? '1fr' : '0fr',
-                                                                transition: 'grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
-                                                            }}>
-                                                                <div style={{ overflow: 'hidden' }}>
-                                                                    <div style={{ 
-                                                                        marginTop: 14, marginLeft: 22, paddingLeft: 18, 
-                                                                        borderLeft: '2px solid var(--accent-border)',
-                                                                        display: 'flex', flexDirection: 'column', gap: 0,
-                                                                        opacity: isAccordionOpen ? 1 : 0, 
-                                                                        transform: isAccordionOpen ? 'translateY(0)' : 'translateY(-8px)',
-                                                                        transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                                    }}>
-                                                                        {m.thoughts.map((t, idx) => {
-                                                                            let icon = <Brain size={13} color="var(--text-4)" />;
-                                                                            let iconBg = 'var(--bg-1)';
-                                                                            let iconBorder = 'var(--border)';
-                                                                            if (t.type === 'tool_call') {
-                                                                                icon = <Search size={13} color="var(--accent)" />;
-                                                                                iconBg = 'var(--accent-dim)';
-                                                                                iconBorder = 'var(--accent-border)';
-                                                                                if (t.metadata?.tool_name === 'read_document') icon = <BookOpen size={13} color="var(--accent)" />;
-                                                                            }
-                                                                            if (t.type === 'tool_result') { 
-                                                                                icon = <CheckCircle2 size={13} color="var(--green)" />; 
-                                                                                iconBg = 'rgba(34, 197, 94, 0.08)'; 
-                                                                                iconBorder = 'rgba(34, 197, 94, 0.2)'; 
-                                                                            }
-                                                                            if (t.type === 'error') { icon = <X size={13} color="var(--red)" />; iconBg = 'rgba(239, 68, 68, 0.08)'; iconBorder = 'rgba(239, 68, 68, 0.2)'; }
-                                                                            
-                                                                            return (
-                                                                                <div key={idx} style={{ 
-                                                                                    display: 'flex', gap: 12, alignItems: 'center',
-                                                                                    padding: '8px 0',
-                                                                                }}>
-                                                                                    {/* Timeline Node */}
-                                                                                    <div style={{ 
-                                                                                        width: 26, height: 26, borderRadius: '50%', 
-                                                                                        background: iconBg,
-                                                                                        border: `1.5px solid ${iconBorder}`, 
-                                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                                        marginLeft: -31, zIndex: 2, flexShrink: 0,
-                                                                                    }}>
-                                                                                        {icon}
-                                                                                    </div>
-                                                                                    <span style={{ 
-                                                                                        fontSize: 13, color: t.type === 'tool_result' ? 'var(--text-2)' : 'var(--text-3)', 
-                                                                                        lineHeight: 1.5, fontWeight: t.type === 'tool_call' ? 600 : 400,
-                                                                                    }}>
-                                                                                        {t.content}
-                                                                                    </span>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-
-                                                <div className={`vero-md ${m.isStreaming && m.text.length > 0 ? "streaming-cursor" : ""}`} style={{
+                                            <div className="ai-message-content" style={{ paddingLeft: 44, width: '100%' }}>
+                                                <div className={`vero-md ${m.isStreaming ? "streaming-cursor" : ""}`} style={{
                                                     color: m.role === 'error' ? 'var(--red)' : 'var(--text)'
                                                 }}>
                                                     <ReactMarkdown
@@ -1458,11 +1232,9 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                         <div className="user-message-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '100%' }}>
                                             <div className="user-message-text" style={{
                                                 background: 'var(--user-bubble)', color: 'var(--text)',
-                                                padding: '12px 18px', borderRadius: '18px', borderBottomRightRadius: 6,
+                                                padding: '10px 16px', borderRadius: '16px', borderBottomRightRadius: 4,
                                                 border: '1px solid var(--user-bubble-border)', fontWeight: 400,
-                                                whiteSpace: 'pre-wrap', fontSize: 15, lineHeight: 1.6,
-                                                maxWidth: '85%',
-                                                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                                                whiteSpace: 'pre-wrap'
                                             }}>
                                                 {m.text}
                                             </div>
@@ -1526,8 +1298,8 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
 
 
-                            {/* VERO Thinking Indicator (Before stream starts) */}
-                            {searching && messages.length > 0 && messages[messages.length-1].role === 'user' && (
+                            {/* VERO Thinking Indicator */}
+                            {(searching && !isStreaming) && (
                                 <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 28 }}>
                                     <div style={{
                                         width: 34, height: 34, borderRadius: 10, flexShrink: 0,
@@ -1541,7 +1313,21 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                                     <div style={{ paddingTop: 4 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                                             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>VERO</span>
-                                            <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>awakening...</span>
+                                            <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>thinking...</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div style={{ display: 'flex', gap: 3 }}>
+                                                {[0, 1, 2].map(d => (
+                                                    <div key={d} style={{
+                                                        width: 6, height: 6, borderRadius: '50%',
+                                                        background: 'var(--accent)',
+                                                        animation: `pulse 1.2s ease-in-out ${d * 0.2}s infinite`,
+                                                    }} />
+                                                ))}
+                                            </div>
+                                            <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
+                                                {loadingText}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>

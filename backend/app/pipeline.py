@@ -12,7 +12,7 @@ from app.models import DocumentModel, ChunkModel, EmbeddingModel
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+DEFAULT_EMBED_MODEL = "all-MiniLM-L6-v2"
 
 
 async def auto_pipeline(doc_id: str):
@@ -119,13 +119,8 @@ async def _chunk_document(db: AsyncSession, doc: DocumentModel):
     if doc.summary and doc.summary != "No summary available.":
         context_header += f" - {doc.summary}"
 
-    # 4. Generate chunks
     chunk_responses = await run_in_threadpool(
-        chunker.chunk,
-        text=doc.raw_text, 
-        doc_id=doc.id, 
-        project_id=doc.project_id, 
-        doc_title=context_header
+        chunker.chunk, text=doc.raw_text, doc_id=doc.id, project_id=doc.project_id, doc_title=context_header
     )
     
     for cr in chunk_responses:
@@ -138,8 +133,6 @@ async def _chunk_document(db: AsyncSession, doc: DocumentModel):
             end_char=cr.end_char,
             token_count=cr.token_count,
             strategy=cr.strategy,
-            level=cr.level,
-            parent_chunk_id=cr.parent_id,
             metadata_json=json.dumps(cr.metadata),
         ))
     

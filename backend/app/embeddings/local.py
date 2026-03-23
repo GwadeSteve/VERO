@@ -1,6 +1,6 @@
 """VERO Embedding Provider: Local sentence-transformers model.
 
-Uses BAAI/bge-base-en-v1.5 by default (~436MB, 768 dimensions), serving as the SOTA open-source local embedding model.
+Uses all-MiniLM-L6-v2 by default (~80MB, 384 dimensions).
 The model is lazy-loaded on first embed() call to avoid slowing server startup.
 """
 
@@ -33,7 +33,7 @@ def _get_model(model_name: str) -> SentenceTransformer:
                     _model_cache[model_name] = SentenceTransformer(model_name, local_files_only=False)
                 logger.info("Model '%s' loaded successfully.", model_name)
     return _model_cache[model_name]
-
+    
 
 class LocalEmbedder(BaseEmbedder):
     """Local embedding provider using sentence-transformers.
@@ -41,7 +41,7 @@ class LocalEmbedder(BaseEmbedder):
     Lazy-loads the model on first use. Thread-safe via singleton pattern.
     """
 
-    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5"):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         super().__init__(model_name=model_name)
         self._dimension: int | None = None
 

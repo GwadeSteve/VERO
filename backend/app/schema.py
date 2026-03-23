@@ -159,8 +159,6 @@ class ChunkResponse(BaseModel):
     end_char: int
     token_count: int
     strategy: str
-    level: int = 0  # 0=section, 1=paragraph, 2=child
-    parent_id: str | None = None
     metadata: dict
 
     model_config = {"from_attributes": True}
@@ -168,7 +166,7 @@ class ChunkResponse(BaseModel):
 
 class EmbedRequest(BaseModel):
     """Optional request body for embedding customization."""
-    model_name: str = "BAAI/bge-small-en-v1.5"
+    model_name: str = "all-MiniLM-L6-v2"
 
 
 class EmbeddingResponse(BaseModel):
@@ -194,7 +192,7 @@ class SearchMode(str, Enum):
 class SearchRequest(BaseModel):
     """Request body for project-level search."""
     query: str
-    top_k: int = Field(default=8, ge=1, le=50)
+    top_k: int = Field(default=5, ge=1, le=50)
     mode: SearchMode = SearchMode.HYBRID
     min_score: float = Field(default=0.01, ge=0.0, le=1.0)
 
@@ -238,7 +236,7 @@ class GroundedAnswer(BaseModel):
 
 class AnswerRequest(BaseModel):
     query: str
-    top_k: int = Field(default=8, ge=1, le=50)
+    top_k: int = Field(default=5, ge=1, le=50)
     mode: str = "hybrid"
     min_score: float = Field(default=0.01, ge=0.0, le=1.0)
     allow_model_knowledge: bool = False
@@ -269,7 +267,7 @@ class SessionResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    top_k: int = Field(default=8, ge=1, le=50)
+    top_k: int = Field(default=5, ge=1, le=50)
     mode: str = "hybrid"
     min_score: float = Field(default=0.01, ge=0.0, le=1.0)
     allow_model_knowledge: bool = False
@@ -280,11 +278,3 @@ class ChatResponse(BaseModel):
     answer: str
     citations: List[SearchResultItem]
     found_sufficient_info: bool
-    thought_steps: List[Dict[str, Any]] = []
-
-
-class AgentEventResponse(BaseModel):
-    """A single event from the ReAct agent, streamed via SSE."""
-    type: str  # thinking, tool_call, tool_result, answer, error
-    content: str
-    metadata: Dict[str, Any] = {}

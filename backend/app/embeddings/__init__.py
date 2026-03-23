@@ -3,11 +3,11 @@
 from app.embeddings.local import LocalEmbedder
 
 # Default model for VERO
-DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+DEFAULT_MODEL = "all-MiniLM-L6-v2"
 
 # Registry of available embedding providers
 _REGISTRY = {
-    "BAAI/bge-small-en-v1.5": LocalEmbedder,
+    "all-MiniLM-L6-v2": LocalEmbedder,
 }
 
 
