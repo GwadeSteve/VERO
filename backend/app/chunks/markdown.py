@@ -1,22 +1,93 @@
-"""VERO Chunking: Context-Preserving Markdown Chunker."""
+"""VERO Chunking: Context-Preserving Markdown Chunker with Table Integrity."""
 
+import logging
+import re
 import uuid
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from app.schema import ChunkResponse
 from .base import BaseChunker
 
+logger = logging.getLogger(__name__)
+
+# Loosened table regex: matches pipe-delimited rows where the second line
+# contains at least one separator cell (dashes, optionally with colons).
+# This catches tables from pdfplumber, pymupdf4llm, and hand-written Markdown.
+_TABLE_PATTERN = re.compile(
+    r'(\|[^\n]+\|\n'           # Header row: | ... |
+    r'\|[\s\-:|]+\|\n'        # Separator row: |---|---| or | :---: | etc.
+    r'(?:\|[^\n]*\|\n?)+)',   # Data rows (1 or more): | ... |
+    re.MULTILINE
+)
+
+# Explicit heading key order for breadcrumb construction (Gap 3)
+_HEADING_KEYS = ["Header 1", "Header 2", "Header 3"]
+
+# Minimum word count to keep a chunk (Gap 2: filter degenerate chunks)
+_MIN_WORDS = 15
+
+
+def _protect_tables(text: str) -> tuple[str, dict[str, str]]:
+    """Replace Markdown tables with placeholders to prevent mid-row splitting.
+    
+    Returns (modified_text, {placeholder: original_table})
+    """
+    table_map = {}
+    
+    def replace_table(match):
+        table_text = match.group(0)
+        placeholder = f"__TABLE_{len(table_map)}__"
+        table_map[placeholder] = table_text
+        return placeholder
+    
+    protected = _TABLE_PATTERN.sub(replace_table, text)
+    
+    if table_map:
+        logger.info("Table protection: %d tables shielded from splitting", len(table_map))
+    
+    return protected, table_map
+
+
+def _restore_tables(text: str, table_map: dict[str, str]) -> str:
+    """Restore table placeholders back to actual Markdown tables."""
+    for placeholder, table_text in table_map.items():
+        text = text.replace(placeholder, table_text)
+    return text
+
+
+def _build_breadcrumbs(metadata: dict) -> str:
+    """Build breadcrumb string from heading metadata in explicit key order.
+    
+    Uses explicit key lookup over _HEADING_KEYS so heading order never
+    silently breaks even if dict iteration order changes. (Gap 3)
+    """
+    parts = []
+    for key in _HEADING_KEYS:
+        if key in metadata:
+            parts.append(metadata[key])
+    return " > ".join(parts) if parts else "Root"
+
 
 class MarkdownChunker(BaseChunker):
     """
-    State-of-the-Art Markdown chunking: splits strictly by headers (#, ##, etc)
-    and retains parent hierarchy in the chunk's metadata (Context-Preservation).
+    Markdown-aware chunking that:
+    1. Splits on heading boundaries (#, ##, ###) to keep sections coherent
+    2. Protects Markdown tables from being split mid-row
+    3. Preserves parent heading hierarchy as breadcrumbs in each chunk
+    4. Falls back to token-aware recursive splitting for oversized sections
+    5. Filters degenerate chunks (heading-only, < 15 words)
+    
+    Note on tokenizer (Gap 5): We use tiktoken's cl100k_base encoding
+    (via "gpt-3.5-turbo" model name) for token counting. Our actual LLMs
+    are Gemini and Groq models which use different tokenizers. cl100k_base
+    is used as a universal approximation — it slightly over-counts vs Gemini's
+    tokenizer, which is safe (we'd rather have slightly smaller chunks than
+    chunks that overflow the context window).
     """
 
     def __init__(self, token_limit: int = 500, overlap: int = 50):
         super().__init__(token_limit=token_limit)
         self.overlap = overlap
         
-        # We split on H1, H2, and H3 to maintain structural sanity
         self.headers_to_split_on = [
             ("#", "Header 1"),
             ("##", "Header 2"),
@@ -24,74 +95,83 @@ class MarkdownChunker(BaseChunker):
         ]
 
     def chunk(self, text: str, doc_id: str, project_id: str, doc_title: str = "") -> list[ChunkResponse]:
-        # Step 1: Split strictly by headers. 
-        # This groups logical sections together (e.g. all of "Installation" is one doc)
-        md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=self.headers_to_split_on)
-        splits = md_splitter.split_text(text)
+        # Step 1: Protect tables from being split
+        protected_text, table_map = _protect_tables(text)
         
-        # Step 2: Since a single header section might STILL exceed our token limit,
-        # we fall back to a token-aware recursive character splitter for big sections.
+        # Step 2: Split by headers
+        md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=self.headers_to_split_on)
+        splits = md_splitter.split_text(protected_text)
+        
+        # Step 3: Sub-split oversized sections (token-aware)
+        # Note (Gap 5): "gpt-3.5-turbo" maps to cl100k_base tokenizer.
+        # This is an approximation — see class docstring for rationale.
         fallback_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-            model_name="gpt-3.5-turbo", # Same cl100k_base encoding as BaseChunker
+            model_name="gpt-3.5-turbo",
             chunk_size=self.token_limit,
             chunk_overlap=self.overlap,
         )
         
         final_chunks = fallback_splitter.split_documents(splits)
 
+        # Step 4: Build response chunks with restored tables and breadcrumbs
         response_chunks = []
+        search_start = 0  # Track position for sequential start_char mapping
+        norm_text = text.replace("\r\n", "\n")
+        
         for doc in final_chunks:
-            chunk_text = doc.page_content
-            # To ensure the LLM knows *what* it's reading, we inject the markdown hierarchy
-            # back into the text. e.g. "Header 1 -> Header 2 | The text..."
-            breadcrumbs = " > ".join(doc.metadata.values()) if doc.metadata else "Root"
+            # Restore any protected tables in this chunk
+            chunk_text = _restore_tables(doc.page_content, table_map)
             
-            # The search index will get this full context
-            contextualized_text = f"[Source: {doc_title}]\n[{breadcrumbs}]\n{chunk_text}" if doc_title else f"[{breadcrumbs}]\n{chunk_text}"
+            # Gap 2: Filter degenerate chunks (heading-only, whitespace-only)
+            word_count = len(chunk_text.split())
+            if word_count < _MIN_WORDS:
+                continue
             
-            # Step 3: Find the starting character in the ORIGINAL text.
-            # Robust mapping: LangChain modifies internal whitespace/newlines.
-            # We use a dual-anchor approach: match the first line to find start, match the last line to find end.
-            norm_text = text.replace("\r\n", "\n")
-            lines = [line.strip() for line in chunk_text.strip().split("\n") if line.strip()]
+            # Build breadcrumb from heading hierarchy (Gap 3: explicit key order)
+            breadcrumbs = _build_breadcrumbs(doc.metadata)
             
-            if lines:
-                first_line = lines[0][:60]
-                start_idx_norm = norm_text.find(first_line)
-                
-                if start_idx_norm != -1:
-                    # Find end anchor using the last line
-                    last_line = lines[-1][-60:]
-                    end_idx_norm_search = norm_text.find(last_line, start_idx_norm)
-                    
-                    if end_idx_norm_search != -1:
-                        end_idx_norm = end_idx_norm_search + len(last_line)
-                    else:
-                        end_idx_norm = start_idx_norm + len(chunk_text) # Fallback
-
-                    # Map back to original indices counting \r\n expansion
-                    prefix_norm = norm_text[:start_idx_norm]
-                    start_idx = start_idx_norm + (prefix_norm.count("\n") if "\r\n" in text else 0)
-                    
-                    text_up_to_end_norm = norm_text[:end_idx_norm]
-                    end_idx = end_idx_norm + (text_up_to_end_norm.count("\n") if "\r\n" in text else 0)
-                else:
-                    start_idx = -1
-                    end_idx = -1
+            # Contextualized text for embedding: source + section path + content
+            if doc_title:
+                contextualized_text = f"[Source: {doc_title}]\n[Section: {breadcrumbs}]\n{chunk_text}"
             else:
-                start_idx = -1
-                end_idx = -1
+                contextualized_text = f"[Section: {breadcrumbs}]\n{chunk_text}"
+            
+            # Gap 4: Warn about oversized chunks (usually a large table kept intact)
+            token_count = self.count_tokens(contextualized_text)
+            if token_count > self.token_limit * 1.5:
+                logger.warning(
+                    "Oversized chunk (%d tokens, limit %d) in [%s > %s] — likely a large table kept intact",
+                    token_count, self.token_limit, doc_title or "unknown", breadcrumbs,
+                )
+            
+            # Find character offsets using sequential search
+            lines = [l.strip() for l in chunk_text.strip().split("\n") if l.strip()]
+            if lines:
+                anchor = lines[0][:80]
+                start_idx = norm_text.find(anchor, search_start)
+                if start_idx == -1:
+                    start_idx = norm_text.find(anchor)  # Retry from beginning
+                
+                if start_idx != -1:
+                    end_idx = start_idx + len(chunk_text)
+                    search_start = end_idx  # Advance past this chunk's content
+                else:
+                    start_idx = 0
+                    end_idx = 0
+            else:
+                start_idx = 0
+                end_idx = 0
 
             response_chunks.append(ChunkResponse(
                 id=uuid.uuid4().hex[:12],
                 doc_id=doc_id,
                 project_id=project_id,
                 text=contextualized_text,
-                start_char=max(0, start_idx),
-                end_char=max(0, end_idx),
-                token_count=self.count_tokens(contextualized_text),
+                start_char=start_idx,
+                end_char=end_idx,
+                token_count=token_count,
                 strategy="markdown",
-                metadata={"breadcrumbs": doc.metadata}
+                metadata={"breadcrumbs": breadcrumbs}
             ))
 
         return response_chunks

@@ -244,6 +244,84 @@ async def run_tests(source_dir: Path):
             import traceback
             traceback.print_exc()
 
+    # ── Phase 2: Chunk Quality Tests ──────────────────────────
+
+    section("CHUNK QUALITY")
+    from app.chunks import get_chunker_for_source
+
+    for f in test_files:
+        try:
+            ext = f.suffix.lower()
+            if ext == ".pdf":
+                from app.parsers.pdf import parse_pdf
+                result = await parse_pdf(str(f))
+                source_type = "pdf"
+            elif ext == ".docx":
+                from app.parsers.docx import parse_docx
+                result = await parse_docx(str(f))
+                source_type = "docx"
+            elif ext == ".pptx":
+                from app.parsers.pptx import parse_pptx
+                result = await parse_pptx(str(f))
+                source_type = "pptx"
+            elif ext in (".md", ".txt"):
+                from app.parsers.text import parse_text
+                result = await parse_text(str(f))
+                source_type = "markdown" if ext == ".md" else "text"
+            else:
+                continue
+
+            text = result["text"]
+            chunker = get_chunker_for_source(source_type)
+            chunks = chunker.chunk(text, doc_id="test", project_id="test", doc_title=f.name)
+
+            print(f"\n  {DIM}Chunks for {f.name}: {len(chunks)}{RESET}")
+
+            if not chunks:
+                FAIL += 1
+                print(f"  {RED}✗ No chunks produced{RESET}")
+                continue
+
+            # Check: all chunks have breadcrumbs
+            has_breadcrumbs = all("[Section:" in c.text or "[Source:" in c.text for c in chunks)
+            check(f"[{f.name}] All chunks have context headers", has_breadcrumbs)
+
+            # Check: average token count is reasonable (100-600 range)
+            avg_tokens = sum(c.token_count for c in chunks) / len(chunks)
+            info("avg_tokens", f"{avg_tokens:.0f}")
+            check(f"[{f.name}] Average chunk size reasonable",
+                  50 < avg_tokens < 700,
+                  f"avg={avg_tokens:.0f}, expected 50-700")
+
+            # Check: no chunk splits a table mid-row
+            table_split = False
+            for c in chunks:
+                lines = c.text.strip().split("\n")
+                pipe_lines = [l for l in lines if l.strip().startswith("|") and l.strip().endswith("|")]
+                if pipe_lines:
+                    # If we have pipe lines, check we have at least a header + separator
+                    sep_lines = [l for l in pipe_lines if set(l.replace("|", "").replace(" ", "")) <= {"-", ":"}]
+                    if pipe_lines and not sep_lines and len(pipe_lines) > 1:
+                        table_split = True
+                        break
+            check(f"[{f.name}] No tables split mid-row", not table_split)
+
+            # Save chunk output for inspection
+            chunk_out = results_dir / (f.stem + "_chunks.md")
+            chunk_lines = []
+            for i, c in enumerate(chunks):
+                chunk_lines.append(f"## Chunk {i+1} ({c.token_count} tokens)\n")
+                chunk_lines.append(f"Strategy: {c.strategy}\n")
+                chunk_lines.append(f"```\n{c.text}\n```\n\n---\n")
+            chunk_out.write_text("\n".join(chunk_lines), encoding="utf-8")
+            info("chunks_saved", str(chunk_out))
+
+        except Exception as e:
+            FAIL += 1
+            print(f"\n  {RED}✗ CHUNKER CRASHED for {f.name}: {e}{RESET}")
+            import traceback
+            traceback.print_exc()
+
     # Summary
     section("RESULTS")
     total = PASS + FAIL
