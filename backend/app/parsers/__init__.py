@@ -5,6 +5,7 @@ from app.schema import SourceType
 
 from app.parsers.pdf import parse_pdf
 from app.parsers.docx import parse_docx
+from app.parsers.pptx import parse_pptx
 from app.parsers.text import parse_text
 from app.parsers.web import parse_web
 
@@ -15,6 +16,8 @@ def detect_source_type(filename: str) -> SourceType:
     mapping = {
         ".pdf": SourceType.PDF,
         ".docx": SourceType.DOCX,
+        ".pptx": SourceType.PPTX,
+        ".ppt": SourceType.PPTX,
         ".md": SourceType.MARKDOWN,
         ".txt": SourceType.TEXT,
     }
@@ -25,11 +28,12 @@ def detect_source_type(filename: str) -> SourceType:
 
 async def parse_file(filepath: str, source_type: SourceType) -> dict:
     """
-    Parse a file and return {"text": str, "metadata": dict}.
+    Parse a file and return {"text": str, "metadata": dict, "parsed_doc": ParsedDocument}.
     """
     parsers = {
         SourceType.PDF: parse_pdf,
         SourceType.DOCX: parse_docx,
+        SourceType.PPTX: parse_pptx,
         SourceType.MARKDOWN: parse_text,
         SourceType.TEXT: parse_text,
     }

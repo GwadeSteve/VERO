@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 class SourceType(str, Enum):
     PDF = "pdf"
     DOCX = "docx"
+    PPTX = "pptx"
     MARKDOWN = "markdown"
     TEXT = "text"
     REPO = "repository"
@@ -33,6 +34,7 @@ class ConfidenceLevel(int, Enum):
 SOURCE_CONFIDENCE = {
     SourceType.PDF: ConfidenceLevel.HIGH,
     SourceType.DOCX: ConfidenceLevel.HIGH,
+    SourceType.PPTX: ConfidenceLevel.HIGH,
     SourceType.MARKDOWN: ConfidenceLevel.HIGH,
     SourceType.TEXT: ConfidenceLevel.HIGH,
     SourceType.WEB: ConfidenceLevel.MEDIUM,
