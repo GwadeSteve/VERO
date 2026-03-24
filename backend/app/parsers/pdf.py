@@ -187,15 +187,30 @@ def _extract_tables(path: str) -> tuple[str, list]:
     return "\n".join(tables_md_parts), tables_raw
 
 
+# ── Fast Text Extraction ───────────────────────────────────────
+
+def _fast_extract_text(filepath: str) -> str:
+    """Extract text page-by-page using PyMuPDF (instant, no ONNX model).
+
+    Returns clean text with page markers for structure.
+    """
+    doc = fitz.open(filepath)
+    pages = []
+    for i, page in enumerate(doc):
+        text = page.get_text("text").strip()
+        if text:
+            pages.append(f"## Page {i + 1}\n\n{text}")
+    doc.close()
+    return "\n\n---\n\n".join(pages)
+
+
 # ── Main Parser ────────────────────────────────────────────────
 
 async def parse_pdf(filepath: str) -> dict:
-    """Parse a PDF using the complexity-routed multi-tool approach.
+    """Parse a PDF using fast extraction + pdfplumber tables.
 
     Returns {"text": str, "metadata": dict, "parsed_doc": ParsedDocument}
     """
-    import pymupdf4llm
-
     filename = Path(filepath).name
     scan = _scan_pdf(filepath)
 
@@ -220,20 +235,16 @@ async def parse_pdf(filepath: str) -> dict:
         doc.close()
         markdown_text = "\n\n---\n\n".join(pages_md)
 
-    elif scan["complexity"] == "text_only":
-        # Simple text PDF: pymupdf4llm handles it cleanly
-        markdown_text = pymupdf4llm.to_markdown(filepath)
-
     else:
-        # Full pipeline: pymupdf4llm + pdfplumber tables + Gemini Vision images
-        markdown_text = pymupdf4llm.to_markdown(filepath)
+        # Fast text extraction (no ONNX model, works in seconds not minutes)
+        markdown_text = _fast_extract_text(filepath)
 
-        # Extract tables via pdfplumber (more precise than pymupdf4llm for complex tables)
+        # Extract tables via pdfplumber (precise, fast)
         tables_text, tables_raw = _extract_tables(filepath)
         if tables_text:
             markdown_text += f"\n\n---\n\n## Extracted Tables\n{tables_text}"
 
-        # Caption images via Gemini Vision
+        # Caption images via Gemini Vision (currently disabled)
         image_descriptions, image_count = _extract_and_caption_images(filepath)
         if image_descriptions:
             markdown_text += "\n\n---\n\n## Figures\n" + "\n".join(image_descriptions)
