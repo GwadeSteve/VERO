@@ -17,6 +17,9 @@ env/
 backend/data/
 *.db
 
+#test files
+backend/tests/fixtures/
+
 # IDE
 .vscode/
 .idea/
