@@ -73,7 +73,7 @@ def run_tests():
         has_breadcrumbs = any(c["metadata"].get("breadcrumbs", {}) for c in chunks)
         check("Markdown chunks retain parent headers in metadata", has_breadcrumbs)
 
-        section("2. Semantic Chunking (Web Source)")
+        section("2. Markdown Chunking (Web Source)")
         # Ingest Web Profile
         rc_web = httpx.post(
             f"{BASE}/projects/{pid}/ingest-url",
@@ -90,7 +90,7 @@ def run_tests():
         check("POST /chunk web returns 201", rc_sem.status_code == 201)
         chunks_sem = rc_sem.json()
         check("Semantic chunks generated", len(chunks_sem) > 0)
-        check("Strategy is semantic", all(c["strategy"] == "semantic" for c in chunks_sem))
+        check("Strategy is markdown", all(c["strategy"] == "markdown" for c in chunks_sem))
 
         section("3. Reversibility & Token Verification")
         # Fetch chunks for Markdown doc again using GET
