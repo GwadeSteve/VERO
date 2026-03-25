@@ -167,22 +167,31 @@ async def search(
     db: AsyncSession,
     project_id: str,
     query: str,
-    top_k: int = 5,
+    top_k: int = 10,
     mode: str = "hybrid",
-    min_score: float = 0.01,
+    min_score: float = 0.35,
+    context_budget: int = 10000,
 ) -> list[SearchResultItem]:
     """Execute a two-stage search with cross-encoder reranking.
 
     Stage 1: Fast candidate retrieval (semantic, keyword, or hybrid).
-    Stage 2: Cross-encoder reranking for precision.
+    Stage 2: Cross-encoder reranking with adaptive result selection.
+
+    The result count is NO LONGER fixed. The system adaptively selects
+    results based on the reranker's score distribution:
+      - Keeps all results with score >= min_score (default 0.35 sigmoid)
+      - Detects score gaps: stops if next result drops >50% vs previous
+      - Respects a total context character budget
+      - Clamps to [1, top_k] range
 
     Args:
         db: Database session.
         project_id: Project to search within.
         query: User's natural language query.
-        top_k: Maximum number of results to return.
+        top_k: Maximum number of results (hard cap).
         mode: "semantic", "keyword", or "hybrid".
-        min_score: The absolute minimum rerank score (0-1) to be considered relevant.
+        min_score: Minimum sigmoid-normalized rerank score (0-1). 0.5 = neutral.
+        context_budget: Maximum total characters across all returned chunks.
 
     Returns:
         List of SearchResultItem, sorted by cross-encoder relevance.
@@ -204,8 +213,8 @@ async def search(
     # Build chunk lookup
     chunk_map = {c.id: c for c in chunks}
 
-    # Stage 1: Over-fetch candidates (4x top_k for reranking headroom)
-    candidate_k = min(top_k * 4, len(chunks))
+    # Stage 1: Over-fetch candidates (6x top_k for better reranking coverage)
+    candidate_k = min(top_k * 6, len(chunks))
 
     if mode == "semantic":
         final_scores = _semantic_search(project_id, query, candidate_k)
@@ -249,34 +258,53 @@ async def search(
             "stage1_score": stage1_score,
         })
 
-    # Stage 2: Cross-encoder reranking
-    reranked = rerank(query, candidate_dicts, top_k=top_k)
+    # Stage 2: Cross-encoder reranking (returns ALL scored, sorted descending)
+    reranked = rerank(query, candidate_dicts)
 
-    # Build response items with reranked scores, filtering out irrelevant noise
+    # ── Adaptive Result Selection ──────────────────────────────
+    # Instead of blindly taking top_k, we use the score distribution
+    # to determine how many results are actually relevant.
+    MAX_CHUNK_CHARS = 1500   # ~375 tokens - truncate oversized chunks
+    total_chars = 0
+
     results: list[SearchResultItem] = []
     seen_texts: list[set] = []  # Store word sets for near-duplicate detection
-    
-    MAX_CHUNK_CHARS = 1500  # ~375 tokens - truncate oversized chunks
-    MAX_TOTAL_CHARS = 6000  # ~1500 tokens - total context budget for all chunks
-    total_chars = 0
-    
+    prev_score: float = 1.0
+
     for item in reranked:
         score = round(item["rerank_score"], 6)
+
+        # ① Hard floor: skip anything below min_score
         if score < min_score:
-            continue
-            
+            logger.debug("Adaptive cutoff: score %.4f < min_score %.4f, stopping", score, min_score)
+            break
+
+        # ② Score gap detection: if score drops >50% relative to previous, stop
+        #    (but always keep at least 1 result)
+        if results and prev_score > 0:
+            relative_drop = (prev_score - score) / prev_score
+            if relative_drop > 0.50:
+                logger.debug(
+                    "Adaptive cutoff: score gap %.0f%% (%.4f → %.4f), stopping at %d results",
+                    relative_drop * 100, prev_score, score, len(results),
+                )
+                break
+
+        # ③ Hard cap
+        if len(results) >= top_k:
+            break
+
         # Strip context prefix and truncate oversized chunks
         clean_text = _strip_context_prefix(item["text"]).strip()
         if len(clean_text) > MAX_CHUNK_CHARS:
-            # Truncate at last sentence boundary before limit
             truncated = clean_text[:MAX_CHUNK_CHARS]
             last_period = truncated.rfind('.')
             if last_period > MAX_CHUNK_CHARS // 2:
                 clean_text = truncated[:last_period + 1]
             else:
                 clean_text = truncated + "..."
-        
-        # Near-duplicate detection: skip chunks that overlap >70% with any seen chunk
+
+        # Near-duplicate detection: skip chunks that overlap >70%
         chunk_words = set(re.findall(r'\w+', clean_text.lower()))
         is_near_dup = False
         for seen_words in seen_texts:
@@ -290,13 +318,14 @@ async def search(
             logger.debug("Skipping near-duplicate chunk: %.0f%% overlap", overlap * 100)
             continue
         seen_texts.append(chunk_words)
-        
-        # Enforce total context budget
-        if total_chars + len(clean_text) > MAX_TOTAL_CHARS and results:
-            logger.info("Context budget reached (%d chars), stopping at %d results", total_chars, len(results))
+
+        # ④ Context budget: stop when total chars would exceed budget
+        if total_chars + len(clean_text) > context_budget and results:
+            logger.info("Context budget reached (%d/%d chars), stopping at %d results", total_chars, context_budget, len(results))
             break
         total_chars += len(clean_text)
-            
+
+        prev_score = score
         results.append(SearchResultItem(
             chunk_id=item["chunk_id"],
             doc_id=item["doc_id"],
@@ -312,8 +341,8 @@ async def search(
         ))
 
     logger.info(
-        "Search [%s+rerank] in project %s: query='%s' → %d candidates → %d results.",
-        mode, project_id, query[:50], len(candidate_dicts), len(results),
+        "Search [%s+rerank] in project %s: query='%s' → %d candidates → %d results (adaptive, budget %d/%d chars).",
+        mode, project_id, query[:50], len(candidate_dicts), len(results), total_chars, context_budget,
     )
     return results
 

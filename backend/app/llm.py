@@ -147,16 +147,50 @@ class GeminiProvider(BaseLLM):
         user_prompt: str,
         messages: list[dict] | None = None,
     ) -> str:
-        """Generate response via Gemini using async generation."""
+        """Generate response via Gemini using async generation.
+
+        When `messages` is provided (multi-turn mode), converts the OpenAI-style
+        message list to Gemini's Content format. The system message is extracted
+        and passed as system_instruction.
+        """
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.model_name,
-                contents=user_prompt,
-                config=self._types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    safety_settings=self.safety_settings,
+            # Build contents from messages if provided (multi-turn mode)
+            if messages:
+                contents = []
+                extracted_system = system_prompt
+                for msg in messages:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    if role == "system":
+                        extracted_system = content
+                        continue  # System prompt goes to system_instruction
+                    # Gemini uses "user" and "model" (not "assistant")
+                    gemini_role = "model" if role == "assistant" else "user"
+                    contents.append(
+                        self._types.Content(
+                            role=gemini_role,
+                            parts=[self._types.Part(text=content)],
+                        )
+                    )
+
+                response = await self.client.aio.models.generate_content(
+                    model=self.model_name,
+                    contents=contents,
+                    config=self._types.GenerateContentConfig(
+                        system_instruction=extracted_system,
+                        safety_settings=self.safety_settings,
+                    )
                 )
-            )
+            else:
+                # Simple single-turn mode
+                response = await self.client.aio.models.generate_content(
+                    model=self.model_name,
+                    contents=user_prompt,
+                    config=self._types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        safety_settings=self.safety_settings,
+                    )
+                )
             return response.text
         except Exception as e:
             logger.error("Gemini API error: %s", e)
@@ -197,20 +231,72 @@ class OllamaProvider(BaseLLM):
             raise
 
 
+class FallbackLLM(BaseLLM):
+    """Wrapper that tries a primary provider, then falls back to a secondary on failure."""
+
+    def __init__(self, primary: BaseLLM, fallback: BaseLLM):
+        self._primary = primary
+        self._fallback = fallback
+
+    async def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        messages: list[dict] | None = None,
+    ) -> str:
+        try:
+            return await self._primary.generate_response(system_prompt, user_prompt, messages)
+        except Exception as primary_error:
+            logger.warning(
+                "Primary LLM (%s) failed: %s. Falling back to %s.",
+                type(self._primary).__name__, primary_error,
+                type(self._fallback).__name__,
+            )
+            try:
+                return await self._fallback.generate_response(system_prompt, user_prompt, messages)
+            except Exception as fallback_error:
+                logger.error(
+                    "Fallback LLM (%s) also failed: %s",
+                    type(self._fallback).__name__, fallback_error,
+                )
+                # Raise the original primary error (more relevant to the user)
+                raise primary_error
+
+
 def get_llm() -> BaseLLM:
-    """Factory to get the configured LLM provider.
+    """Factory to get the configured LLM provider with automatic fallback.
 
     Set VERO_LLM_PROVIDER to: 'groq' (default), 'gemini', or 'ollama'.
     Models are configured via VERO_GROQ_MODEL, VERO_GEMINI_MODEL, or VERO_OLLAMA_MODEL.
+
+    If VERO_LLM_FALLBACK is set to 'true' (default), the factory wraps
+    the primary provider with a fallback to prevent API outages from
+    blocking the user.
     """
     provider = os.environ.get("VERO_LLM_PROVIDER", "groq").lower()
-    logger.info("LLM provider: %s", provider)
+    enable_fallback = os.environ.get("VERO_LLM_FALLBACK", "true").lower() == "true"
+    logger.info("LLM provider: %s (fallback=%s)", provider, enable_fallback)
 
     if provider == "gemini":
-        return GeminiProvider()
+        primary = GeminiProvider()
+        if enable_fallback:
+            try:
+                fallback = GroqProvider()
+                return FallbackLLM(primary, fallback)
+            except ValueError:
+                logger.warning("Fallback provider (Groq) not configured, running Gemini-only.")
+        return primary
+
     elif provider == "ollama":
         return OllamaProvider()
 
-    # Default to Groq
-    return GroqProvider()
+    # Default: Groq primary
+    primary = GroqProvider()
+    if enable_fallback:
+        try:
+            fallback = GeminiProvider()
+            return FallbackLLM(primary, fallback)
+        except ValueError:
+            logger.warning("Fallback provider (Gemini) not configured, running Groq-only.")
+    return primary
 

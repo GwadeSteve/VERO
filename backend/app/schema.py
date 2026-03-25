@@ -194,9 +194,10 @@ class SearchMode(str, Enum):
 class SearchRequest(BaseModel):
     """Request body for project-level search."""
     query: str
-    top_k: int = Field(default=5, ge=1, le=50)
+    top_k: int = Field(default=10, ge=1, le=50)
     mode: SearchMode = SearchMode.HYBRID
-    min_score: float = Field(default=0.01, ge=0.0, le=1.0)
+    min_score: float = Field(default=0.35, ge=0.0, le=1.0)
+    context_budget: int = Field(default=10000, ge=1000, le=50000)
 
 
 class SearchResultItem(BaseModel):
@@ -238,9 +239,9 @@ class GroundedAnswer(BaseModel):
 
 class AnswerRequest(BaseModel):
     query: str
-    top_k: int = Field(default=5, ge=1, le=50)
+    top_k: int = Field(default=10, ge=1, le=50)
     mode: str = "hybrid"
-    min_score: float = Field(default=0.01, ge=0.0, le=1.0)
+    min_score: float = Field(default=0.35, ge=0.0, le=1.0)
     allow_model_knowledge: bool = False
 
 
@@ -269,9 +270,9 @@ class SessionResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    top_k: int = Field(default=5, ge=1, le=50)
+    top_k: int = Field(default=10, ge=1, le=50)
     mode: str = "hybrid"
-    min_score: float = Field(default=0.01, ge=0.0, le=1.0)
+    min_score: float = Field(default=0.35, ge=0.0, le=1.0)
     allow_model_knowledge: bool = False
 
 
