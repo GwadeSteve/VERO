@@ -196,7 +196,7 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = Field(default=10, ge=1, le=50)
     mode: SearchMode = SearchMode.HYBRID
-    min_score: float = Field(default=0.35, ge=0.0, le=1.0)
+    min_score: float = Field(default=0.1, ge=0.0, le=1.0)
     context_budget: int = Field(default=10000, ge=1000, le=50000)
 
 
