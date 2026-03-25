@@ -169,7 +169,7 @@ async def search(
     query: str,
     top_k: int = 10,
     mode: str = "hybrid",
-    min_score: float = 0.35,
+    min_score: float = 0.01,
     context_budget: int = 10000,
 ) -> list[SearchResultItem]:
     """Execute a two-stage search with cross-encoder reranking.
