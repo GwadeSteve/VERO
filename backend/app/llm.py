@@ -230,7 +230,7 @@ class OllamaProvider(BaseLLM):
             logger.error("Ollama error: %s. Is Ollama running at %s?", e, self.base_url)
             raise
 
-
+ 
 class FallbackLLM(BaseLLM):
     """Wrapper that tries a primary provider, then falls back to a secondary on failure."""
 
