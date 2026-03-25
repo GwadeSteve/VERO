@@ -432,10 +432,13 @@ export default function Sidebar({
                             const isLoading = loadingProjectIds.has(p.id) || (isProjectActive && isFetchingSessions && pSessions.length === 0);
 
                             if (isLoading) {
-                              return [1, 2, 3].map(k => (
-                                <div key={k} style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <div style={{ width: 14, height: 14, borderRadius: 4, background: 'var(--bg-2)', opacity: 0.5 }} className="skel" />
-                                  <div style={{ height: 10, borderRadius: 4, flex: 1, background: 'var(--bg-2)', opacity: 0.5 }} className="skel" />
+                              return [1, 2, 3].map((k, idx) => (
+                                <div key={k} style={{ 
+                                  padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 10,
+                                  animation: `fadeIn 0.3s ease forwards ${idx * 0.05}s`, opacity: 0 
+                                }}>
+                                  <div className="skel" style={{ width: 14, height: 14, borderRadius: 4, flexShrink: 0 }} />
+                                  <div className="skel" style={{ height: 12, width: `${Math.random() * 30 + 40}%`, borderRadius: 4 }} />
                                 </div>
                               ));
                             }

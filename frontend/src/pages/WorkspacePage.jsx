@@ -891,32 +891,26 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             {(searching && !isStreaming) && (
                                 <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 28 }}>
                                     <div style={{
-                                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                                        background: 'var(--accent-dim)', border: '1.5px solid var(--accent)',
+                                        width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                                        background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         animation: 'pulse 1.5s ease-in-out infinite',
                                         boxShadow: '0 0 16px var(--accent-dim)',
                                     }}>
-                                        <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+                                        <img src="/vero.svg" alt="V" style={{ width: 16, height: 16, objectFit: 'contain' }} />
                                     </div>
-                                    <div style={{ paddingTop: 4 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>VERO</span>
-                                            <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>thinking...</span>
+                                    <div style={{ paddingTop: 4, width: '100%' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>VERO</span>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <div style={{ display: 'flex', gap: 3 }}>
-                                                {[0, 1, 2].map(d => (
-                                                    <div key={d} style={{
-                                                        width: 6, height: 6, borderRadius: '50%',
-                                                        background: 'var(--accent)',
-                                                        animation: `pulse 1.2s ease-in-out ${d * 0.2}s infinite`,
-                                                    }} />
-                                                ))}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '85%' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                                <div className="dot-processing" style={{ width: 8, height: 8 }} />
+                                                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, animation: 'pulse 2s infinite' }}>{loadingText || 'Synthesizing knowledge...'}</span>
                                             </div>
-                                            <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
-                                                {loadingText}
-                                            </span>
+                                            <div className="skel" style={{ height: 16, borderRadius: 4, width: '90%' }} />
+                                            <div className="skel" style={{ height: 16, borderRadius: 4, width: '95%' }} />
+                                            <div className="skel" style={{ height: 16, borderRadius: 4, width: '75%' }} />
                                         </div>
                                     </div>
                                 </div>
@@ -1388,26 +1382,36 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     </div>
 
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {docsLoading ? [1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 44, borderRadius: 8 }} />) :
-                            docs.length === 0 ? (
-                                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-4)' }}>
-                                    <FileArchive size={32} strokeWidth={1} style={{ marginBottom: 12, opacity: 0.3 }} />
-                                    <p style={{ fontSize: 12, margin: 0 }}>No sources yet</p>
+                        {docsLoading ? [1, 2, 3].map((i, idx) => (
+                            <div key={i} style={{ 
+                                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8,
+                                animation: `fadeIn 0.3s ease forwards ${idx * 0.05}s`, opacity: 0 
+                            }}>
+                                <div className="skel" style={{ width: 14, height: 14, borderRadius: 4, flexShrink: 0 }} />
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div className="skel" style={{ width: `${Math.random() * 40 + 40}%`, height: 12, borderRadius: 4 }} />
+                                    <div className="skel" style={{ width: '20%', height: 10, borderRadius: 3 }} />
                                 </div>
-                            ) :
-                                docs.map(d => {
-                                    const status = getPreciseStatus(d);
-                                    const StatusIcon = status.icon;
-                                    const traces = docTraces[d.title] || [];
-                                    const isActive = activeCitationDoc === d.title;
-                                    const docType = getDocIcon(d.title);
-                                    const DocIcon = docType.icon;
+                                <div className="skel" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
+                            </div>
+                        )) : docs.length === 0 ? (
+                            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-4)' }}>
+                                <FileArchive size={32} strokeWidth={1} style={{ marginBottom: 12, opacity: 0.3 }} />
+                                <p style={{ fontSize: 12, margin: 0 }}>No sources yet</p>
+                            </div>
+                        ) : docs.map(d => {
+                            const status = getPreciseStatus(d);
+                            const StatusIcon = status.icon;
+                            const traces = docTraces[d.title] || [];
+                            const isActive = activeCitationDoc === d.title;
+                            const docType = getDocIcon(d.title);
+                            const DocIcon = docType.icon;
 
-                                    return (
-                                        <div id={`doc-${d.title}`} key={d.id} style={{
-                                            display: 'flex', alignItems: 'center', gap: 10,
-                                            padding: '8px 10px', borderRadius: 8,
-                                            background: isActive ? 'var(--accent-dim)' : 'transparent',
+                            return (
+                                <div id={`doc-${d.title}`} key={d.id} style={{
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    padding: '8px 10px', borderRadius: 8,
+                                    background: isActive ? 'var(--accent-dim)' : 'transparent',
                                             border: isActive ? '1px solid var(--accent-border)' : '1px solid transparent',
                                             cursor: 'pointer', transition: 'all 0.15s ease'
                                         }}

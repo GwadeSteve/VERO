@@ -158,8 +158,25 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
             </div>
 
             {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 80 }} />)}
+              <div style={{
+                  background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden',
+                  display: 'flex', flexDirection: 'column'
+              }}>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} style={{
+                      padding: isMobile ? '16px' : '16px 24px', display: 'flex', alignItems: 'center', gap: 16,
+                      borderBottom: i < 5 ? '1px solid var(--border)' : 'none',
+                      animation: `fadeIn 0.3s ease forwards ${i * 0.05}s`, opacity: 0
+                  }}>
+                    <div className="skel" style={{ width: 32, height: 32, borderRadius: 'var(--r)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div className="skel" style={{ width: `${Math.random() * 20 + 30}%`, height: 14, borderRadius: 4 }} />
+                        <div className="skel" style={{ width: `${Math.random() * 10 + 15}%`, height: 12, borderRadius: 4 }} />
+                    </div>
+                    {!isMobile && <div className="skel" style={{ width: '15%', height: 14, borderRadius: 4 }} />}
+                    {!isMobile && <div className="skel" style={{ width: '10%', height: 14, borderRadius: 4 }} />}
+                  </div>
+                ))}
               </div>
             ) : documents.length === 0 ? (
               <div style={{
