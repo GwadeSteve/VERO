@@ -1,5 +1,23 @@
 const BASE_URL = "http://127.0.0.1:8000";
 
+/**
+ * Poll /health until the server is ready.
+ * Retries with backoff (500ms → 1s → 2s → ...), max 20 attempts (~30s).
+ * Returns true if server is up, false if all retries exhausted.
+ */
+export async function waitForServer(maxAttempts = 20) {
+    let delay = 500;
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            const res = await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(2000) });
+            if (res.ok) return true;
+        } catch { /* server not up yet */ }
+        await new Promise(r => setTimeout(r, delay));
+        delay = Math.min(delay * 1.5, 3000);
+    }
+    return false;
+}
+
 async function handle(res) {
     if (!res.ok) {
         let msg = `Error ${res.status}`;

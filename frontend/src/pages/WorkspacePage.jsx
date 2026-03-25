@@ -1,9 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import ChatMessage from '../components/chat/ChatMessage';
 import { useNavigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { api } from '../api';
 import { useToast } from '../components/ui/Toast';
@@ -13,104 +10,6 @@ import {
     X, ChevronRight, ChevronDown, BookOpen, FileArchive, Wand2, Info, Layers, Clock, Edit2, Pin, Trash2, Cpu, Zap,
     FileType, AlignLeft, FileCode, Github, Link, Plus, PanelRightClose, PanelRightOpen, Square, Copy, Check, Pencil, Menu, Library, MessageSquare
 } from 'lucide-react';
-
-/**
- * Map of Unicode math symbols → LaTeX equivalents.
- * Covers Greek letters, operators, and notation commonly found in academic PDFs.
- */
-const UNICODE_TO_LATEX = {
-    // Lowercase Greek
-    'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta',
-    'ε': '\\epsilon', 'ζ': '\\zeta', 'η': '\\eta', 'θ': '\\theta',
-    'ι': '\\iota', 'κ': '\\kappa', 'λ': '\\lambda', 'μ': '\\mu',
-    'ν': '\\nu', 'ξ': '\\xi', 'π': '\\pi', 'ρ': '\\rho',
-    'σ': '\\sigma', 'τ': '\\tau', 'υ': '\\upsilon', 'φ': '\\varphi',
-    'ϕ': '\\phi', 'χ': '\\chi', 'ψ': '\\psi', 'ω': '\\omega',
-    // Uppercase Greek
-    'Γ': '\\Gamma', 'Δ': '\\Delta', 'Θ': '\\Theta', 'Λ': '\\Lambda',
-    'Ξ': '\\Xi', 'Π': '\\Pi', 'Σ': '\\Sigma', 'Υ': '\\Upsilon',
-    'Φ': '\\Phi', 'Ψ': '\\Psi', 'Ω': '\\Omega',
-    // Math operators & relations
-    '∑': '\\sum', '∏': '\\prod', '∫': '\\int', '∂': '\\partial',
-    '∇': '\\nabla', '∈': '\\in', '∉': '\\notin', '⊂': '\\subset',
-    '⊃': '\\supset', '⊆': '\\subseteq', '⊇': '\\supseteq',
-    '∪': '\\cup', '∩': '\\cap', '∀': '\\forall', '∃': '\\exists',
-    '∞': '\\infty', '≈': '\\approx', '≠': '\\neq', '≤': '\\leq',
-    '≥': '\\geq', '→': '\\to', '←': '\\leftarrow', '↔': '\\leftrightarrow',
-    '⇒': '\\Rightarrow', '⇐': '\\Leftarrow', '⇔': '\\Leftrightarrow',
-    '×': '\\times', '·': '\\cdot', '±': '\\pm', '∓': '\\mp',
-    '√': '\\sqrt', '∝': '\\propto', '⊗': '\\otimes', '⊕': '\\oplus',
-    // Misc notation
-    'ℝ': '\\mathbb{R}', 'ℤ': '\\mathbb{Z}', 'ℕ': '\\mathbb{N}',
-    'ℂ': '\\mathbb{C}', 'ℙ': '\\mathbb{P}',
-};
-
-/**
- * Detect and convert Unicode math patterns to LaTeX-wrapped expressions.
- * Simple, reliable strategy: find Unicode math symbols, expand to grab
- * surrounding math context, convert and wrap in $...$
- */
-function postprocessMathForRendering(text) {
-    if (!text) return text;
-
-    // Quick check: any math symbols present at all?
-    const mathSymbolPattern = /[α-ωΑ-Ωϕ∑∏∫∂∇∈∉⊂⊃⊆⊇∪∩∀∃∞≈≠≤≥⇒⇐⇔×±∓√∝⊗⊕ℝℤℕℂℙ∗]/;
-    if (!mathSymbolPattern.test(text)) return text;
-
-    // Process line by line to skip code blocks
-    const lines = text.split('\n');
-    let inCodeBlock = false;
-
-    const processed = lines.map(line => {
-        if (line.trim().startsWith('```')) { inCodeBlock = !inCodeBlock; return line; }
-        if (inCodeBlock) return line;
-        if (line.trim().startsWith('$$')) return line;
-        // Skip if line already has inline math
-        if (/\$[^$]+\$/.test(line) && !mathSymbolPattern.test(line.replace(/\$[^$]+\$/g, ''))) return line;
-
-        // Replace each Unicode math symbol (and its surrounding math context) with LaTeX
-        // Strategy: match a "math token" — a Unicode symbol optionally surrounded by
-        // letters/digits/subscripts/superscripts/parens/braces that form one expression
-        let result = line.replace(
-            /[({]?[a-zA-Z0-9_^∗*{}()\[\], =+\-/.]*[α-ωΑ-Ωϕ∑∏∫∂∇∈∉⊂⊃⊆⊇∪∩∀∃∞≈≠≤≥⇒⇐⇔×±∓√∝⊗⊕ℝℤℕℂℙ∗][a-zA-Z0-9_^∗*{}()\[\], =+\-/.α-ωΑ-Ωϕ∑∏∫∂∇∈∉⊂⊃⊆⊇∪∩∀∃∞≈≠≤≥⇒⇐⇔×±∓√∝⊗⊕ℝℤℕℂℙ]*[)}]?/g,
-            (match) => {
-                const trimmed = match.trim();
-                if (!trimmed) return match;
-
-                // Convert each Unicode symbol to its LaTeX command
-                let latex = trimmed;
-                for (const [sym, cmd] of Object.entries(UNICODE_TO_LATEX)) {
-                    latex = latex.replaceAll(sym, cmd);
-                }
-                latex = latex.replace(/∗/g, '^*');
-
-                const lead = match.match(/^\s*/)[0];
-                const trail = match.match(/\s*$/)[0];
-                return `${lead}$${latex.trim()}$${trail}`;
-            }
-        );
-
-        return result;
-    });
-
-    return processed.join('\n');
-}
-
-/**
- * Full preprocessing pipeline for AI response text:
- * 1. Convert Unicode math to LaTeX
- * 2. Convert [Source N] / [N] citations to clickable markdown links
- */
-function preprocessTextForMarkdown(text) {
-    if (!text) return text;
-    // Step 1: Convert Unicode math symbols to LaTeX
-    let result = postprocessMathForRendering(text);
-    // Step 2: [Source N] → [N](cite:N) for clickable citation bubbles
-    result = result.replace(/\[Source\s+(\d+)\]/gi, (_, num) => `[${num}](cite:${num})`);
-    // Step 3: standalone [N] not already linked → [N](cite:N)
-    result = result.replace(/\[(\d+)\](?!\()/g, (_, num) => `[${num}](cite:${num})`);
-    return result;
-}
 
 export default function WorkspacePage({ projectId, activeSessionId, setSessions, onRefreshProjects, isMobile, onOpenMobileMenu }) {
     // Project info
@@ -583,12 +482,38 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         });
     };
 
-    const copyMessage = (text, index) => {
+    const copyMessage = useCallback((text, index) => {
         navigator.clipboard.writeText(text).then(() => {
             setCopiedIndex(index);
             setTimeout(() => setCopiedIndex(null), 2000);
         });
-    };
+    }, []);
+
+    const handleToggleCitations = useCallback((msgIndex) => {
+        setOpenCitations(prev => {
+            const next = new Set(prev);
+            if (next.has(msgIndex)) next.delete(msgIndex); else next.add(msgIndex);
+            return next;
+        });
+    }, []);
+
+    const handleCitationClick = useCallback((docTitle) => {
+        setActiveCitationDoc(prev => prev === docTitle ? null : docTitle);
+        setTimeout(() => {
+            const el = document.getElementById(`doc-${docTitle}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+    }, []);
+
+    const handleChunkClick = useCallback((srcNum, trace) => {
+        setActiveCitationChunk(prev => prev?.srcNum === srcNum ? null : { srcNum, text: trace.text, doc_title: trace.doc_title, score: trace.score });
+        setActiveCitationDoc(trace.doc_title);
+        if (!rightPanelOpen) setRightPanelOpen(true);
+        setTimeout(() => {
+            const el = document.getElementById(`doc-${trace.doc_title}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }, [rightPanelOpen]);
 
     const formatTimestamp = (ts) => {
         if (!ts) return '';
@@ -935,364 +860,28 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     ) : (
                         <div style={{ paddingBottom: 40, padding: '32px 32px' }}>
                             {messages.map((m, i) => (
-                                <div key={i} className={`chat-message ${m.role === 'user' ? 'chat-message-user' : ''}`} style={{
+                                <div key={m.id || `msg-${i}`} className={`chat-message ${m.role === 'user' ? 'chat-message-user' : ''}`} style={{
                                     maxWidth: 840, margin: '0 auto',
                                     display: 'flex', flexDirection: 'column',
                                     alignItems: m.role === 'user' ? 'flex-end' : 'flex-start',
                                     marginBottom: 28,
                                 }}>
-                                    {m.role === 'assistant' || m.role === 'error' ? (
-                                        <div className="ai-message-container" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                                            {/* AI Header: Avatar + VERO + Timestamp */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                                                {/* VERO Avatar */}
-                                                <div style={{
-                                                    width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                                                    background: 'var(--accent-dim)',
-                                                    border: `1.5px solid ${m.isStreaming ? 'var(--accent)' : 'var(--accent-border)'}`,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    boxShadow: m.isStreaming ? '0 0 12px var(--accent-dim)' : 'var(--shadow-sm)',
-                                                    transition: 'all 0.3s ease',
-                                                    animation: m.isStreaming ? 'pulse 2s ease-in-out infinite' : 'none',
-                                                }}>
-                                                    <img src="/vero.svg" alt="V" style={{ width: 16, height: 16, objectFit: 'contain' }} />
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>VERO</span>
-                                                    {m.timestamp && <span style={{ fontSize: 13, color: 'var(--text-4)', fontWeight: 500 }}>{formatTimestamp(m.timestamp)}</span>}
-                                                    {m.stopped && <span style={{ fontSize: 13, color: 'var(--amber)', fontWeight: 600 }}>· Stopped</span>}
-                                                    {m.usedModelKnowledge && (
-                                                        <div className="ai-knowledge-badge" title="This response leveraged the AI's built-in model knowledge">
-                                                            <Sparkles size={13} className="ai-icon-sparkle" />
-                                                            <span>Model Knowledge</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Content / Text */}
-                                            <div className="ai-message-content" style={{ paddingLeft: 44, width: '100%' }}>
-                                                <div className={`vero-md ${m.isStreaming ? "streaming-cursor" : ""}`} style={{
-                                                    color: m.role === 'error' ? 'var(--red)' : 'var(--text)'
-                                                }}>
-                                                    <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm, remarkMath]}
-                                                        rehypePlugins={[rehypeKatex]}
-                                                        urlTransform={(value) => {
-                                                            if (value.startsWith('cite:')) return value;
-                                                            // Provide a simple default transform for other URLs if needed,
-                                                            // or rely on ReactMarkdown's default behavior for legitimate links.
-                                                            return value.replace(/^javascript:/i, ''); // basic XSS prevention
-                                                        }}
-                                                        components={{
-                                                            code({ node, inline, className, children, ...props }) {
-                                                                const match = /language-(\w+)/.exec(className || '');
-                                                                return !inline && match ? (
-                                                                    <div style={{ position: 'relative', marginTop: 12, marginBottom: 16 }}>
-                                                                        <div style={{
-                                                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                                            background: 'var(--bg-3)', padding: '6px 14px',
-                                                                            borderTopLeftRadius: 8, borderTopRightRadius: 8,
-                                                                            border: '1px solid var(--border)', borderBottom: 'none'
-                                                                        }}>
-                                                                            <span style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                                                {match[1]}
-                                                                            </span>
-                                                                            <button
-                                                                                onClick={() => { navigator.clipboard.writeText(String(children).replace(/\n$/, '')); /* Optional: toast here */ }}
-                                                                                style={{
-                                                                                    background: 'none', border: 'none', color: 'var(--text-4)',
-                                                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                                                                                    fontSize: 13, fontWeight: 500, padding: '6px 10px', borderRadius: 4,
-                                                                                    transition: 'all 0.15s ease'
-                                                                                }}
-                                                                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                                                                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
-                                                                            >
-                                                                                <Copy size={15} /> Copy
-                                                                            </button>
-                                                                        </div>
-                                                                        <pre style={{
-                                                                            margin: 0, padding: '16px 20px', background: 'var(--bg-1)',
-                                                                            overflowX: 'auto', borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
-                                                                            border: '1px solid var(--border)'
-                                                                        }}>
-                                                                            <code className={className} {...props} style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-2)' }}>
-                                                                                {children}
-                                                                            </code>
-                                                                        </pre>
-                                                                    </div>
-                                                                ) : (
-                                                                    <code className={className} {...props} style={{ background: 'var(--bg-1)', padding: '2px 6px', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: '0.85em', color: 'var(--accent)' }}>
-                                                                        {children}
-                                                                    </code>
-                                                                );
-                                                            },
-                                                            p({ children }) {
-                                                                return <p style={{ margin: '0 0 12px 0', lineHeight: 1.6 }}>{children}</p>;
-                                                            },
-                                                            a: ({ node, href, children, ...props }) => {
-                                                                if (href && href.startsWith('cite:')) {
-                                                                    const num = parseInt(href.replace('cite:', ''));
-                                                                    const trace = m.traces?.[num - 1];
-                                                                    if (!trace) return <span style={{ opacity: 0.5 }}>[{num}]</span>;
-
-                                                                    const isChunkActive = activeCitationChunk?.srcNum === num;
-
-                                                                    return (
-                                                                        <span
-                                                                            onClick={() => {
-                                                                                setActiveCitationChunk(isChunkActive ? null : { srcNum: num, text: trace.text, doc_title: trace.doc_title, score: trace.score });
-                                                                                setActiveCitationDoc(trace.doc_title);
-                                                                                if (!rightPanelOpen) setRightPanelOpen(true);
-                                                                                setTimeout(() => {
-                                                                                    const el = document.getElementById(`doc-${trace.doc_title}`);
-                                                                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                                }, 100);
-                                                                            }}
-                                                                            title={`From: ${trace.doc_title}`}
-                                                                            style={{
-                                                                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                                                                padding: '0 7px', margin: '0 3px', borderRadius: 5, minWidth: 20,
-                                                                                background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
-                                                                                border: '1px solid var(--accent-border)',
-                                                                                color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
-                                                                                fontSize: 11, fontWeight: 800,
-                                                                                cursor: 'pointer', lineHeight: '20px',
-                                                                                verticalAlign: 'middle', transition: 'all 0.15s ease',
-                                                                                textDecoration: 'none'
-                                                                            }}
-                                                                            onMouseEnter={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'var(--bg-0)'; } }}
-                                                                            onMouseLeave={e => { if (!isChunkActive) { e.currentTarget.style.background = 'var(--accent-dim)'; e.currentTarget.style.color = 'var(--accent)'; } }}
-                                                                        >
-                                                                            {num}
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                return <a href={href} target="_blank" rel="noopener noreferrer" {...props} style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: 2 }}>{children}</a>;
-                                                            }
-                                                        }}
-                                                    >
-                                                        {preprocessTextForMarkdown(m.text)}
-                                                    </ReactMarkdown>
-                                                </div>
-
-                                                {/* Message Actions */}
-                                                {!m.isStreaming && m.role === 'assistant' && (
-                                                    <div style={{ display: 'flex', gap: 2, marginTop: 8 }}>
-                                                        <button
-                                                            onClick={() => copyMessage(m.text, i)}
-                                                            title="Copy response"
-                                                            style={{
-                                                                display: 'flex', alignItems: 'center', gap: 4,
-                                                                padding: '4px 8px', borderRadius: 6, border: 'none',
-                                                                background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
-                                                                cursor: 'pointer', fontSize: 13, fontWeight: 500,
-                                                                transition: 'all 0.15s ease'
-                                                            }}
-                                                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-2)'; }}
-                                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; }}
-                                                        >
-                                                            {copiedIndex === i ? <><Check size={16} /> Copied</> : <><Copy size={16} /> Copy</>}
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                {/* Grouped Source Documents (Collapsible Accordion) */}
-                                                {!m.isStreaming && m.traces?.length > 0 && (() => {
-                                                    const grouped = {};
-                                                    m.traces.forEach((t, idx) => {
-                                                        if (!grouped[t.doc_title]) grouped[t.doc_title] = { title: t.doc_title, items: [] };
-                                                        grouped[t.doc_title].items.push({ ...t, srcNum: idx + 1 });
-                                                    });
-                                                    const docList = Object.values(grouped);
-                                                    const isAccordionOpen = openCitations.has(i);
-
-                                                    return (
-                                                        <div style={{ marginTop: 20 }}>
-                                                            {/* Accordion Toggle */}
-                                                            <div
-                                                                onClick={() => setOpenCitations(prev => {
-                                                                    const next = new Set(prev);
-                                                                    if (next.has(i)) next.delete(i); else next.add(i);
-                                                                    return next;
-                                                                })}
-                                                                style={{
-                                                                    display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px 6px 8px',
-                                                                    background: isAccordionOpen ? 'var(--bg-2)' : 'var(--bg-1)',
-                                                                    border: '1px solid', borderColor: isAccordionOpen ? 'var(--border)' : 'transparent',
-                                                                    borderRadius: 100, cursor: 'pointer', userSelect: 'none',
-                                                                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                                }}
-                                                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-2)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-                                                                onMouseLeave={e => { e.currentTarget.style.background = isAccordionOpen ? 'var(--bg-2)' : 'var(--bg-1)'; e.currentTarget.style.borderColor = isAccordionOpen ? 'var(--border)' : 'transparent'; }}
-                                                            >
-                                                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
-                                                                    <BookOpen size={12} strokeWidth={2.5} />
-                                                                </div>
-                                                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>
-                                                                    {m.traces.length} {m.traces.length === 1 ? 'Source' : 'Sources'} Cited
-                                                                </span>
-                                                                <ChevronDown size={14} color="var(--text-4)" style={{ marginLeft: 4, transform: isAccordionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }} />
-                                                            </div>
-
-                                                            {/* Accordion Content (CSS Grid Animation) */}
-                                                            <div style={{
-                                                                display: 'grid', gridTemplateRows: isAccordionOpen ? '1fr' : '0fr',
-                                                                transition: 'grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                                                            }}>
-                                                                <div style={{ overflow: 'hidden' }}>
-                                                                    <div style={{
-                                                                        marginTop: 12, padding: '14px 16px', borderRadius: 12,
-                                                                        background: 'var(--surface)', border: '1px solid var(--border)',
-                                                                        display: 'flex', flexDirection: 'column', gap: 6,
-                                                                        opacity: isAccordionOpen ? 1 : 0, transform: isAccordionOpen ? 'translateY(0)' : 'translateY(-10px)',
-                                                                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                                    }}>
-                                                                        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
-                                                                            Extracted References
-                                                                        </div>
-                                                                        {docList.map((doc, di) => {
-                                                                            const isActive = activeCitationDoc === doc.title;
-                                                                            return (
-                                                                                <div key={di} onClick={() => {
-                                                                                    setActiveCitationDoc(isActive ? null : doc.title);
-                                                                                    if (!isActive) setTimeout(() => {
-                                                                                        const el = document.getElementById(`doc-${doc.title}`);
-                                                                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                                    }, 50);
-                                                                                }} style={{
-                                                                                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                                                                                    borderRadius: 10, cursor: 'pointer',
-                                                                                    background: isActive ? 'var(--accent-dim)' : 'var(--bg-1)',
-                                                                                    border: isActive ? '1px solid var(--accent-border)' : '1px solid transparent',
-                                                                                    transition: 'all 0.2s ease'
-                                                                                }}
-                                                                                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                                                                                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-1)'; }}
-                                                                                >
-                                                                                    <FileText size={14} color={isActive ? 'var(--accent)' : 'var(--text-4)'} />
-                                                                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: isActive ? 'var(--text)' : 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                                        {doc.title}
-                                                                                    </span>
-                                                                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                                                                        {doc.items.map(item => {
-                                                                                            const isChunkActive = activeCitationChunk?.srcNum === item.srcNum;
-                                                                                            return (
-                                                                                                <span key={item.srcNum}
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        setActiveCitationChunk(isChunkActive ? null : { srcNum: item.srcNum, text: item.text, doc_title: item.doc_title, score: item.score });
-                                                                                                        setActiveCitationDoc(item.doc_title);
-                                                                                                        if (!isChunkActive) setTimeout(() => {
-                                                                                                            const el = document.getElementById(`doc-${item.doc_title}`);
-                                                                                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                                                        }, 50);
-                                                                                                    }}
-                                                                                                    style={{
-                                                                                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                                                                                        padding: '0 7px', margin: '0 2px', borderRadius: 5, minWidth: 20, height: 20,
-                                                                                                        background: isChunkActive ? 'var(--accent)' : 'var(--accent-dim)',
-                                                                                                        border: '1px solid var(--accent-border)',
-                                                                                                        color: isChunkActive ? 'var(--bg-0)' : 'var(--accent)',
-                                                                                                        fontSize: 11, fontWeight: 800,
-                                                                                                        cursor: 'pointer', lineHeight: '20px',
-                                                                                                        transition: 'all 0.15s ease'
-                                                                                                    }}
-                                                                                                    onMouseEnter={e => {
-                                                                                                        if (!isChunkActive) {
-                                                                                                            e.currentTarget.style.background = 'var(--accent)';
-                                                                                                            e.currentTarget.style.color = 'var(--bg-0)';
-                                                                                                        }
-                                                                                                    }}
-                                                                                                    onMouseLeave={e => {
-                                                                                                        if (!isChunkActive) {
-                                                                                                            e.currentTarget.style.background = 'var(--accent-dim)';
-                                                                                                            e.currentTarget.style.color = 'var(--accent)';
-                                                                                                        }
-                                                                                                    }}
-                                                                                                >
-                                                                                                    {item.srcNum}
-                                                                                                </span>
-                                                                                            );
-                                                                                        })}
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="user-message-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '100%' }}>
-                                            <div className="user-message-text" style={{
-                                                background: 'var(--user-bubble)', color: 'var(--text)',
-                                                padding: '10px 16px', borderRadius: '16px', borderBottomRightRadius: 4,
-                                                border: '1px solid var(--user-bubble-border)', fontWeight: 400,
-                                                whiteSpace: 'pre-wrap'
-                                            }}>
-                                                {m.text}
-                                            </div>
-                                            {/* User message actions + timestamp row */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                                                {m.timestamp && (
-                                                    <span style={{ fontSize: 12, color: 'var(--text-4)', fontWeight: 500, paddingRight: 4 }}>
-                                                        {formatTimestamp(m.timestamp)}
-                                                    </span>
-                                                )}
-                                                <button
-                                                    onClick={() => copyMessage(m.text, i)}
-                                                    title="Copy message"
-                                                    style={{
-                                                        display: 'flex', alignItems: 'center', gap: 3,
-                                                        padding: '2px 6px', borderRadius: 5, border: 'none',
-                                                        background: 'transparent', color: copiedIndex === i ? 'var(--green)' : 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 6px',
-                                                        transition: 'all 0.15s ease', gap: 6
-                                                    }}
-                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.color = copiedIndex === i ? 'var(--green)' : 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
-                                                >
-                                                    {copiedIndex === i ? <Check size={15} /> : <Copy size={15} />}
-                                                </button>
-                                                <button
-                                                    onClick={() => toast?.('Edit feature coming soon.', 'info')}
-                                                    title="Edit message"
-                                                    style={{
-                                                        display: 'flex', alignItems: 'center', gap: 3,
-                                                        padding: '2px 6px', borderRadius: 5, border: 'none',
-                                                        background: 'transparent', color: 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 6px',
-                                                        transition: 'all 0.15s ease', gap: 6
-                                                    }}
-                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
-                                                >
-                                                    <Pencil size={15} />
-                                                </button>
-                                                <button
-                                                    onClick={() => { if (window.confirm('Delete this Q&A pair?')) deleteMessagePair(i); }}
-                                                    title="Delete this exchange"
-                                                    style={{
-                                                        display: 'flex', alignItems: 'center', gap: 3,
-                                                        padding: '2px 6px', borderRadius: 5, border: 'none',
-                                                        background: 'transparent', color: 'var(--text-4)',
-                                                        cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 6px',
-                                                        transition: 'all 0.15s ease', gap: 6
-                                                    }}
-                                                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-dim)'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-4)'; e.currentTarget.style.background = 'transparent'; }}
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <ChatMessage
+                                        message={m}
+                                        index={i}
+                                        copiedIndex={copiedIndex}
+                                        activeCitationDoc={activeCitationDoc}
+                                        activeCitationChunk={activeCitationChunk}
+                                        isAccordionOpen={openCitations.has(i)}
+                                        onCopy={copyMessage}
+                                        onDelete={deleteMessagePair}
+                                        onToggleCitations={handleToggleCitations}
+                                        onCitationClick={handleCitationClick}
+                                        onChunkClick={handleChunkClick}
+                                        rightPanelOpen={rightPanelOpen}
+                                        onOpenRightPanel={() => setRightPanelOpen(true)}
+                                        toast={toast}
+                                    />
                                 </div>
                             ))}
 

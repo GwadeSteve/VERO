@@ -1,6 +1,6 @@
 import { Routes, Route, useNavigate, useLocation, matchPath } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { api } from './api';
+import { api, waitForServer } from './api';
 import Sidebar from './components/layout/Sidebar';
 import ProjectsPage from './pages/ProjectsPage';
 import WorkspacePage from './pages/WorkspacePage';
@@ -14,6 +14,20 @@ function App() {
   const location = useLocation();
   const toast = useToast();
 
+  const [serverReady, setServerReady] = useState(false);
+
+  // Gate: poll /health before allowing any API calls
+  useEffect(() => {
+    let cancelled = false;
+    waitForServer().then(ok => {
+      if (!cancelled) {
+        setServerReady(ok);
+        if (!ok) console.error('[VERO] Server did not respond after retries');
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const match = matchPath("/p/:projectId/c/:sessionId", location.pathname) || matchPath("/p/:projectId", location.pathname);
   const projectId = match?.params?.projectId || null;
   const activeSessionId = match?.params?.sessionId || null;
@@ -26,15 +40,15 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  // Load project info
+  // Load project info — only after server is ready
   useEffect(() => {
+    if (!serverReady) return;
     if (projectId) {
       setIsFetchingSessions(true);
       api.getProject(projectId).then(p => {
         if (!p) throw new Error('Not found');
         setProjectName(p.name);
       }).catch(() => {
-        // If project not found, redirect to home
         navigate('/');
       });
       api.getSessions(projectId).then(s => {
@@ -49,7 +63,7 @@ function App() {
       setSessions([]);
       setIsFetchingSessions(false);
     }
-  }, [projectId, navigate]);
+  }, [projectId, navigate, serverReady]);
 
   const handleNewSession = async () => {
     if (!projectId) {
@@ -60,7 +74,7 @@ function App() {
     try {
       const s = await api.createSession(projectId);
       setSessions(prev => [s, ...prev]);
-      setRefreshToggle(t => !t); // Move to top of recent projects
+      setRefreshToggle(t => !t);
       navigate(`/p/${projectId}/c/${s.id}`);
     } catch { }
   };
@@ -73,7 +87,48 @@ function App() {
     }
   };
 
-
+  // ── Loading screen while server warms up ──
+  if (!serverReady) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', width: '100vw', background: 'var(--bg-0)', gap: 20,
+      }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 16,
+          background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'pulse 2s ease-in-out infinite',
+        }}>
+          <img src="/vero.svg" alt="VERO" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+            Starting VERO
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 500 }}>
+            Warming up ML models…
+          </div>
+        </div>
+        <div style={{
+          width: 120, height: 3, borderRadius: 2, background: 'var(--bg-2)', overflow: 'hidden',
+        }}>
+          <div style={{
+            width: '40%', height: '100%', borderRadius: 2,
+            background: 'var(--accent)',
+            animation: 'loading-bar 1.5s ease-in-out infinite',
+          }} />
+        </div>
+        <style>{`
+          @keyframes loading-bar {
+            0%   { transform: translateX(-100%); }
+            50%  { transform: translateX(200%); }
+            100% { transform: translateX(-100%); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
