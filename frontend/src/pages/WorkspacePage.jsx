@@ -891,26 +891,32 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             {(searching && !isStreaming) && (
                                 <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 28 }}>
                                     <div style={{
-                                        width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                                        background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
+                                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                                        background: 'var(--accent-dim)', border: '1.5px solid var(--accent)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         animation: 'pulse 1.5s ease-in-out infinite',
                                         boxShadow: '0 0 16px var(--accent-dim)',
                                     }}>
-                                        <img src="/vero.svg" alt="V" style={{ width: 16, height: 16, objectFit: 'contain' }} />
+                                        <img src="/vero.svg" alt="V" style={{ width: 18, height: 18, objectFit: 'contain' }} />
                                     </div>
-                                    <div style={{ paddingTop: 4, width: '100%' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>VERO</span>
+                                    <div style={{ paddingTop: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>VERO</span>
+                                            <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>thinking...</span>
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '85%' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                                <div className="dot-processing" style={{ width: 8, height: 8 }} />
-                                                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, animation: 'pulse 2s infinite' }}>{loadingText || 'Synthesizing knowledge...'}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div style={{ display: 'flex', gap: 3 }}>
+                                                {[0, 1, 2].map(d => (
+                                                    <div key={d} style={{
+                                                        width: 6, height: 6, borderRadius: '50%',
+                                                        background: 'var(--accent)',
+                                                        animation: `pulse 1.2s ease-in-out ${d * 0.2}s infinite`,
+                                                    }} />
+                                                ))}
                                             </div>
-                                            <div className="skel" style={{ height: 16, borderRadius: 4, width: '90%' }} />
-                                            <div className="skel" style={{ height: 16, borderRadius: 4, width: '95%' }} />
-                                            <div className="skel" style={{ height: 16, borderRadius: 4, width: '75%' }} />
+                                            <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
+                                                {loadingText}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
