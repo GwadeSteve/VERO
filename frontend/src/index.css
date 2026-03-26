@@ -318,6 +318,60 @@ h4 {
   }
 }
 
+.sota-reflective-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border); /* Base permanent thin border */
+  isolation: isolate; /* Creates a stacking context so negative z-index pseudo-elements don't clip behind the page! */
+  background: transparent;
+}
+
+/* The spinning broad glare source */
+.sota-reflective-card::before {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: -100%;
+  width: 300%;
+  height: 300%;
+  background: conic-gradient(
+    transparent 0deg,
+    transparent 120deg,
+    rgba(255, 255, 255, 0.2) 150deg,
+    rgba(255, 255, 255, 0.8) 180deg, /* Brilliant white blade edge */
+    rgba(255, 255, 255, 0.2) 210deg,
+    transparent 240deg,
+    transparent 360deg
+  );
+  animation: borderRotate 6s linear infinite; /* Faster 6s cycle for noticeable movement */
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Inner mask that hides the center of the glare, revealing only the edges */
+.sota-reflective-card::after {
+  content: '';
+  position: absolute;
+  inset: 1.5px; /* The thickness of the glowing border */
+  border-radius: inherit;
+  background: var(--bg-1); /* Fills the card solid, hiding the center of the spinning gradient */
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Ensure contents sit strictly above the mask */
+.sota-reflective-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes borderRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+
 /* ─── Toast ────────────────────────────────── */
 .toast-wrap {
   position: fixed;
