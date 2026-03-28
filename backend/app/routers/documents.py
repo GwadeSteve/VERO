@@ -89,7 +89,7 @@ async def ingest_file(
 ):
     """
     Upload a document file (PDF, DOCX, MD, TXT) and ingest it.
-    If the same content already exists in this project, returns the existing doc.
+    Parsing and deduplication happen asynchronously in the background.
     """
     await _verify_project(project_id, db)
 
@@ -99,44 +99,37 @@ async def ingest_file(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Save upload to a temp file, then parse
-    tmp_dir = tempfile.mkdtemp()
-    tmp_path = Path(tmp_dir) / file.filename
+    # Save upload to a persistent temp file for background processing
+    import uuid
+    upload_dir = Path(__file__).resolve().parent.parent.parent / "data" / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    temp_id = uuid.uuid4().hex
+    tmp_path = upload_dir / f"{temp_id}_{file.filename}"
+    
     try:
         with open(tmp_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
-        result = await parse_file(str(tmp_path), source_type)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to parse file: {e}")
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
 
-    raw_text = result["text"]
-    content_hash = compute_content_hash(raw_text)
-
-    # Dedup check
-    existing = await _check_duplicate(project_id, content_hash, db)
-    if existing is not None:
-        return _to_summary(existing, is_duplicate=True)
-
-    # Store new document
+    # Store new document in "parsing" state instantly
     confidence = SOURCE_CONFIDENCE.get(source_type, 3).value
     doc = DocumentModel(
         project_id=project_id,
         source_type=source_type.value,
         title=file.filename,
-        raw_text=raw_text,
-        content_hash=content_hash,
+        raw_text="",
+        content_hash=f"pending_{temp_id}",
+        processing_status="parsing",
         confidence_level=confidence,
-        metadata_json=json.dumps(result.get("metadata", {})),
     )
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
 
-    # Auto-pipeline: chunk + embed in background
+    # Auto-pipeline: parse + chunk + embed in background
     from app.pipeline import auto_pipeline
-    background_tasks.add_task(auto_pipeline, doc.id)
+    background_tasks.add_task(auto_pipeline, doc.id, filepath=str(tmp_path), ingest_type="file")
 
     return _to_summary(doc)
 
@@ -151,42 +144,31 @@ async def ingest_url(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Ingest a web page by URL. Deduplicates by content hash.
+    Ingest a web page by URL. Parsing and deduplication happen asynchronously in the background.
     """
     await _verify_project(project_id, db)
 
-    try:
-        result = await parse_web(body.url)
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to fetch URL: {e}")
-
-    raw_text = result["text"]
-    content_hash = compute_content_hash(raw_text)
-
-    # Dedup check
-    existing = await _check_duplicate(project_id, content_hash, db)
-    if existing is not None:
-        return _to_summary(existing, is_duplicate=True)
-
-    title = body.title or result.get("metadata", {}).get("title", body.url)
+    import uuid
+    temp_id = uuid.uuid4().hex
+    title = body.title or body.url
     confidence = SOURCE_CONFIDENCE[SourceType.WEB].value
 
     doc = DocumentModel(
         project_id=project_id,
         source_type=SourceType.WEB.value,
         title=title,
-        raw_text=raw_text,
-        content_hash=content_hash,
+        raw_text="",
+        content_hash=f"pending_{temp_id}",
+        processing_status="parsing",
         confidence_level=confidence,
         source_url=body.url,
-        metadata_json=json.dumps(result.get("metadata", {})),
     )
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
 
     from app.pipeline import auto_pipeline
-    background_tasks.add_task(auto_pipeline, doc.id)
+    background_tasks.add_task(auto_pipeline, doc.id, url=body.url, ingest_type="url")
 
     return _to_summary(doc)
 
@@ -201,45 +183,31 @@ async def ingest_repo(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Ingest a public GitHub repository (README + Python docstrings).
-    Deduplicates by content hash.
+    Ingest a public GitHub repository. Parsing and deduplication happen asynchronously.
     """
     await _verify_project(project_id, db)
 
-    try:
-        result = await parse_repo(body.repo_url)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to fetch repo: {e}")
-
-    raw_text = result["text"]
-    content_hash = compute_content_hash(raw_text)
-
-    # Dedup check
-    existing = await _check_duplicate(project_id, content_hash, db)
-    if existing is not None:
-        return _to_summary(existing, is_duplicate=True)
-
-    title = body.title or result.get("metadata", {}).get("repo_name", body.repo_url)
+    import uuid
+    temp_id = uuid.uuid4().hex
+    title = body.title or body.repo_url
     confidence = SOURCE_CONFIDENCE[SourceType.REPO].value
 
     doc = DocumentModel(
         project_id=project_id,
         source_type=SourceType.REPO.value,
         title=title,
-        raw_text=raw_text,
-        content_hash=content_hash,
+        raw_text="",
+        content_hash=f"pending_{temp_id}",
+        processing_status="parsing",
         confidence_level=confidence,
         source_url=body.repo_url,
-        metadata_json=json.dumps(result.get("metadata", {})),
     )
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
 
     from app.pipeline import auto_pipeline
-    background_tasks.add_task(auto_pipeline, doc.id)
+    background_tasks.add_task(auto_pipeline, doc.id, url=body.repo_url, ingest_type="repo")
 
     return _to_summary(doc)
 

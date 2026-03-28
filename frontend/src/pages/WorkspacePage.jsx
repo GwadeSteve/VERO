@@ -269,6 +269,12 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 setDocs(allDocs);
                 const doc = allDocs.find(d => d.title === docTitle);
 
+                // If doc is missing, it might have been deleted (e.g. as a duplicate)
+                if (!doc) {
+                    clearInterval(iv);
+                    return;
+                }
+
                 if (doc && doc.processing_status !== lastStatus) {
                     lastStatus = doc.processing_status;
                     if (doc.processing_status === 'ready') {
@@ -277,14 +283,16 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     } else if (doc.processing_status === 'error' || doc.processing_status === 'failed') {
                         toast?.(`Failed to process "${docTitle}".`, 'error');
                         clearInterval(iv);
-                    } else if (doc.processing_status.includes('/')) {
-                        // Show progress steps like 1/3, 2/3...
-                        toast?.(`Processing "${docTitle}": Step ${doc.processing_status}`, 'info');
+                    } else if (doc.processing_status === 'duplicate') {
+                        toast?.(`"${docTitle}" was already in your workspace (Duplicate source).`, 'info');
+                        api.deleteDocument(doc.id).catch(() => {});
+                        clearInterval(iv);
+                        fetchDocs();
                     }
                 }
             } catch { clearInterval(iv); }
-        }, 2500);
-        setTimeout(() => clearInterval(iv), 180000);
+        }, 2000);
+        setTimeout(() => clearInterval(iv), 300000); // 5 mins max
     };
 
     // ── Ingestion ────────────────────────────────────
@@ -317,10 +325,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
         setIngesting(true);
         if (validFiles.length > 1) {
-            toast?.(`Uploading ${validFiles.length} files...`, 'info');
+            toast?.(`Queueing ${validFiles.length} files...`, 'info');
         } else {
             const shortName = validFiles[0].name.length > 20 ? validFiles[0].name.substring(0, 20) + '...' : validFiles[0].name;
-            toast?.(`Uploading ${shortName}...`, 'info');
+            toast?.(`Queueing ${shortName}...`, 'info');
         }
 
         try {
@@ -359,7 +367,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         }
 
         setIngesting(true);
-        toast?.(`${prefix} ${shortUrl} processing...`, 'info');
+        toast?.(`Queueing ${prefix} ${shortUrl}...`, 'info');
         try {
             const doc = await api.ingestUrl(projectId, url);
             setUrl(''); setShowUrl(false);
@@ -558,8 +566,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         const s = doc.processing_status;
         if (s === 'ready') return { label: 'Knowledge Ready', color: 'var(--green)', icon: CheckCircle2 };
         if (s === 'pending') return { label: 'In Queue', color: 'var(--text-4)', icon: Clock };
-        if (s === 'processing' || s === 'chunking') return { label: 'Step 1/2: Chunking & Indexing', color: 'var(--accent)', icon: Loader2 };
-        if (s === 'embedding') return { label: 'Step 2/2: Vectorizing Context', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'parsing') return { label: 'Step 1/3: Analyzing...', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'chunking') return { label: 'Step 2/3: Chunking & Indexing', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'embedding') return { label: 'Step 3/3: Vectorizing Context', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'duplicate') return { label: 'Duplicate Source', color: 'var(--text-3)', icon: Clock };
         if (s === 'error' || s === 'failed') return { label: 'Sync Failed', color: 'var(--red)', icon: X };
         return { label: 'In Queue', color: 'var(--text-4)', icon: Clock };
     };

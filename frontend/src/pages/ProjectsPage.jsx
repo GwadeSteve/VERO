@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ArrowRight, Folder, Clock, Trash2, Loader2, FileText, CheckSquare, Square, X, Layers, Sparkles, Menu } from 'lucide-react';
+import { Plus, ArrowRight, Folder, Clock, Trash2, Loader2, FileText, CheckSquare, Square, X, Layers, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useToast } from '../components/ui/Toast';
@@ -142,8 +142,8 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                             )}
                         </div>
 
-                        {/* Create Form */}
-                        {showForm && (
+                        {/* Create Form (only when projects exist — empty state has its own inline form) */}
+                        {showForm && projects.length > 0 && (
                             <form onSubmit={create} style={{
                                 display: 'flex', 
                                 flexDirection: isMobile ? 'column' : 'row',
@@ -215,78 +215,192 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
 
                         {/* Content */}
                         {loading ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 64 }} />)}
+                            /* ═══════════════════════════════════════
+                               SKELETON LOADING — 15 shimmer rows
+                               ═══════════════════════════════════════ */
+                            <div style={{ background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                {/* Skeleton table header */}
+                                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid var(--border)', gap: 12 }}>
+                                    <div className="skel" style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0 }} />
+                                    <div className="skel" style={{ width: '25%', height: 10, borderRadius: 4 }} />
+                                    <div className="skel" style={{ width: '35%', height: 10, borderRadius: 4, marginLeft: 'auto' }} />
+                                    <div className="skel" style={{ width: '15%', height: 10, borderRadius: 4 }} />
+                                    <div className="skel" style={{ width: '8%', height: 10, borderRadius: 4 }} />
+                                </div>
+                                {/* Skeleton rows */}
+                                {Array.from({ length: 15 }, (_, i) => (
+                                    <div key={i} style={{
+                                        display: 'flex', alignItems: 'center', padding: '14px 20px',
+                                        borderBottom: i < 14 ? '1px solid var(--border)' : 'none',
+                                        gap: 12,
+                                    }}>
+                                        <div className="skel" style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, animationDelay: `${i * 0.06}s` }} />
+                                        <div style={{ width: '30%', display: 'flex', alignItems: 'center', gap: 8, paddingRight: 16 }}>
+                                            <div className="skel" style={{ width: `${55 + (i * 13) % 40}%`, height: 12, borderRadius: 4, animationDelay: `${i * 0.06}s` }} />
+                                        </div>
+                                        <div style={{ width: '40%', paddingRight: 16 }}>
+                                            <div className="skel" style={{ width: `${40 + (i * 17) % 50}%`, height: 10, borderRadius: 4, animationDelay: `${i * 0.06}s` }} />
+                                        </div>
+                                        <div style={{ width: '20%', paddingRight: 16 }}>
+                                            <div className="skel" style={{ width: 80, height: 10, borderRadius: 4, animationDelay: `${i * 0.06}s` }} />
+                                        </div>
+                                        <div style={{ width: '10%' }}>
+                                            <div className="skel" style={{ width: 28, height: 10, borderRadius: 4, animationDelay: `${i * 0.06}s` }} />
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         ) : projects.length === 0 ? (
                             /* ═══════════════════════════════════════
-                               EMPTY STATE — Improved
+                               EMPTY STATE — Self-contained card
                                ═══════════════════════════════════════ */
-                            <div style={{
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                padding: '120px 40px', background: 'var(--bg-1)',
-                                borderRadius: 'var(--r-lg)', border: '1px solid var(--border)',
-                                position: 'relative', overflow: 'hidden',
-                                boxShadow: 'var(--shadow-sm)',
+                            <div className="sota-reflective-card" style={{
+                                marginTop: 32,
+                                borderRadius: 'var(--r-lg)',
+                                position: 'relative',
                             }}>
-                                {/* Ambient glow */}
+                                {/* Main content area */}
                                 <div style={{
-                                    position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
-                                    width: 400, height: 400, background: 'var(--accent)', opacity: 0.04,
-                                    filter: 'blur(80px)', borderRadius: '50%', pointerEvents: 'none'
-                                }} />
-
-                                {/* Icon */}
-                                <div style={{
-                                    width: 72, height: 72, borderRadius: 20, marginBottom: 28,
-                                    background: 'var(--bg-2)', border: '1px solid var(--border)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: 'var(--shadow-md)', position: 'relative',
+                                    position: 'relative',
+                                    padding: isMobile ? '44px 24px 40px' : '56px 48px 48px',
                                 }}>
-                                    <Layers size={32} color="var(--accent)" strokeWidth={1.5} />
-                                </div>
+                                    {/* Top row: context + heading + CTA */}
+                                    <div style={{
+                                        display: 'flex',
+                                        flexDirection: isMobile ? 'column' : 'row',
+                                        alignItems: isMobile ? 'stretch' : 'center',
+                                        gap: isMobile ? 32 : 0,
+                                    }}>
+                                        <div style={{ flex: 1 }}>
+                                            {/* Eyebrow / Icon box */}
+                                            <div style={{
+                                                display: 'flex', alignItems: 'center', gap: 14,
+                                                marginBottom: 20,
+                                            }}>
+                                                <div style={{
+                                                    width: 44, height: 44, borderRadius: 12,
+                                                    background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    color: 'var(--accent)'
+                                                }}>
+                                                    <Layers size={20} strokeWidth={2} />
+                                                </div>
+                                                <div style={{
+                                                    fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
+                                                    textTransform: 'uppercase', color: 'var(--accent)',
+                                                }}>
+                                                    Getting Started
+                                                </div>
+                                            </div>
 
-                                {/* Text */}
-                                <h3 style={{
-                                    fontSize: 28, fontWeight: 700, marginBottom: 12, letterSpacing: '-0.02em',
-                                    color: 'var(--text)', textAlign: 'center'
-                                }}>
-                                    No workspaces yet
-                                </h3>
-                                <p style={{
-                                    fontSize: 15, color: 'var(--text-3)', lineHeight: 1.6, textAlign: 'center',
-                                    maxWidth: 420, marginBottom: 16
-                                }}>
-                                    Your knowledge architecture begins here. Create your first isolated intelligent project to start syncing and querying documents.
-                                </p>
+                                            <h3 style={{
+                                                fontSize: isMobile ? 24 : 28, fontWeight: 700,
+                                                letterSpacing: '-0.03em', color: 'var(--text)',
+                                                margin: 0, lineHeight: 1.15,
+                                            }}>
+                                                Create a project
+                                            </h3>
+                                            <p style={{
+                                                fontSize: 15, color: 'var(--text-3)',
+                                                lineHeight: 1.6, margin: '10px 0 0 0',
+                                                maxWidth: 420,
+                                            }}>
+                                                Each project is an isolated workspace with its own documents, search index, and conversations.
+                                            </p>
+                                        </div>
 
-                                {/* Feature pills */}
-                                <div style={{ display: 'flex', gap: 8, marginBottom: 36, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                    {['PDF & DOCX', 'Semantic Search', 'AI Chat', 'Citations'].map(f => (
-                                        <span key={f} style={{
-                                            padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 600,
-                                            background: 'var(--accent-dim)', color: 'var(--accent)',
-                                            border: '1px solid var(--accent-border)',
+                                        {/* CTA */}
+                                        <button
+                                            onClick={() => setShowForm(f => !f)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                padding: '0 24px', height: 44, borderRadius: 'var(--r)',
+                                                fontSize: 14, fontWeight: 600, fontFamily: 'var(--font)',
+                                                background: showForm ? 'transparent' : 'var(--accent)',
+                                                color: showForm ? 'var(--text-3)' : 'var(--accent-text)',
+                                                border: showForm ? '1px solid var(--border)' : 'none',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                flexShrink: 0,
+                                                width: isMobile ? '100%' : 'auto',
+                                            }}
+                                            onMouseEnter={e => {
+                                                if (!showForm) e.currentTarget.style.opacity = '0.88';
+                                                else { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.color = 'var(--text-2)'; }
+                                            }}
+                                            onMouseLeave={e => {
+                                                if (!showForm) e.currentTarget.style.opacity = '1';
+                                                else { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)'; }
+                                            }}
+                                        >
+                                            {showForm ? (
+                                                <><X size={15} style={{ color: 'var(--red)', opacity: 0.7 }} /> Cancel</>
+                                            ) : (
+                                                <><Plus size={16} strokeWidth={2.5} /> New Project</>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {/* Inline form — inside the card, no chopping */}
+                                    <div style={{
+                                        maxHeight: showForm ? 180 : 0,
+                                        opacity: showForm ? 1 : 0,
+                                        overflow: 'hidden',
+                                        transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease',
+                                        marginTop: showForm ? 32 : 0,
+                                    }}>
+                                        {/* Subtle divider */}
+                                        <div style={{
+                                            height: 1, background: 'var(--border)', marginBottom: 28,
+                                        }} />
+
+                                        <form onSubmit={create} style={{
+                                            display: 'flex',
+                                            flexDirection: isMobile ? 'column' : 'row',
+                                            gap: 14,
+                                            alignItems: isMobile ? 'stretch' : 'flex-end',
                                         }}>
-                                            {f}
-                                        </span>
-                                    ))}
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                <label style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Project Name</label>
+                                                <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Machine Learning Notes"
+                                                    style={{
+                                                        background: 'var(--bg-2)', border: '1px solid var(--border)',
+                                                        color: 'var(--text)', padding: '11px 14px', borderRadius: 'var(--r)',
+                                                        fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%',
+                                                        transition: 'border-color 0.15s ease',
+                                                    }}
+                                                    onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
+                                                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                                />
+                                            </div>
+                                            <div style={{ flex: isMobile ? 'none' : 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                <label style={{ fontSize: 11, color: 'var(--text-4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description <span style={{ opacity: 0.5, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+                                                <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="What's this workspace for?"
+                                                    style={{
+                                                        background: 'var(--bg-2)', border: '1px solid var(--border)',
+                                                        color: 'var(--text)', padding: '11px 14px', borderRadius: 'var(--r)',
+                                                        fontSize: 14, fontFamily: 'var(--font)', outline: 'none', width: '100%',
+                                                        transition: 'border-color 0.15s ease',
+                                                    }}
+                                                    onFocus={e => e.target.style.borderColor = 'var(--accent-border)'}
+                                                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                                />
+                                            </div>
+                                            <button type="submit" disabled={creating || !name.trim()} style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                padding: '0 24px', height: 44, background: 'var(--accent)', color: 'var(--accent-text)',
+                                                border: 'none', borderRadius: 'var(--r)',
+                                                cursor: (creating || !name.trim()) ? 'not-allowed' : 'pointer',
+                                                fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)',
+                                                opacity: (creating || !name.trim()) ? 0.3 : 1,
+                                                flexShrink: 0, whiteSpace: 'nowrap',
+                                                transition: 'opacity 0.15s ease',
+                                            }}>
+                                                {creating ? <Loader2 size={14} className="spin" /> : 'Create'}
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
-
-                                {/* Button */}
-                                <button onClick={() => setShowForm(true)} style={{
-                                    padding: '12px 28px', borderRadius: 'var(--r)', fontSize: 14, fontWeight: 600,
-                                    fontFamily: 'var(--font)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-                                    background: 'var(--accent)', color: 'var(--accent-text)', border: 'none',
-                                    boxShadow: 'var(--submit-shadow)',
-                                    transition: 'opacity 0.2s ease',
-                                }}
-                                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-                                >
-                                    <Sparkles size={16} strokeWidth={2} />
-                                    Create First Project
-                                </button>
                             </div>
                         ) : (
                             /* ═══════════════════════════════════════

@@ -136,8 +136,49 @@ export default function ActivityPage({ isMobile, onOpenMobileMenu }) {
             </div>
 
             {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 80 }} />)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+
+                {/* 1. Main Platform Usage Chart Skeleton */}
+                <div style={{ background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: isMobile ? 16 : 32 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: isMobile ? 20 : 40 }}>
+                    <div>
+                      <div className="skel" style={{ width: 180, height: 20, borderRadius: 6, marginBottom: 12 }} />
+                      {!isMobile && <div className="skel" style={{ width: 320, height: 14, borderRadius: 4 }} />}
+                    </div>
+                    <div className="skel" style={{ width: 140, height: 26, borderRadius: 100 }} />
+                  </div>
+                  <div className="skel" style={{ width: '100%', height: isMobile ? 220 : 320, borderRadius: 8 }} />
+                </div>
+
+                {/* 2. Stats Row Skeleton (Hero Box + 4 Grid) */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 3fr', gap: 20 }}>
+                  <div style={{ background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: isMobile ? 24 : 32, height: isMobile ? 160 : 200, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div className="skel" style={{ width: 130, height: 18, borderRadius: 6, marginBottom: 20 }} />
+                    <div className="skel" style={{ width: 160, height: 44, borderRadius: 8, marginBottom: 12 }} />
+                    <div className="skel" style={{ width: 100, height: 12, borderRadius: 4 }} />
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)', gap: 12 }}>
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} style={{ background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: isMobile ? 16 : 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                         <div className="skel" style={{ width: 90, height: 12, borderRadius: 4, marginBottom: 4 }} />
+                         <div className="skel" style={{ width: 60, height: 28, borderRadius: 6 }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Bottom 2-Col Grid Skeletons */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 20 }}>
+                  {[1, 2].map(i => (
+                    <div key={i} style={{ background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: isMobile ? 16 : 28 }}>
+                      <div className="skel" style={{ width: 160, height: 18, borderRadius: 6, marginBottom: 12 }} />
+                      <div className="skel" style={{ width: 240, height: 12, borderRadius: 4, marginBottom: 20 }} />
+                      <div className="skel" style={{ width: '100%', height: isMobile ? 180 : 220, borderRadius: 8 }} />
+                    </div>
+                  ))}
+                </div>
+
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
