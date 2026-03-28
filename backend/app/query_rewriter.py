@@ -111,22 +111,16 @@ def rewrite_query(
     history_text = " ".join(msg["content"] for msg in recent if msg.get("content"))
     history_terms = _extract_key_terms(history_text, max_terms=6)
 
-    # Extract the query's own terms
-    query_terms = _extract_key_terms(query, max_terms=6)
-
     if not history_terms:
         return query
 
-    # Combine: history context + original query terms
-    # Deduplicate while preserving order
-    combined = []
-    seen = set()
-    for term in history_terms + query_terms:
-        if term not in seen:
-            seen.add(term)
-            combined.append(term)
-
-    expanded = " ".join(combined)
+    # Prepend history context to the ORIGINAL query. 
+    # E.g. "[model training weights] What about the hardware?"
+    # This preserves the full grammatical semantic structure for the 
+    # cross-encoder, while feeding the context keywords to BM25/Vector search.
+    combined_context = " ".join(history_terms)
+    expanded = f"[{combined_context}] {query}"
+    
     logger.info(
         "Query rewritten: '%s' → '%s' (injected %d terms from history)",
         query[:60], expanded[:80], len(history_terms),

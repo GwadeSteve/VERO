@@ -253,7 +253,8 @@ async def chat(
 
     history_for_rewriter = [
         {"role": msg.role, "content": msg.content}
-        for msg in session.messages[-6:]
+        # Exclude the very last message since it's the newly inserted current user query
+        for msg in session.messages[:-1][-6:]
     ]
     search_query = rewrite_query(body.message, history=history_for_rewriter)
 
@@ -268,7 +269,11 @@ async def chat(
     )
 
     # ── Build multi-turn messages ─────────────────────
-    recent_messages = session.messages[-MAX_HISTORY_MESSAGES:]
+    # The current user message was just added to session.messages. We must exclude it
+    # from the 'history' array since we manually append it with context at the very end!
+    history_messages = session.messages[:-1]
+    recent_messages = history_messages[-MAX_HISTORY_MESSAGES:]
+    
     if recent_messages and recent_messages[0].role != "user":
         recent_messages = recent_messages[1:]
 
