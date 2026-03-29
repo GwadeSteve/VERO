@@ -40,7 +40,7 @@ class DocumentModel(Base):
     project_id = Column(String, ForeignKey("projects.id"), nullable=False)
     source_type = Column(String, nullable=False)
     title = Column(String, nullable=False)
-    raw_text = Column(Text, nullable=False)
+    raw_text = Column(Text, nullable=False, default="")
     content_hash = Column(String(64), nullable=False, index=True)
     confidence_level = Column(Integer, nullable=False, default=3)
     source_url = Column(String, nullable=True)

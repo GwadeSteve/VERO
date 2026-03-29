@@ -269,6 +269,12 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 setDocs(allDocs);
                 const doc = allDocs.find(d => d.title === docTitle);
 
+                // If doc is missing, it might have been deleted (e.g. as a duplicate)
+                if (!doc) {
+                    clearInterval(iv);
+                    return;
+                }
+
                 if (doc && doc.processing_status !== lastStatus) {
                     lastStatus = doc.processing_status;
                     if (doc.processing_status === 'ready') {
@@ -277,14 +283,16 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     } else if (doc.processing_status === 'error' || doc.processing_status === 'failed') {
                         toast?.(`Failed to process "${docTitle}".`, 'error');
                         clearInterval(iv);
-                    } else if (doc.processing_status.includes('/')) {
-                        // Show progress steps like 1/3, 2/3...
-                        toast?.(`Processing "${docTitle}": Step ${doc.processing_status}`, 'info');
+                    } else if (doc.processing_status === 'duplicate') {
+                        toast?.(`"${docTitle}" was already in your workspace (Duplicate source).`, 'info');
+                        api.deleteDocument(doc.id).catch(() => {});
+                        clearInterval(iv);
+                        fetchDocs();
                     }
                 }
             } catch { clearInterval(iv); }
-        }, 2500);
-        setTimeout(() => clearInterval(iv), 180000);
+        }, 2000);
+        setTimeout(() => clearInterval(iv), 300000); // 5 mins max
     };
 
     // ── Ingestion ────────────────────────────────────
@@ -317,10 +325,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
 
         setIngesting(true);
         if (validFiles.length > 1) {
-            toast?.(`Uploading ${validFiles.length} files...`, 'info');
+            toast?.(`Queueing ${validFiles.length} files...`, 'info');
         } else {
             const shortName = validFiles[0].name.length > 20 ? validFiles[0].name.substring(0, 20) + '...' : validFiles[0].name;
-            toast?.(`Uploading ${shortName}...`, 'info');
+            toast?.(`Queueing ${shortName}...`, 'info');
         }
 
         try {
@@ -359,7 +367,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         }
 
         setIngesting(true);
-        toast?.(`${prefix} ${shortUrl} processing...`, 'info');
+        toast?.(`Queueing ${prefix} ${shortUrl}...`, 'info');
         try {
             const doc = await api.ingestUrl(projectId, url);
             setUrl(''); setShowUrl(false);
@@ -558,8 +566,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         const s = doc.processing_status;
         if (s === 'ready') return { label: 'Knowledge Ready', color: 'var(--green)', icon: CheckCircle2 };
         if (s === 'pending') return { label: 'In Queue', color: 'var(--text-4)', icon: Clock };
-        if (s === 'processing' || s === 'chunking') return { label: 'Step 1/2: Chunking & Indexing', color: 'var(--accent)', icon: Loader2 };
-        if (s === 'embedding') return { label: 'Step 2/2: Vectorizing Context', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'parsing') return { label: 'Step 1/3: Analyzing...', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'chunking') return { label: 'Step 2/3: Chunking & Indexing', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'embedding') return { label: 'Step 3/3: Vectorizing Context', color: 'var(--accent)', icon: Loader2 };
+        if (s === 'duplicate') return { label: 'Duplicate Source', color: 'var(--text-3)', icon: Clock };
         if (s === 'error' || s === 'failed') return { label: 'Sync Failed', color: 'var(--red)', icon: X };
         return { label: 'In Queue', color: 'var(--text-4)', icon: Clock };
     };
@@ -1235,11 +1245,10 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                     zIndex: isMobile ? 998 : 'auto'
                 }}>
-                {/* ── Compact Unified Ingest Zone ── */}
-                <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                {/* ── SOTA Premium Unified Ingest Zone ── */}
+                <div style={{ padding: '20px 16px 12px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>Add Sources</span>
-                        {ingesting && <Loader2 size={14} className="spin" color="var(--accent)" />}
                         {isMobile && (
                             <button
                                 onClick={() => setRightPanelOpen(false)}
@@ -1253,89 +1262,50 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                             </button>
                         )}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px', background: 'var(--bg-0)', borderRadius: 16, border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {/* The Premium Portal Dropzone */}
                         <label
+                            className={`sota-dropzone ${dragOver ? 'active' : ''} ${ingesting ? 'ingesting' : ''}`}
                             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                             onDragLeave={() => setDragOver(false)}
                             onDrop={handleDrop}
-                            style={{
-                                width: '100%', padding: '24px 16px', borderRadius: 12,
-                                border: `2px ${dragOver ? 'solid' : 'dashed'} ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
-                                background: dragOver ? 'var(--bg-hover)' : 'transparent',
-                                color: dragOver ? 'var(--text)' : 'var(--text-3)',
-                                cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
-                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)', position: 'relative', overflow: 'hidden'
-                            }}
-                            onMouseEnter={e => {
-                                if (!dragOver) {
-                                    e.currentTarget.style.borderColor = 'var(--text-4)';
-                                    e.currentTarget.style.color = 'var(--text-2)';
-                                    e.currentTarget.style.background = 'var(--bg-1)';
-                                }
-                            }}
-                            onMouseLeave={e => {
-                                if (!dragOver) {
-                                    e.currentTarget.style.borderColor = 'var(--border)';
-                                    e.currentTarget.style.color = 'var(--text-3)';
-                                    e.currentTarget.style.background = 'transparent';
-                                }
-                            }}
+                            style={{ width: '100%', padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center' }}
                         >
-                            <div style={{
-                                width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-2)', border: '1px solid var(--border)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)',
-                                transition: 'transform 0.2s ease', transform: dragOver ? 'scale(1.1)' : 'scale(1)', flexShrink: 0
-                            }}>
-                                <UploadCloud size={20} color={dragOver ? 'var(--accent)' : 'currentColor'} />
+                            <div className="sota-icon-stack">
+                                {ingesting ? (
+                                    <Sparkles size={22} className="ai-icon-sparkle" />
+                                ) : (
+                                    <UploadCloud size={24} strokeWidth={1.5} />
+                                )}
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center' }}>
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>{ingesting ? 'Processing Upload...' : 'Click or drag files to upload'}</span>
-                                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)' }}>Supports PDF, DOCX, TXT, MD, CSV</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, zIndex: 2 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: dragOver ? 'var(--text)' : 'var(--text-2)', transition: 'color 0.3s' }}>
+                                    {ingesting ? 'Queueing Upload...' : dragOver ? 'Drop to Upload' : 'Click or Drop Files'}
+                                </span>
+                                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-4)', opacity: dragOver ? 0.6 : 1 }}>
+                                    PDF, DOCX, TXT, MD, CSV
+                                </span>
                             </div>
-                            <input ref={fileRef} type="file" multiple onChange={e => handleFiles(e.target.files)} style={{ display: 'none' }} accept=".pdf,.txt,.md,.docx,.csv" />
+                            <input ref={fileRef} type="file" multiple onChange={e => handleFiles(e.target.files)} style={{ display: 'none' }} accept=".pdf,.txt,.md,.docx,.csv" disabled={ingesting} />
                         </label>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ height: 1, flex: 1, background: 'var(--border)' }} />
-                            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>OR IMPORT URL</span>
-                            <div style={{ height: 1, flex: 1, background: 'var(--border)' }} />
-                        </div>
-
-                        <form onSubmit={handleUrlIngest} style={{ display: 'flex', width: '100%', gap: 6, position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: 10, top: 0, bottom: 0, display: 'flex', alignItems: 'center', pointerEvents: 'none', color: 'var(--text-4)' }}>
+                        {/* URL Glass Pill */}
+                        <form onSubmit={handleUrlIngest} className="sota-glass-input">
+                            <div style={{ position: 'absolute', left: 14, color: 'var(--text-4)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
                                 <Globe size={14} />
                             </div>
                             <input
                                 value={url}
                                 onChange={e => setUrl(e.target.value)}
                                 placeholder="Paste website or repo..."
-                                style={{
-                                    flex: 1, height: 36, padding: '0 10px 0 32px', background: 'var(--bg-2)',
-                                    border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
-                                    fontSize: 12, outline: 'none', fontWeight: 500,
-                                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease', minWidth: 0
-                                }}
-                                onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-dim)'; e.currentTarget.style.boxShadow = '0 0 0 2px var(--bg-hover)'; }}
-                                onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                disabled={ingesting}
+                                style={{ paddingLeft: 34 }}
                             />
-                            <button type="submit" disabled={!url.trim() || ingesting} style={{
-                                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                background: (!url.trim() || ingesting) ? 'var(--bg-3)' : 'var(--accent)',
-                                color: (!url.trim() || ingesting) ? 'var(--text-4)' : 'var(--bg-0)',
-                                border: 'none', borderRadius: 8, cursor: (!url.trim() || ingesting) ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-                            }}
-                            onMouseEnter={e => { if(url.trim() && !ingesting) e.currentTarget.style.transform = 'scale(1.05)'; }}
-                            onMouseLeave={e => { if(url.trim() && !ingesting) e.currentTarget.style.transform = 'scale(1)'; }}
-                            >
-                                {ingesting ? <Loader2 size={14} className="spin" /> : <Plus size={16} />}
+                            <button type="submit" disabled={!url.trim() || ingesting}>
+                                {ingesting ? <Loader2 size={14} className="spin" /> : <Plus size={16} strokeWidth={2.5} />}
                             </button>
                         </form>
-                        {ingesting && (
-                            <div style={{ height: 3, borderRadius: 2, background: 'var(--bg-3)', overflow: 'hidden', marginTop: 4 }}>
-                                <div style={{ height: '100%', width: '40%', background: 'var(--accent)', borderRadius: 2, animation: 'shimmer 1.5s infinite' }} />
-                            </div>
-                        )}
                     </div>
                 </div>
 

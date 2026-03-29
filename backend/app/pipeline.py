@@ -15,19 +15,80 @@ logger = logging.getLogger(__name__)
 DEFAULT_EMBED_MODEL = "all-MiniLM-L6-v2"
 
 
-async def auto_pipeline(doc_id: str):
-    """Run chunk → embed pipeline on a document in the background.
+async def auto_pipeline(doc_id: str, filepath: str | None = None, url: str | None = None, ingest_type: str = "file"):
+    """Run parse → chunk → embed pipeline on a document in the background.
 
-    Updates processing_status: pending → processing → ready (or failed).
+    Updates processing_status: parsing → chunking → embedding → ready (or failed/duplicate).
     """
+    from pathlib import Path
+    from app.schema import SourceType
+    from app.utils import compute_content_hash
+
     async with async_session() as db:
         try:
-            # Mark as chunking
             doc = await _get_doc(db, doc_id)
             if doc is None:
                 logger.error("Auto-pipeline: document %s not found", doc_id)
+                # Cleanup if orphaned
+                if filepath: Path(filepath).unlink(missing_ok=True)
                 return
             
+            # --- STAGE 0: Parsing ---
+            if doc.processing_status == "parsing":
+                logger.info("Auto-pipeline: parsing document %s (type: %s)", doc_id, ingest_type)
+                try:
+                    if ingest_type == "file" and filepath:
+                        from app.parsers import parse_file
+                        result = await parse_file(filepath, SourceType(doc.source_type))
+                        Path(filepath).unlink(missing_ok=True)
+                    elif ingest_type == "url" and url:
+                        from app.parsers.web import parse_web
+                        result = await parse_web(url)
+                    elif ingest_type == "repo" and url:
+                        from app.parsers.repo import parse_repo
+                        result = await parse_repo(url)
+                    else:
+                        raise ValueError(f"Invalid ingest context for type: {ingest_type}")
+                except Exception as e:
+                    logger.error("Auto-pipeline: Parsing failed for %s: %s", doc_id, e)
+                    doc.processing_status = "failed"
+                    await db.commit()
+                    if filepath: Path(filepath).unlink(missing_ok=True)
+                    return
+
+                raw_text = result["text"]
+                content_hash = compute_content_hash(raw_text)
+
+                # Deduplication post-parsing
+                existing = await db.execute(
+                    select(DocumentModel).where(
+                        DocumentModel.project_id == doc.project_id,
+                        DocumentModel.content_hash == content_hash,
+                        DocumentModel.id != doc.id
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    logger.info("Auto-pipeline: Duplicate detected for %s. Halting.", doc_id)
+                    doc.processing_status = "duplicate"
+                    await db.commit()
+                    return
+
+                doc.raw_text = raw_text
+                doc.content_hash = content_hash
+                doc.metadata_json = json.dumps(result.get("metadata", {}))
+                
+                # Improve titles parsed from URLs/Repos if generic
+                if ingest_type == "url":
+                    new_title = result.get("metadata", {}).get("title")
+                    if new_title and doc.title == url: doc.title = new_title
+                elif ingest_type == "repo":
+                    new_title = result.get("metadata", {}).get("repo_name")
+                    if new_title and doc.title == url: doc.title = new_title
+
+                doc.processing_status = "chunking"
+                await db.commit()
+            
+            # For robustness, if it wasn't 'parsing' or it successfully finished 'parsing'
             doc.processing_status = "chunking"
             await db.commit()
             

@@ -1053,3 +1053,154 @@ input[type="url"] {
   0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; filter: drop-shadow(0 0 2px var(--accent-dim)); }
   50% { transform: scale(1.1) rotate(6deg); opacity: 1; filter: drop-shadow(0 0 6px var(--accent-border)); }
 }
+
+/* ─── SOTA Ingestion UI ────────── */
+.sota-dropzone {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--bg-1);
+    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.02), 0 8px 32px rgba(0, 0, 0, 0.08);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.sota-dropzone:hover {
+    background: var(--bg-2);
+    border-color: var(--border-light);
+}
+
+.sota-dropzone.active {
+    border-color: transparent;
+    transform: scale(1.02);
+}
+
+.sota-dropzone.active::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 18px;
+    padding: 2px;
+    background: conic-gradient(from 0deg, transparent 0%, var(--accent) 50%, transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    animation: sota-spin 2s linear infinite;
+    pointer-events: none;
+}
+
+.sota-dropzone.active::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, var(--accent-dim) 0%, transparent 70%);
+    pointer-events: none;
+    animation: sota-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes sota-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes sota-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+}
+
+.sota-icon-stack {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--bg-2), var(--bg-1));
+    border: 1px solid var(--border-light);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 2;
+    color: var(--text-2);
+}
+
+.sota-dropzone:hover .sota-icon-stack {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+    color: var(--text);
+}
+
+.sota-dropzone.active .sota-icon-stack {
+    background: var(--accent);
+    color: var(--bg-0);
+    border-color: transparent;
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 8px 32px var(--accent-dim);
+}
+
+.sota-dropzone.ingesting .sota-icon-stack {
+    animation: float-icon 2.5s ease-in-out infinite;
+    background: var(--bg-2);
+    border-color: var(--accent-border);
+    color: var(--accent);
+}
+
+/* Glass Pill Input */
+.sota-glass-input {
+    display: flex;
+    align-items: center;
+    position: relative;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.sota-glass-input:focus-within {
+    background: var(--bg-2);
+    border-color: var(--accent-border);
+    box-shadow: 0 0 0 3px var(--accent-dim), inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.sota-glass-input input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    padding: 0 12px 0 16px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.sota-glass-input button {
+    height: 34px;
+    width: 34px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--bg-0);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.sota-glass-input button[disabled] {
+    background: var(--bg-3);
+    color: var(--text-4);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.sota-glass-input button:not([disabled]):hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 14px var(--accent-dim);
+}
+
