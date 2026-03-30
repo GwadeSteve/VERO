@@ -20,8 +20,21 @@ async def reset_database():
         SessionModel, SessionMessageModel,
     )
 
-    logger.warning("Dropping ALL tables and recreating with latest schema...")
+    import shutil
+    from pathlib import Path
 
+    logger.warning("Dropping ALL tables and recreating with latest schema...")
+    
+    # ── Clean Chroma Database ──
+    chroma_dir = Path(__file__).parent / "data" / "chromadb"
+    if chroma_dir.exists() and chroma_dir.is_dir():
+        try:
+            shutil.rmtree(chroma_dir)
+            logger.info("Deleted Chroma database directory: %s", chroma_dir)
+        except Exception as e:
+            logger.warning("Failed to delete Chroma directory %s: %s", chroma_dir, e)
+    else:
+        logger.info("No Chroma directory found at %s", chroma_dir)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)

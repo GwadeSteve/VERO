@@ -2,6 +2,8 @@
 
 import json
 import logging
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,26 @@ from app.database import async_session
 from app.models import DocumentModel, ChunkModel, EmbeddingModel
 
 logger = logging.getLogger(__name__)
+
+# Native multiprocess pool to isolate CPU-bound tasks completely from the ASGI event loop
+_process_pool = ProcessPoolExecutor(max_workers=2)
+
+def _parse_sync_wrapper(filepath: str | None, url: str | None, ingest_type: str, source_type_val: str) -> dict:
+    """Runs the asynchronous parse dispatch completely isolated in a worker process."""
+    async def _inner():
+        from app.schema import SourceType
+        if ingest_type == "file" and filepath:
+            from app.parsers import parse_file
+            return await parse_file(filepath, SourceType(source_type_val))
+        elif ingest_type == "url" and url:
+            from app.parsers.web import parse_web
+            return await parse_web(url)
+        elif ingest_type == "repo" and url:
+            from app.parsers.repo import parse_repo
+            return await parse_repo(url)
+        else:
+            raise ValueError(f"Invalid ingest context for type: {ingest_type}")
+    return asyncio.run(_inner())
 
 DEFAULT_EMBED_MODEL = "all-MiniLM-L6-v2"
 
@@ -35,20 +57,16 @@ async def auto_pipeline(doc_id: str, filepath: str | None = None, url: str | Non
             
             # --- STAGE 0: Parsing ---
             if doc.processing_status == "parsing":
-                logger.info("Auto-pipeline: parsing document %s (type: %s)", doc_id, ingest_type)
+                logger.info("Auto-pipeline: parsing document %s (type: %s) in ProcessPool", doc_id, ingest_type)
                 try:
+                    loop = asyncio.get_running_loop()
+                    result = await loop.run_in_executor(
+                        _process_pool,
+                        _parse_sync_wrapper,
+                        filepath, url, ingest_type, doc.source_type
+                    )
                     if ingest_type == "file" and filepath:
-                        from app.parsers import parse_file
-                        result = await parse_file(filepath, SourceType(doc.source_type))
                         Path(filepath).unlink(missing_ok=True)
-                    elif ingest_type == "url" and url:
-                        from app.parsers.web import parse_web
-                        result = await parse_web(url)
-                    elif ingest_type == "repo" and url:
-                        from app.parsers.repo import parse_repo
-                        result = await parse_repo(url)
-                    else:
-                        raise ValueError(f"Invalid ingest context for type: {ingest_type}")
                 except Exception as e:
                     logger.error("Auto-pipeline: Parsing failed for %s: %s", doc_id, e)
                     doc.processing_status = "failed"
@@ -99,17 +117,24 @@ async def auto_pipeline(doc_id: str, filepath: str | None = None, url: str | Non
                     logger.info("Auto-pipeline: generating LLM summary for %s", doc_id)
                     llm = get_llm()
                     system_prompt = (
-                        "You are an expert technical summarizer. Provide a concise, highly accurate "
-                        "1-3 sentence summary of the following document text. This summary will be "
-                        "used to enrich vector embeddings for a Retrieval-Augmented Generation (RAG) system. "
-                        "Do not include introductory phrases like 'This document describes...', just provide the facts."
+                        "You are an expert technical summarizer. Provide a highly accurate "
+                        "1-2 sentence summary of this document. "
+                        "RULE: MAXIMUM 30 WORDS. NO LISTS. NO ENUMERATIONS. "
+                        "If you output more than 2 sentences or include bullet points, you fail."
                     )
                     # Use the first 10,000 characters to get the gist without blowing up token limits
                     user_prompt = f"Title: {doc.title}\n\nContent:\n{doc.raw_text[:10000]}"
                     
-                    doc.summary = await llm.generate_response(system_prompt, user_prompt)
+                    response = await llm.generate_response(system_prompt, user_prompt)
+                    
+                    # Programmatic safety net: absolutely refuse oversized contexts
+                    clean_summary = response.replace("\n", " ").strip()
+                    if len(clean_summary) > 200:
+                        clean_summary = clean_summary[:197] + "..."
+                        
+                    doc.summary = clean_summary
                     await db.commit()
-                    logger.info("Auto-pipeline: generated summary -> %s", doc.summary)
+                    logger.info("Auto-pipeline: generated strict summary -> %s", doc.summary)
                 except Exception as e:
                     logger.warning("Auto-pipeline: Failed to generate summary for %s: %s", doc_id, e)
                     doc.summary = "No summary available."
