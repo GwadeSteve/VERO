@@ -19,10 +19,11 @@ $$\\\\theta^* = \\\\arg\\\\min_{\\\\theta} \\\\frac{1}{N} \\\\sum_{i=1}^{N} L(h(
 - Subscripts use underscore: $\\\\theta_k$. Superscripts use caret: $\\\\theta^*$."""
 
 _CITATION_RULES = """### Citation Rules:
-- Back up EVERY factual claim from the sources with [Source N] (e.g. [Source 1]).
-- Do NOT include file names next to citations: WRONG: [Source 1] (MSc.pdf). RIGHT: [Source 1].
+- Back up EVERY factual claim using strict bracket format like [1] or [2].
+- NEVER use parentheses like (Source 1, Page 292) or [Source 1]. EXACTLY use [1].
+- Do NOT include file names next to citations.
 - NEVER generate a "References" or "Sources cited" list at the end. The UI handles that.
-- Separate multiple citations: WRONG: [Source 1, Source 2]. RIGHT: [Source 1] [Source 2]."""
+- Separate multiple citations: WRONG: [1, 2]. RIGHT: [1] [2]."""
 
 _ANSWERING_STYLE = """### Answering Style (CRITICAL):
 - ALWAYS synthesize information in your own words. NEVER copy-paste raw chunks of source text.
