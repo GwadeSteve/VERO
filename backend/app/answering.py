@@ -36,10 +36,11 @@ $$\\theta^* = \\arg\\min_{\\theta} \\frac{1}{N} \\sum_{i=1}^{N} L(h(x_i; \\theta
 - If multiple sources say the same thing, summarize once and cite all relevant sources.
 
 ### Citation Rules:
-- Back up EVERY factual claim from the sources with [Source N] (e.g. [Source 1]).
+- Back up EVERY factual claim using strict bracket format like [1] or [2].
+- NEVER use parentheses like (Source 1, Page 292) or [Source 1]. EXACTLY use [1].
 - Do NOT include file names next to citations.
 - NEVER generate a "References" or "Sources cited" list at the end. The UI handles that.
-- Separate multiple citations: WRONG: [Source 1, Source 2]. RIGHT: [Source 1] [Source 2].
+- Separate multiple citations: WRONG: [1, 2]. RIGHT: [1] [2].
 
 ### Missing Information:
 - If the sources do not contain the answer, say so naturally. Do not guess.
@@ -76,10 +77,11 @@ SYSTEM_PROMPT_AUGMENTED = """You are VERO, a brilliant, highly articulate AI res
 - If multiple sources say the same thing, summarize once and cite all relevant sources.
 
 ### Citation Rules:
-- Back up EVERY factual claim from the sources with [Source N] (e.g. [Source 1]).
+- Back up EVERY factual claim using strict bracket format like [1] or [2].
+- NEVER use parentheses like (Source 1, Page 292) or [Source 1]. EXACTLY use [1].
 - Do NOT include file names next to citations.
 - NEVER generate a "References" or "Sources cited" list at the end. The UI handles that.
-- Separate multiple citations: WRONG: [Source 1, Source 2]. RIGHT: [Source 1] [Source 2].
+- Separate multiple citations: WRONG: [1, 2]. RIGHT: [1] [2].
 
 ### OUTPUT GUARDRAILS (NEVER VIOLATE):
 - Your response must contain ONLY your answer. NOTHING else.

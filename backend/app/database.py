@@ -15,7 +15,26 @@ DATABASE_URL = os.getenv(
     f"sqlite+aiosqlite:///{DATA_DIR / 'vero.db'}",
 )
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+import sqlalchemy
+
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=False,
+    connect_args={
+        "timeout": 30.0,  # Increase lock timeout for massive background burst writes
+        "check_same_thread": False,
+    }
+)
+
+# Enable WAL (Write-Ahead Logging) at the connection level for concurrent reads/writes
+@sqlalchemy.event.listens_for(engine.sync_engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA cache_size=-64000") # 64MB cache
+    cursor.close()
+
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
