@@ -75,7 +75,7 @@ def wait_for_server():
 
 
 def setup_project_with_embeddings():
-    """Create a project, ingest README, chunk it, and embed it."""
+    """Create a project, ingest README, and wait for auto-pipeline."""
     project_name = f"Layer 5 Answers {uuid.uuid4().hex[:6]}"
     r = httpx.post(
         f"{BASE}/projects",
@@ -94,16 +94,18 @@ def setup_project_with_embeddings():
     r_ingest.raise_for_status()
     doc_id = r_ingest.json()["id"]
 
-    httpx.post(
-        f"{BASE}/documents/{doc_id}/chunk",
-        timeout=HTTP_TIMEOUT,
-    ).raise_for_status()
-    
-    httpx.post(
-        f"{BASE}/documents/{doc_id}/embed",
-        json={"model_name": "all-MiniLM-L6-v2"},
-        timeout=HTTP_TIMEOUT,
-    ).raise_for_status()
+    import time
+    print("  Waiting for background pipeline to chunk and embed (max 60s)...", end="", flush=True)
+    for _ in range(60):
+        try:
+            r = httpx.get(f"{BASE}/documents/{doc_id}", timeout=HTTP_TIMEOUT)
+            if r.status_code == 200 and r.json().get("processing_status") in ("ready", "failed"):
+                print(" Done!")
+                break
+        except Exception:
+            pass
+        print(".", end="", flush=True)
+        time.sleep(1)
 
     return pid, doc_id
 
