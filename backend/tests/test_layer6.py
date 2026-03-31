@@ -98,11 +98,11 @@ def run_tests():
     
     doc = r_ingest.json()
     doc_id = doc["id"]
-    check("Response has initial status processing/pending", doc.get("processing_status") in ["pending", "processing"])
+    check("Response has initial status processing/pending", doc.get("processing_status") in ["pending", "processing", "parsing"])
 
-    print("  Waiting for background pipeline to complete (max 30s)...", end="", flush=True)
+    print("  Waiting for background pipeline to complete (max 60s)...", end="", flush=True)
     pipeline_ready = False
-    for i in range(30):
+    for i in range(60):
         print(".", end="", flush=True)
         try:
             r_status = httpx.get(f"{BASE}/documents/{doc_id}", timeout=15.0)

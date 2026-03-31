@@ -45,6 +45,21 @@ def section(title: str):
     print(f"\n{BOLD}{title.upper()}{RESET}")
     print(f"{DIM}{'─' * 40}{RESET}")
 
+def wait_for_pipeline(doc_id: str, max_wait: int = 30):
+    import time
+    for _ in range(max_wait):
+        try:
+            r = httpx.get(f"{BASE}/documents/{doc_id}", timeout=HTTP_TIMEOUT)
+            if r.status_code == 200:
+                doc = r.json()
+                status = doc.get("processing_status")
+                if status in ("ready", "failed", "duplicate"):
+                    return doc
+        except Exception:
+            pass
+        time.sleep(1)
+    return None
+
 def run_tests():
     global PASS, FAIL
 
@@ -60,6 +75,7 @@ def run_tests():
             r1 = httpx.post(f"{BASE}/projects/{pid}/ingest", files={"file": ("README.md", f)}, timeout=HTTP_TIMEOUT)
         doc_md = r1.json()
         doc_md_id = doc_md["id"]
+        wait_for_pipeline(doc_md_id)
         
         # Trigger Chunking
         rc = httpx.post(f"{BASE}/documents/{doc_md_id}/chunk", timeout=HTTP_TIMEOUT)
@@ -84,6 +100,7 @@ def run_tests():
         doc_web = rc_web.json()
         check("source_url is correctly saved", doc_web.get("source_url") == "https://fastapi.tiangolo.com/")
         doc_web_id = doc_web["id"]
+        wait_for_pipeline(doc_web_id)
 
         # Trigger Chunking
         rc_sem = httpx.post(f"{BASE}/documents/{doc_web_id}/chunk", timeout=HTTP_TIMEOUT)
