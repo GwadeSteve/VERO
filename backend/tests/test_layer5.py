@@ -207,6 +207,9 @@ def run_tests():
             "don't have information", "not in the", "isn't available",
             "isn't in the", "not present", "couldn't find",
             "workspace documents", "current documents",
+            "do not have information", "unfortunately",
+            "not included", "does not include", "no data",
+            "training data",
         ]
         has_refusal = any(phrase in ans_refuse for phrase in refusal_phrases)
         # Fallback: if the API set found_sufficient_info to False, 
