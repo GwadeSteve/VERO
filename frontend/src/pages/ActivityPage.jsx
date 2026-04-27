@@ -183,7 +183,7 @@ export default function ActivityPage({ isMobile, onOpenMobileMenu }) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
-                {/* ═══ 30-Day Platform Usage ═══ */}
+                {/* 30-day platform usage */}
                 {timeline && (
                   <div style={{ background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: isMobile ? 16 : 32, position: 'relative', overflow: 'hidden' }}>
                     
@@ -267,7 +267,7 @@ export default function ActivityPage({ isMobile, onOpenMobileMenu }) {
                   </div>
                 )}
 
-                {/* ═══ Stats Row ═══ */}
+                {/* Stats row */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 3fr', gap: 20 }}>
                   
                   {/* Hero Tokens Box */}
@@ -335,7 +335,7 @@ export default function ActivityPage({ isMobile, onOpenMobileMenu }) {
 
                 </div>
 
-                {/* ═══ Cumulative Growth + 14-Day Daily Breakdown ═══ */}
+                {/* Cumulative growth and 14-day breakdown */}
                 {timeline && (
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 20 }}>
                     
@@ -393,7 +393,7 @@ export default function ActivityPage({ isMobile, onOpenMobileMenu }) {
                   </div>
                 )}
 
-                {/* ═══ Source Ecosystem + Top Workspaces ═══ */}
+                {/* Source ecosystem and top workspaces */}
                 {timeline && (
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 20, marginBottom: 40 }}>
                     

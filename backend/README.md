@@ -23,16 +23,16 @@ python -m venv venv
   ```
 
 ### 3. Install Dependencies
-You can install dependencies using the provided `requirements.txt` or via editable mode:
+Dependencies are defined in `pyproject.toml`.
 
-**Using requirements.txt:**
-```bash
-pip install -r requirements.txt
-```
-
-**Using editable mode (recommended for development):**
+**Application install:**
 ```bash
 pip install -e .
+```
+
+**Development install:**
+```bash
+pip install -e .[dev]
 ```
 
 ## Running the Application

@@ -189,7 +189,7 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
               </div>
             ) : (
               <>
-                {/* ═══ Recently Added ═══ */}
+                {/* Recently added */}
                 {!searchQuery && featured.length > 0 && (
                   <section style={{ marginBottom: 48 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
@@ -263,7 +263,7 @@ export default function DiscoveryPage({ isMobile, onOpenMobileMenu }) {
                   </section>
                 )}
 
-                {/* ═══ All Sources Table/Grid ═══ */}
+                {/* All sources */}
                 <section>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
                     <FileArchive size={15} color="var(--text-3)" />

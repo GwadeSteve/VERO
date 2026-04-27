@@ -4,7 +4,7 @@ All LLM system prompts are assembled here from composable parts.
 This eliminates the 4× duplication across answering.py and chat.py.
 """
 
-# ── Composable Prompt Parts ───────────────────────────
+# Composable prompt parts.
 
 _IDENTITY = """### Identity:
 - Your name is VERO. NEVER say "I am an AI" or similar disclaimers.
@@ -49,7 +49,7 @@ _MISSING_INFO_AUGMENTED = """### Missing Information:
 - If a question is ambiguous, ask for clarification instead of guessing what the user meant."""
 
 
-# ── One-Shot Mode (answering.py — no history) ────────
+# One-shot mode (answering.py, no history).
 
 _ONESHOT_CONVERSATION = """### Conversation Rules:
 - Handle greetings and pleasantries naturally.
@@ -59,7 +59,7 @@ _ONESHOT_CONVERSATION = """### Conversation Rules:
 _ONESHOT_AUGMENTED_EXTRA = """- **Knowledge Blending:** If you provide information from your own knowledge, mention it naturally."""
 
 
-# ── Chat Mode (chat.py — with history) ────────────────
+# Chat mode (chat.py, with history).
 
 _CHAT_CONVERSATION = """### Conversation Rules:
 - Reference earlier messages naturally ("As we discussed...").
@@ -70,7 +70,7 @@ _CHAT_CONVERSATION = """### Conversation Rules:
 _CHAT_AUGMENTED_EXTRA = """- **Knowledge Blending:** If you provide information from your own knowledge that is not in the sources, mention it naturally (e.g., "While your documents don't cover this, generally...")."""
 
 
-# ── Public API ────────────────────────────────────────
+# Public API.
 
 def get_oneshot_prompt(allow_model_knowledge: bool = False) -> str:
     """Get the system prompt for one-shot answering (no conversation history)."""

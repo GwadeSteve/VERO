@@ -231,6 +231,9 @@ async def _embed_document(db: AsyncSession, doc: DocumentModel):
     from app.embeddings import get_embedder
     from app.utils import compute_content_hash
     from app import vectorstore
+    from app.warmup import wait_for_model_warmup
+
+    await wait_for_model_warmup()
 
     # Fetch chunks
     result = await db.execute(

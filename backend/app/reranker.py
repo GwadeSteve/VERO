@@ -34,6 +34,12 @@ def _get_model():
     return _model
 
 
+def warmup_reranker() -> None:
+    """Fully warm the cross-encoder, including a dummy prediction pass."""
+    model = _get_model()
+    model.predict([("warmup query", "warmup document")])
+
+
 def _sigmoid(x: float) -> float:
     """Numerically stable sigmoid for converting logits to probabilities."""
     if x >= 0:

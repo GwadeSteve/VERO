@@ -102,7 +102,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
             setLoadingSessions(true);
             api.getSessions(projectId)
                 .then(data => setProjectSessions(data))
-                .catch(err => console.error(err))
+                .catch(() => setProjectSessions([]))
                 .finally(() => setLoadingSessions(false));
         }
     }, [sessionMenuOpen, projectId]);
@@ -168,7 +168,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     const fetchDocs = async () => {
         setDocsLoading(true);
         try { setDocs((await api.getDocuments(projectId)) || []); }
-        catch (e) { console.error(e); }
+        catch { setDocs([]); }
         finally { setDocsLoading(false); }
     };
 
@@ -236,7 +236,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         }
     };
 
-    // ── Streaming simulation ─────────────────────────
+    // Streaming simulation.
     const streamText = (fullText, onChunk, onDone) => {
         setIsStreaming(true);
         const words = fullText.split(' ');
@@ -295,7 +295,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         setTimeout(() => clearInterval(iv), 300000); // 5 mins max
     };
 
-    // ── Ingestion ────────────────────────────────────
+    // Ingestion.
     const handleFiles = async (files) => {
         if (!files || files.length === 0 || !projectId) return;
 
@@ -378,7 +378,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         finally { setIngesting(false); }
     };
 
-    // ── Chat ─────────────────────────────────────────
+    // Chat.
     const send = async (e) => {
         e?.preventDefault();
         if (!query.trim() || !projectId || searching || isStreaming || docs.length === 0) return;
@@ -588,7 +588,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         return ext.endsWith('.pdf') || ext.endsWith('.doc') || ext.endsWith('.docx') || ext.endsWith('.txt') || ext.endsWith('.md') || ext.endsWith('.csv');
     };
 
-    // ── Document type icon helper ─────────────────────
+    // Document type icon helper.
     const getDocIcon = (title) => {
         const t = title?.toLowerCase() || '';
         if (t.endsWith('.pdf')) return { icon: FileText, color: 'var(--red)' };
@@ -608,7 +608,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
         docTraces[r.doc_title].push({ ...r, index: i });
     });
 
-    // ── Pre-process Text for ReactMarkdown Citations ────────────────
+    // Pre-process text for ReactMarkdown citations.
     const preprocessTextForMarkdown = (text) => {
         if (!text) return '';
 
@@ -628,7 +628,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
     return (
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
 
-            {/* ═══════ CENTER: Main Chat ═══════ */}
+            {/* Main chat */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--bg-0)' }}>
 
                 {/* Workspace Header — SOTA Minimal */}
@@ -1227,7 +1227,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                 </div>
             </div>
 
-            {/* ═══════ RIGHT: Insight & Context ═══════ */}
+            {/* Insight and context */}
             {isMobile && (
                 <div
                     className={`sidebar-overlay ${rightPanelOpen ? 'active' : ''}`}
@@ -1245,7 +1245,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                     zIndex: isMobile ? 998 : 'auto'
                 }}>
-                {/* ── SOTA Premium Unified Ingest Zone ── */}
+                {/* Ingest zone */}
                 <div style={{ padding: '20px 16px 12px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>Add Sources</span>
@@ -1309,7 +1309,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     </div>
                 </div>
 
-                {/* ── Citation Chunk Drill-Down ── */}
+                {/* Citation chunk drill-down */}
                 {activeCitationChunk && (
                     <div style={{ padding: 16, borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -1346,7 +1346,7 @@ export default function WorkspacePage({ projectId, activeSessionId, setSessions,
                     </div>
                 )}
 
-                {/* ── Document List ── */}
+                {/* Document list */}
                 <div style={{ padding: '12px 16px 12px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>

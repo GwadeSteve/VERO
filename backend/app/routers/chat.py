@@ -4,10 +4,11 @@ VERO Router — Chat / Conversations
 Multi-turn conversation sessions with persistent history.
 """
 
-import logging
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -36,8 +37,6 @@ router = APIRouter(tags=["chat"])
 
 MAX_HISTORY_MESSAGES = 6  # Keep last 3 full turns (user + assistant = 1 turn)
 
-
-# ── Session CRUD ──────────────────────────────────────
 
 @router.post("/projects/{project_id}/sessions", status_code=201, response_model=SessionResponse)
 async def create_session(
@@ -126,10 +125,9 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
-from pydantic import BaseModel as PydanticBaseModel
-
 class SessionPatchBody(PydanticBaseModel):
     title: str | None = None
+
 
 @router.patch("/sessions/{session_id}", response_model=SessionResponse)
 async def patch_session(session_id: str, body: SessionPatchBody, db: AsyncSession = Depends(get_db)):
@@ -220,8 +218,6 @@ async def delete_message_pair(
     return None
 
 
-# ── Chat Endpoint ─────────────────────────────────────
-
 @router.post("/sessions/{session_id}/chat", response_model=ChatResponse)
 async def chat(
     session_id: str,
@@ -248,7 +244,7 @@ async def chat(
     db.add(user_msg)
     await db.flush()
 
-    # ── Query Rewriting (zero LLM calls) ──────────────
+    # Query rewriting is done without extra LLM calls.
     from app.query_rewriter import rewrite_query
 
     history_for_rewriter = [
@@ -258,7 +254,6 @@ async def chat(
     ]
     search_query = rewrite_query(body.message, history=history_for_rewriter)
 
-    # ── Retrieval ─────────────────────────────────────
     search_results = await retrieval_search(
         db=db,
         project_id=session.project_id,
@@ -268,12 +263,11 @@ async def chat(
         min_score=body.min_score,
     )
 
-    # ── Build multi-turn messages ─────────────────────
     # The current user message was just added to session.messages. We must exclude it
     # from the 'history' array since we manually append it with context at the very end!
     history_messages = session.messages[:-1]
     recent_messages = history_messages[-MAX_HISTORY_MESSAGES:]
-    
+
     if recent_messages and recent_messages[0].role != "user":
         recent_messages = recent_messages[1:]
 
@@ -290,7 +284,6 @@ async def chat(
     final_user_content = f"{context_block}\n\nQuestion: {body.message}"
     chat_messages.append({"role": "user", "content": final_user_content})
 
-    # ── Generate answer ───────────────────────────────
     try:
         llm = get_llm()
         raw_answer = await llm.generate_response(
@@ -303,10 +296,8 @@ async def chat(
         logger.error("Chat LLM error: %s", e)
         answer = f"Error generating answer: {str(e)}"
 
-    # ── Post-process citations ────────────────────────
     answer, used_citations, sufficient = extract_and_rewrite_citations(answer, search_results)
 
-    # ── Save response ─────────────────────────────────
     assistant_msg = SessionMessageModel(
         session_id=session.id,
         role="assistant",

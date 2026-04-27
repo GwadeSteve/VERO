@@ -15,18 +15,45 @@ function App() {
   const toast = useToast();
 
   const [serverReady, setServerReady] = useState(false);
+  const [healthStatus, setHealthStatus] = useState(null);
 
-  // Gate: poll /health before allowing any API calls
+  // Poll /health before allowing app API calls.
   useEffect(() => {
     let cancelled = false;
-    waitForServer().then(ok => {
+    waitForServer().then(health => {
       if (!cancelled) {
-        setServerReady(ok);
-        if (!ok) console.error('[VERO] Server did not respond after retries');
+        setHealthStatus(health);
+        setServerReady(Boolean(health));
+        if (!health) {
+          toast?.('Server did not respond after retries.', 'error');
+        }
       }
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!serverReady || healthStatus?.models?.status === 'ready') {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const health = await api.getHealth();
+        if (!cancelled) {
+          setHealthStatus(health);
+        }
+      } catch {
+        // Keep the last known state and try again on the next interval.
+      }
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [serverReady, healthStatus?.models?.status]);
 
   const match = matchPath("/p/:projectId/c/:sessionId", location.pathname) || matchPath("/p/:projectId", location.pathname);
   const projectId = match?.params?.projectId || null;
@@ -39,8 +66,24 @@ function App() {
   const [refreshToggle, setRefreshToggle] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
+  const modelStatus = healthStatus?.models?.status || 'starting';
+  const modelsReady = modelStatus === 'ready';
+  const showStartupScreen = !serverReady || !modelsReady;
+  const loadingTitle = serverReady
+    ? (modelsReady ? 'VERO is ready' : 'Server ready')
+    : 'Starting VERO';
+  const loadingMessage = !serverReady
+    ? 'Connecting to backend...'
+    : modelsReady
+      ? 'Loading workspace...'
+      : 'AI models are warming up in the background...';
+  const loadingBadge = !serverReady
+    ? 'API boot'
+    : modelsReady
+      ? 'Ready'
+      : 'Background warmup';
 
-  // Load project info — only after server is ready
+  // Load project info only after the backend is ready.
   useEffect(() => {
     if (!serverReady) return;
     if (projectId) {
@@ -87,8 +130,8 @@ function App() {
     }
   };
 
-  // ── Loading screen while server warms up ──
-  if (!serverReady) {
+  // Loading screen while the backend warms up.
+  if (showStartupScreen) {
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -104,11 +147,27 @@ function App() {
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-            Starting VERO
+            {loadingTitle}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 500 }}>
-            Warming up ML models…
+            {loadingMessage}
           </div>
+        </div>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          padding: '6px 12px', borderRadius: 999,
+          background: 'var(--bg-1)', border: '1px solid var(--border)',
+          color: 'var(--text-2)', fontSize: 11, fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.06em',
+        }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: serverReady ? (modelsReady ? 'var(--green)' : 'var(--amber)') : 'var(--accent)',
+            boxShadow: serverReady
+              ? (modelsReady ? '0 0 10px rgba(34,197,94,0.45)' : '0 0 10px rgba(245,158,11,0.45)')
+              : '0 0 10px rgba(124,92,252,0.45)',
+          }} />
+          {loadingBadge}
         </div>
         <div style={{
           width: 120, height: 3, borderRadius: 2, background: 'var(--bg-2)', overflow: 'hidden',

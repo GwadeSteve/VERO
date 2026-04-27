@@ -44,7 +44,7 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
 
     const select = (id) => { navigate(`/p/${id}`); };
 
-    // ── Deletion logic ────────────────────────────────
+    // Deletion logic.
     const deleteSelected = async () => {
         if (selected.size === 0) return;
         const count = selected.size;
@@ -215,9 +215,7 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
 
                         {/* Content */}
                         {loading ? (
-                            /* ═══════════════════════════════════════
-                               SKELETON LOADING — 15 shimmer rows
-                               ═══════════════════════════════════════ */
+                            /* Skeleton loading. */
                             <div style={{ background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                                 {/* Skeleton table header */}
                                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid var(--border)', gap: 12 }}>
@@ -251,9 +249,7 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                                 ))}
                             </div>
                         ) : projects.length === 0 ? (
-                            /* ═══════════════════════════════════════
-                               EMPTY STATE — Self-contained card
-                               ═══════════════════════════════════════ */
+                            /* Empty state. */
                             <div className="sota-reflective-card" style={{
                                 marginTop: 32,
                                 borderRadius: 'var(--r-lg)',
@@ -403,9 +399,7 @@ export default function ProjectsPage({ onRefreshProjects, isMobile, onOpenMobile
                                 </div>
                             </div>
                         ) : (
-                            /* ═══════════════════════════════════════
-                               TABLE-STYLE PROJECT LIST
-                               ═══════════════════════════════════════ */
+                            /* Project list. */
                             <div style={{ background: 'var(--bg-1)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                                 {isMobile ? (
                                     // MOBILE STACKED LIST

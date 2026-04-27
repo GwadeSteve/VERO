@@ -25,7 +25,7 @@ class ParsedDocument:
     metadata: dict = field(default_factory=dict)             # Extra metadata (url, title, etc.)
 
 
-# ── Shared Helpers ──────────────────────────────────────────────
+# Shared helpers.
 
 MATH_SYMBOLS = set("∫∑∏√∂∇∆λμσπαβγδεζηθ²³°±×÷≤≥≠∈⊂∞")
 

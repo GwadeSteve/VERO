@@ -22,7 +22,7 @@ from app.parsers.contracts import ParsedDocument, table_to_markdown, has_math_sy
 logger = logging.getLogger(__name__)
 
 
-# ── Phase 1: Scan ──────────────────────────────────────────────
+# Phase 1: Scan.
 
 def _scan_pdf(path: str) -> dict:
     """Quick scan to determine document complexity and characteristics."""
@@ -67,7 +67,7 @@ def _scan_pdf(path: str) -> dict:
     }
 
 
-# ── Phase 2: Image Captioning ─────────────────────────────────
+# Phase 2: Image captioning.
 
 def _caption_image(image_bytes: bytes, mime_type: str, page_num: int) -> str | None:
     """Send an image to Gemini Vision for captioning. Returns description or None."""
@@ -154,7 +154,7 @@ def _extract_and_caption_images(path: str) -> tuple[list[str], int]:
     return descriptions, total
 
 
-# ── Phase 3: Table Extraction ──────────────────────────────────
+# Phase 3: Table extraction.
 
 def _extract_tables(path: str) -> tuple[str, list]:
     """Extract tables using pdfplumber and convert to Markdown.
@@ -187,7 +187,7 @@ def _extract_tables(path: str) -> tuple[str, list]:
     return "\n".join(tables_md_parts), tables_raw
 
 
-# ── Fast Text Extraction ───────────────────────────────────────
+# Fast text extraction.
 
 def _fast_extract_text(filepath: str) -> str:
     """Extract text page-by-page using PyMuPDF (instant, no ONNX model).
@@ -204,7 +204,7 @@ def _fast_extract_text(filepath: str) -> str:
     return "\n\n---\n\n".join(pages)
 
 
-# ── Main Parser ────────────────────────────────────────────────
+# Main parser.
 
 async def parse_pdf(filepath: str) -> dict:
     """Parse a PDF using fast extraction + pdfplumber tables.

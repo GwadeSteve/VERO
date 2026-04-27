@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 
+import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -15,24 +16,22 @@ DATABASE_URL = os.getenv(
     f"sqlite+aiosqlite:///{DATA_DIR / 'vero.db'}",
 )
 
-import sqlalchemy
-
 engine = create_async_engine(
-    DATABASE_URL, 
+    DATABASE_URL,
     echo=False,
     connect_args={
         "timeout": 30.0,  # Increase lock timeout for massive background burst writes
         "check_same_thread": False,
-    }
+    },
 )
 
 # Enable WAL (Write-Ahead Logging) at the connection level for concurrent reads/writes
 @sqlalchemy.event.listens_for(engine.sync_engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
+def set_sqlite_pragma(dbapi_connection, _connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA cache_size=-64000") # 64MB cache
+    cursor.execute("PRAGMA cache_size=-64000")  # 64MB cache
     cursor.close()
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -46,24 +45,32 @@ class Base(DeclarativeBase):
 async def init_db():
     """Create tables if they don't exist (idempotent).
 
-    Uses create_all which only creates missing tables — safe for
+    Uses create_all which only creates missing tables - safe for
     --reload and restarts without losing data.
     Also runs lightweight column migrations for schema evolution.
     """
     async with engine.begin() as conn:
-        from app.models import ProjectModel, DocumentModel, ChunkModel, EmbeddingModel, SessionModel, SessionMessageModel  # noqa: F401
+        from app.models import (  # noqa: F401
+            ChunkModel,
+            DocumentModel,
+            EmbeddingModel,
+            ProjectModel,
+            SessionMessageModel,
+            SessionModel,
+        )
+
         await conn.run_sync(Base.metadata.create_all)
 
-        # ── Lightweight column migrations ──
+        # Lightweight column migrations.
         import sqlalchemy as sa
-        
+
         # Add updated_at to sessions if missing (added in Phase 20)
         result = await conn.execute(sa.text("PRAGMA table_info(sessions)"))
         columns = [row[1] for row in result.fetchall()]
         if "updated_at" not in columns:
             await conn.execute(sa.text("ALTER TABLE sessions ADD COLUMN updated_at DATETIME"))
             await conn.execute(sa.text("UPDATE sessions SET updated_at = created_at WHERE updated_at IS NULL"))
-            
+
         # Add citations_json to session_messages if missing (added in Phase 21)
         result_msgs = await conn.execute(sa.text("PRAGMA table_info(session_messages)"))
         columns_msgs = [row[1] for row in result_msgs.fetchall()]

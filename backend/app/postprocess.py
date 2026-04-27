@@ -7,15 +7,8 @@ a single, reusable pipeline for cleaning LLM output.
 from __future__ import annotations
 
 import re
-import logging
-from typing import List
 
 from app.schema import SearchResultItem
-
-logger = logging.getLogger(__name__)
-
-
-# ── Prompt Leak Detection ─────────────────────────────
 
 _LEAK_PATTERNS = [
     re.compile(r'<\|.*?\|>', re.IGNORECASE),                    # <|end_header_id|> etc.
@@ -83,8 +76,8 @@ def sanitize_answer(text: str) -> str:
 
 def extract_and_rewrite_citations(
     answer: str,
-    search_results: List[SearchResultItem],
-) -> tuple[str, List[SearchResultItem], bool]:
+    search_results: list[SearchResultItem],
+) -> tuple[str, list[SearchResultItem], bool]:
     """Extract cited sources, rewrite to dense indices, and determine sufficiency.
 
     Returns:
@@ -94,7 +87,7 @@ def extract_and_rewrite_citations(
     sufficient = not any(p in answer.lower() for p in REFUSAL_PHRASES)
 
     # 2. Extract used citations and rewrite with dense indices
-    used_citations: List[SearchResultItem] = []
+    used_citations: list[SearchResultItem] = []
 
     if search_results:
         # Find all unique source numbers the LLM actually cited
@@ -135,9 +128,9 @@ def extract_and_rewrite_citations(
 
 
 def build_source_context(
-    search_results: List[SearchResultItem],
+    search_results: list[SearchResultItem],
 ) -> str:
-    """Build the --- SOURCES --- context block for LLM injection."""
+    """Build the source context block for LLM injection."""
     context_lines = ["--- SOURCES ---"]
     for i, r in enumerate(search_results, 1):
         source_header = f"[Source {i}] {r.doc_title}"

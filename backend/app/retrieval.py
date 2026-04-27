@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
-
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +104,7 @@ def _keyword_search(
     chunks: list[ChunkModel],
     query: str,
     top_k: int,
-    last_indexed_at: Optional[str] = None,
+    last_indexed_at: str | None = None,
 ) -> dict[str, float]:
     """Run BM25 keyword search over chunk texts. Returns {chunk_id: score}.
 
@@ -197,14 +195,18 @@ async def search(
         List of SearchResultItem, sorted by cross-encoder relevance.
     """
     from app.reranker import rerank
+    from app.warmup import wait_for_model_warmup
+
+    await wait_for_model_warmup()
 
     chunks = await _fetch_project_chunks(db, project_id)
     if not chunks:
-        logger.info(f"Search skipped: Project {project_id} is empty (NO chunks).")
+        logger.info("Search skipped: project %s has no chunks.", project_id)
         return []
 
     # Get project to read last_indexed_at timestamp for cache validation
     from app.models import ProjectModel
+
     project = await db.scalar(select(ProjectModel).where(ProjectModel.id == project_id))
     last_indexed_at_str = project.last_indexed_at.isoformat() if project and project.last_indexed_at else None
 
@@ -227,7 +229,11 @@ async def search(
         final_scores = _reciprocal_rank_fusion(sem_scores, kw_scores)
 
     if not final_scores:
-        logger.info(f"Search finished: Stage 1 [{mode}] found 0 candidates for query '{query[:50]}'")
+        logger.info(
+            "Search finished: stage 1 [%s] found 0 candidates for query '%s'.",
+            mode,
+            query[:50],
+        )
         return []
 
     # Sort by Stage 1 score and take candidates
@@ -261,7 +267,7 @@ async def search(
     # Stage 2: Cross-encoder reranking (returns ALL scored, sorted descending)
     reranked = rerank(query, candidate_dicts)
 
-    # ── Adaptive Result Selection ──────────────────────────────
+    # Adaptive result selection.
     # Instead of blindly taking top_k, we use the score distribution
     # to determine how many results are actually relevant.
     MAX_CHUNK_CHARS = 1500   # ~375 tokens - truncate oversized chunks
@@ -269,7 +275,6 @@ async def search(
 
     results: list[SearchResultItem] = []
     seen_texts: list[set] = []  # Store word sets for near-duplicate detection
-    prev_score: float = 1.0
 
     for item in reranked:
         score = round(item["rerank_score"], 6)
@@ -326,7 +331,6 @@ async def search(
             break
         total_chars += len(clean_text)
 
-        prev_score = score
         results.append(SearchResultItem(
             chunk_id=item["chunk_id"],
             doc_id=item["doc_id"],

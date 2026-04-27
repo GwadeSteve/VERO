@@ -1,10 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ═══════════════════════════════════════════════
-   VERO DESIGN SYSTEM — SOTA Dual Theme
-   ═══════════════════════════════════════════════ */
+/* VERO design system. */
 
-/* ─── Dark Theme (Default) ─────────────────── */
+/* Dark theme. */
 :root,
 [data-theme="dark"] {
   --bg-0: #0a0a0f;
@@ -82,7 +80,7 @@
   color-scheme: dark;
 }
 
-/* ─── Light Theme ──────────────────────────── */
+/* Light theme. */
 [data-theme="light"] {
   --bg-0: #f8f8fa;
   --bg-1: #ffffff;
@@ -149,7 +147,7 @@
   color-scheme: light;
 }
 
-/* ─── Typography & Base ────────────────────── */
+/* Typography and base styles. */
 :root {
   --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --mono: 'JetBrains Mono', monospace;
@@ -188,7 +186,7 @@ textarea {
   display: flex;
 }
 
-/* ─── Scrollbar ────────────────────────────── */
+/* Scrollbar. */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -202,13 +200,13 @@ textarea {
   border-radius: 6px;
 }
 
-/* ─── Utilities ────────────────────────────── */
+/* Utilities. */
 .smooth-scroll {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
 
-/* ─── Headings ─────────────────────────────── */
+/* Headings. */
 h1,
 h2,
 h3,
@@ -217,7 +215,7 @@ h4 {
   letter-spacing: -0.02em;
 }
 
-/* ─── Status Dots ──────────────────────────── */
+/* Status dots. */
 .dot {
   width: 7px;
   height: 7px;
@@ -244,7 +242,7 @@ h4 {
   background: var(--text-4);
 }
 
-/* ─── Animations ───────────────────────────── */
+/* Animations. */
 .spin {
   animation: spin 1s linear infinite;
 }
@@ -372,7 +370,7 @@ h4 {
 
 
 
-/* ─── Toast ────────────────────────────────── */
+/* Toast. */
 .toast-wrap {
   position: fixed;
   top: 16px;
@@ -424,7 +422,7 @@ h4 {
   }
 }
 
-/* ─── Toggle ───────────────────────────────── */
+/* Toggle. */
 .toggle-track {
   width: 32px;
   height: 18px;
@@ -456,7 +454,7 @@ h4 {
   transform: translateX(14px);
 }
 
-/* ─── Pipeline Steps ──────────────────────── */
+/* Pipeline steps. */
 .pipeline-step {
   display: flex;
   align-items: center;
@@ -474,7 +472,7 @@ h4 {
   color: var(--green);
 }
 
-/* ─── Streaming cursor ────────────────────── */
+/* Streaming cursor. */
 .streaming-cursor::after {
   content: '▊';
   animation: blink 1s step-end infinite;
@@ -488,7 +486,7 @@ h4 {
   }
 }
 
-/* ─── Session item ─────────────────────────── */
+/* Session item. */
 .session-item {
   padding: 8px 12px;
   border-radius: var(--r);
@@ -513,7 +511,7 @@ h4 {
   border-color: var(--accent-border);
 }
 
-/* ─── Typography: Chat Bubbles ──────────────── */
+/* Chat bubble typography. */
 .vero-md,
 .user-message-text {
   font-size: 16px;
@@ -605,7 +603,7 @@ h4 {
   font-style: italic;
 }
 
-/* ─── Theme transition helpers ─────────────── */
+/* Theme transition helpers. */
 /* Apply transitions to major surfaces for smooth theme switching */
 aside,
 header,
@@ -614,14 +612,14 @@ main,
   transition: background-color 0.35s ease, border-color 0.35s ease, color 0.25s ease;
 }
 
-/* ─── Smooth Scrolling ─────────────────────── */
+/* Smooth scrolling. */
 .chat-feed {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
-/* ─── Streaming Cursor ─────────────────────── */
+/* Streaming cursor. */
 .streaming-cursor::after {
   content: '▋';
   display: inline-block;
@@ -644,7 +642,7 @@ main,
   }
 }
 
-/* ─── Message Entry Animation ──────────────── */
+/* Message entry animation. */
 @keyframes messageSlideUp {
   from {
     opacity: 0;
@@ -683,7 +681,7 @@ main,
   }
 }
 
-/* ─── Sidebar Transitions ──────────────────── */
+/* Sidebar transitions. */
 .sidebar-panel {
   transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
     min-width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
@@ -698,7 +696,7 @@ main,
   will-change: width, min-width;
 }
 
-/* ─── Loading Shimmer Enhancement ──────────── */
+/* Loading shimmer enhancement. */
 .loading-dots::after {
   content: '';
   animation: loadingDots 1.5s steps(4) infinite;
@@ -722,7 +720,7 @@ main,
   }
 }
 
-/* ─── Button & Interactive Element Smoothness ──── */
+/* Button and interactive element smoothness. */
 button,
 [role="button"] {
   transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
@@ -733,19 +731,19 @@ button:active,
   transform: scale(0.97);
 }
 
-/* ─── Input Focus Transitions ──────────────── */
+/* Input focus transitions. */
 textarea,
 input[type="text"],
 input[type="url"] {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-/* ─── Scrollbar Enhancement ────────────────── */
+/* Scrollbar enhancement. */
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* ─── Citation Bubble Animation ────────────── */
+/* Citation bubble animation. */
 .cite-bubble {
   transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
@@ -755,7 +753,7 @@ input[type="url"] {
   box-shadow: 0 2px 8px var(--accent-dim);
 }
 
-/* ─── Responsive Design ────────────────────── */
+/* Responsive design. */
 
 /* Tablet: < 1024px */
 @media (max-width: 1024px) {
@@ -807,7 +805,7 @@ input[type="url"] {
   }
 }
 
-/* ─── Mobile Sidebar Overlay ───────────────── */
+/* Mobile sidebar overlay. */
 .sidebar-overlay {
   display: none;
   position: fixed;
@@ -839,7 +837,7 @@ input[type="url"] {
   transform: translateX(0);
 }
 
-/* ─── Hamburger Menu Button ────────────────── */
+/* Hamburger menu button. */
 .hamburger-btn {
   display: none;
   align-items: center;
@@ -861,7 +859,7 @@ input[type="url"] {
   border-color: var(--border-light);
 }
 
-/* ─── Mobile Right Panel ──────────────────── */
+/* Mobile right panel. */
 .right-panel-mobile {
   position: fixed !important;
   right: 0;
@@ -877,7 +875,7 @@ input[type="url"] {
   transform: translateX(0);
 }
 
-/* ─── Responsive Layout Overrides ──────────── */
+/* Responsive layout overrides. */
 @media (max-width: 1024px) {
   .hamburger-btn {
     display: flex;
@@ -991,7 +989,7 @@ input[type="url"] {
     100% { box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2); }
 }
 
-/* ─── Premium Model Knowledge Badge ────────── */
+/* Model knowledge badge. */
 .ai-knowledge-badge {
   position: relative;
   display: inline-flex;
@@ -1054,7 +1052,7 @@ input[type="url"] {
   50% { transform: scale(1.1) rotate(6deg); opacity: 1; filter: drop-shadow(0 0 6px var(--accent-border)); }
 }
 
-/* ─── SOTA Ingestion UI ────────── */
+/* Ingestion UI. */
 .sota-dropzone {
     position: relative;
     overflow: hidden;
