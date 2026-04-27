@@ -1,293 +1,299 @@
-# VERO: Research Workspace Engine
+<p align="center">
+  <img src="frontend/public/vero.svg" alt="VERO logo" width="96" />
+</p>
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-[![ChromaDB](https://img.shields.io/badge/ChromaDB-6B46C1?style=for-the-badge&logo=chroma&logoColor=white)](https://www.trychroma.com/)
-[![Groq](https://img.shields.io/badge/LLM-Groq-orange?style=for-the-badge)](https://groq.com/)
-[![Gemini](https://img.shields.io/badge/LLM-Gemini-blue?style=for-the-badge)](https://ai.google.dev/)
+<h1 align="center">VERO</h1>
 
-**VERO** is an advanced, privacy-first research workspace engine built for high-fidelity information retrieval and synthesis. It prioritizes data integrity, deterministic processing, and strict source traceability.
+<p align="center">
+  <strong>VERO: Grounded Research Workspace</strong>
+</p>
+
+<p align="center">
+  A full-stack AI system for ingesting files, links, and repositories, then answering with retrieved evidence and citations.
+</p>
+
+<p align="center">
+  <a href="#demo">Demo</a> •
+  <a href="#why-vero">Why VERO</a> •
+  <a href="#capabilities">Capabilities</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#project-guide">Project Guide</a> •
+  <a href="#run-locally">Run Locally</a>
+</p>
+
+<p align="center">
+  <a href="https://www.python.org/"><img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white"></a>
+  <a href="https://fastapi.tiangolo.com/"><img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi"></a>
+  <a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB"></a>
+  <a href="https://www.sqlite.org/"><img alt="SQLite" src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white"></a>
+  <a href="https://www.trychroma.com/"><img alt="ChromaDB" src="https://img.shields.io/badge/ChromaDB-6B46C1?style=for-the-badge"></a>
+  <a href="https://github.com/features/actions"><img alt="GitHub Actions" src="https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white"></a>
+</p>
 
 ---
 
-## Core Architecture
+## Demo
 
-VERO is built on a hardened, 6-layer framework. Every module is independently verifiable, ensuring zero data loss from raw document to final LLM synthesis.
+<p align="center">
+  <img src="docs/VERO-DEMO.png" alt="VERO demo interface" width="100%" />
+</p>
 
-| Layer | Name | Purpose |
-|:-----:|------|---------|
-| **1** | Ingestion | Normalize inputs, SHA-256 deduplication |
-| **2** | Chunking | Token-aware splits, markdown hierarchy preserved |
-| **3** | Embeddings | Local `all-MiniLM-L6-v2` · 384-dim · hash-cached |
-| **4** | Retrieval | BM25 + Semantic → RRF fusion → Cross-Encoder rerank |
-| **5** | Answering | LLM synthesis strictly grounded in retrieved context |
-| **6** | Memory | Persistent sessions with sliding-window history |
+<p align="center">
+  Search, ingest, chat, and verify sources inside a single project-scoped research workspace.
+</p>
+
+VERO is designed around a practical workflow:
+
+1. Create a workspace for a project or research topic.
+2. Ingest PDFs, DOCX, Markdown, CSV, web pages, or a public GitHub repository.
+3. Run search or ask a question against indexed material.
+4. Review citations, supporting chunks, and persistent session history.
 
 ---
 
-## System Architecture
+## Why VERO
 
-VERO handles two independent flows — **document ingestion** and **query answering** — that share the same storage layer.
+VERO is not a generic chat wrapper. It is a retrieval product with an actual system behind it.
+
+- It keeps knowledge isolated by workspace so research stays scoped and usable.
+- It retrieves and reranks evidence before answer generation, which improves traceability and reduces hand-wavy responses.
+- It combines ingestion, search, grounded answering, and session continuity in one full-stack application.
+
+That makes it useful as both a product showcase and a serious engineering project.
+
+---
+
+## Capabilities
+
+| Area | What VERO does |
+| --- | --- |
+| Ingestion | Imports PDFs, DOCX, Markdown, TXT, CSV, URLs, and public repositories |
+| Processing | Parses, chunks, embeds, and indexes source material in the background |
+| Retrieval | Supports semantic, keyword, and hybrid search with reranking |
+| Answering | Generates grounded responses from retrieved context with citations |
+| Memory | Preserves sessions and history inside each workspace |
+| Product UX | Exposes projects, discovery, activity, and chat in a coherent interface |
+| Model Flexibility | Supports Groq, Gemini, and Ollama providers |
+
+---
+
+## Architecture
+
+VERO is built as a six-layer retrieval pipeline:
+
+| Layer | Responsibility | Implementation |
+| --- | --- | --- |
+| 1 | Ingestion | File, URL, and repository parsing with deduplication |
+| 2 | Chunking | Source-aware segmentation with metadata preservation |
+| 3 | Embeddings | Local sentence-transformer vectors stored in Chroma |
+| 4 | Retrieval | Semantic + BM25-style search with reciprocal rank fusion |
+| 5 | Answering | Grounded response generation from retrieved chunks |
+| 6 | Memory | Persistent sessions and history-aware prompting |
 
 ```mermaid
 flowchart TD
-    subgraph INPUTS[" "]
-        DOC([Document])
-        QUERY([User Query])
-    end
+    A[Upload source] --> B[Parse and normalize]
+    B --> C[Chunk document]
+    C --> D[Embed chunks]
+    D --> E[(ChromaDB)]
+    B --> F[(SQLite)]
 
-    subgraph INGEST[Ingestion Pipeline — runs on upload]
-        L1[Layer 1 · Ingest\nNormalize + SHA-256 hash]
-        L2[Layer 2 · Chunk\ntiktoken · semantic splits]
-        L3[Layer 3 · Embed\nall-MiniLM-L6-v2 · 384-dim]
-    end
-
-    subgraph STORAGE[Shared Storage]
-        SQ[(SQLite\nDocs · Chunks · Chat)]
-        CH[(ChromaDB\nVectors)]
-    end
-
-    subgraph QUERY_PATH[Query Pipeline — runs on every message]
-        L4[Layer 4 · Retrieve\nBM25 + Semantic → RRF → Rerank]
-        L5[Layer 5 · Synthesize\nLLM · grounded · cited]
-        L6[Layer 6 · Persist\nSave turn to session]
-    end
-
-    OUT([Answer + Citations])
-
-    DOC --> L1
-    L1 --> L2
-    L1 -->|save record| SQ
-    L2 --> L3
-    L2 -->|save chunks + FTS5| SQ
-    L3 -->|upsert vectors| CH
-
-    QUERY --> L4
-    SQ -->|BM25 keyword search| L4
-    CH -->|vector search| L4
-    SQ -->|chat history| L5
-    L4 -->|ranked context| L5
-    L5 --> L6
-    L6 -->|save turn| SQ
-    L6 --> OUT
+    G[Ask question] --> H[Hybrid retrieval]
+    E --> H
+    F --> H
+    H --> I[Cross-encoder rerank]
+    I --> J[LLM answer generation]
+    J --> K[Answer with citations]
+    J --> L[Session persistence]
 ```
 
----
+### Operational details
 
-## Technical Stack
-
-| Component | Technology |
-|-----------|-----------|
-| API Framework | FastAPI (Async Python) |
-| Database | SQLite + SQLAlchemy (Asyncio) |
-| Parsers | PyMuPDF · python-docx · BeautifulSoup4 · GitHub REST API |
-| Embeddings | `sentence-transformers` — `all-MiniLM-L6-v2` |
-| Reranking | `ms-marco-MiniLM-L-6-v2` Cross-Encoder |
-| Vector Store | ChromaDB (persistent, local) |
-| LLM Providers | Groq · Google Gemini · Ollama |
+- The backend exposes `GET /health` and `GET /ready` separately so the API can come online before heavy model warmup completes.
+- Embeddings and reranker models warm in the background to reduce blocking startup behavior.
+- Answers are generated only after retrieval and reranking, not as unconstrained completions.
+- Citations preserve chunk and document references for UI traceability.
 
 ---
 
-## Getting Started
+## Stack
+
+### Backend
+
+- FastAPI
+- SQLAlchemy async + SQLite
+- ChromaDB
+- sentence-transformers
+- rank-bm25
+- PyMuPDF
+- pdfplumber
+- python-docx
+- python-pptx
+- BeautifulSoup
+
+### Frontend
+
+- React
+- Vite
+- React Router
+- Recharts
+- KaTeX
+
+### Model providers
+
+- Groq
+- Gemini
+- Ollama
+
+---
+
+## Project Guide
+
+The repository is split into a backend pipeline, a frontend product surface, and deployment-quality support files.
+
+### Top-level layout
+
+| Path | Purpose |
+| --- | --- |
+| `backend/` | FastAPI backend, retrieval pipeline, ingestion logic, and persistence |
+| `frontend/` | React application for projects, workspace chat, discovery, and activity |
+| `.github/workflows/` | CI checks for backend validation and frontend build/launch verification |
+| `docs/` | README assets such as product images and previews |
+
+### Backend guide
+
+| Path | Responsibility |
+| --- | --- |
+| `backend/app/main.py` | API entrypoint, startup lifecycle, health, and readiness endpoints |
+| `backend/app/routers/` | HTTP routes for chat, projects, documents, and activity |
+| `backend/app/parsers/` | Source parsers for files, URLs, and repository content |
+| `backend/app/chunks/` | Chunking logic and metadata-aware segmentation |
+| `backend/app/embeddings/` | Embedder selection, local embedding model loading, and vector generation |
+| `backend/app/retrieval.py` | Hybrid retrieval orchestration and ranking flow |
+| `backend/app/reranker.py` | Cross-encoder reranking for result refinement |
+| `backend/app/answering.py` | Grounded answer construction from retrieved context |
+| `backend/app/warmup.py` | Background model warmup and readiness coordination |
+| `backend/app/database.py` | Async database setup and SQLAlchemy integration |
+
+### Frontend guide
+
+| Path | Responsibility |
+| --- | --- |
+| `frontend/src/App.jsx` | App shell, startup state handling, routing, and warmup polling |
+| `frontend/src/pages/` | Product pages for workspace, discovery, activity, and project views |
+| `frontend/src/api.js` | Backend client, startup checks, and request helpers |
+| `frontend/src/components/` | Shared UI building blocks used across product surfaces |
+| `frontend/public/vero.svg` | VERO brand mark used by the application and README |
+
+### How the system fits together
+
+- The backend owns ingestion, retrieval, answering, and persistence.
+- The frontend presents that pipeline as a usable product rather than a bare API client.
+- Chroma stores vector representations, while SQLite stores project, document, and session state.
+- The result is a local-first research workspace with a full RAG loop and a navigable interface.
+
+---
+
+## Run Locally
 
 ### Prerequisites
+
 - Python 3.10+
+- Node.js 20+
 - Git
 
-### Installation
+### Backend
 
 ```bash
-# 1. Clone and enter the backend directory
-git clone https://github.com/GwadeSteve/VERO.git
-cd VERO/backend
-
-# 2. Create a virtual environment
+cd backend
 python -m venv venv
 source venv/bin/activate      # Windows: .\venv\Scripts\activate
-
-# 3. Install
-pip install -e .
+pip install -e .[dev]
 ```
 
-**Configure environment** — create a `.env` file in `backend/`:
+Create `backend/.env`:
 
 ```env
-GEMINI_API_KEY="your_key_here"
 GROQ_API_KEY="your_key_here"
+GEMINI_API_KEY="your_key_here"
+VERO_LLM_PROVIDER="groq"
 ```
 
-### Run
+Run the API:
 
 ```bash
-# Start the server (Swagger UI at http://localhost:8000/docs)
 python -m uvicorn app.main:app --reload --port 8000
-
-# Or use the interactive terminal REPL
-python demo.py
 ```
 
-### LLM Providers
+Useful endpoints:
 
-Switch providers with a single env variable:
+- `GET /health` for process health
+- `GET /ready` for model readiness
 
-| Provider | Config |
-|----------|--------|
-| **Groq** *(default · fastest)* | `VERO_LLM_PROVIDER=groq` + `GROQ_API_KEY` |
-| **Gemini** | `VERO_LLM_PROVIDER=gemini` + `GEMINI_API_KEY` |
-| **Ollama** *(local · no API key)* | `VERO_LLM_PROVIDER=ollama` + `ollama pull llama3.1` |
-
----
-
-## API Guide
-
-### Layer 1 — Ingestion
-
-Upload a file and VERO automatically hashes, chunks, and embeds it in the background.
+### Frontend
 
 ```bash
-POST /projects/{id}/ingest          # Upload file (PDF, DOCX, MD, TXT)
-POST /projects/{id}/ingest-repo     # Pull a GitHub repo's READMEs + docstrings
-GET  /documents/{doc_id}            # Check processing_status: pending → processing → ready
+cd frontend
+npm install
+npm run dev
 ```
 
 ---
 
-### Layer 4 — Hybrid Retrieval
+## Validation
 
-A two-stage pipeline that combines keyword precision with semantic understanding, then reranks the fused results for maximum accuracy.
+GitHub Actions currently checks:
 
-```mermaid
-flowchart TD
-    Q([User Query])
+- backend install and audit flow
+- frontend production build
+- frontend preview launch
 
-    subgraph EMBED[Step 1 · Vectorize]
-        E[Embed query\nall-MiniLM-L6-v2]
-    end
-
-    subgraph SEARCH[Step 2 · Parallel Search]
-        direction LR
-        SEM[Semantic Search\nChromaDB · Top N]
-        KEY[Keyword Search\nSQLite FTS5 · BM25 · Top M]
-    end
-
-    subgraph RANK[Step 3 · Rank & Refine]
-        RRF[RRF Fusion\nCombine + deduplicate]
-        CE[Cross-Encoder Rerank\nexact relevance scores]
-    end
-
-    OUT([Top K results · ready for LLM])
-
-    Q --> E
-    E --> SEM
-    E --> KEY
-    SEM --> RRF
-    KEY --> RRF
-    RRF --> CE
-    CE --> OUT
-```
-
-> **Why two stages?** BM25 catches exact keyword matches that semantic search misses. RRF ensures neither dominates. The Cross-Encoder then gives a precise relevance score per candidate — something fast bi-encoders can't do.
+Useful local checks:
 
 ```bash
-POST /projects/{id}/search
-{
-  "query": "How is context preserved during chunking?",
-  "top_k": 5,
-  "mode": "hybrid"    # also: "semantic" | "keyword"
-}
+# backend
+cd backend
+python -m compileall app
+
+# frontend
+cd frontend
+npm run build
 ```
 
 ---
 
-### Layer 5 — Grounded Answering
+## API Surface
 
-```bash
-POST /projects/{id}/answer
-{
-  "query": "What formats does VERO support?",
-  "top_k": 3,
-  "allow_model_knowledge": false
-}
-```
-
-Set `allow_model_knowledge: true` to let the LLM supplement with training knowledge when documents are insufficient. Default is `false` — answers are **strictly** grounded in your documents.
-
-Each citation includes `doc_id`, `chunk_id`, `start_char`, and `end_char` for precise UI passage highlighting:
-
-```json
-{
-  "answer": "VERO supports PDF, DOCX, Markdown, and TXT...",
-  "citations": [
-    {
-      "doc_id": "a1b2c3",
-      "chunk_id": "e4f8b2",
-      "doc_title": "README.md",
-      "start_char": 450,
-      "end_char": 890,
-      "score": 0.8412
-    }
-  ],
-  "found_sufficient_info": true
-}
+```text
+POST /projects
+POST /projects/{project_id}/ingest
+POST /projects/{project_id}/ingest-url
+POST /projects/{project_id}/ingest-repo
+POST /projects/{project_id}/search
+POST /projects/{project_id}/answer
+POST /projects/{project_id}/sessions
+POST /sessions/{session_id}/chat
+GET  /documents
+GET  /activity/metrics
 ```
 
 ---
 
-### Layer 6 — Conversational Memory
+## Portfolio Value
 
-Each session keeps a **sliding window of the last 10 messages**. On every turn, VERO fetches history, runs a fresh hybrid search, and builds a grounded prompt — enabling natural follow-ups and pronoun resolution across turns.
+VERO demonstrates practical work in:
 
-```mermaid
-flowchart TD
-    MSG([User Message])
+- retrieval-augmented generation
+- full-stack product engineering
+- asynchronous ingestion and indexing workflows
+- search and reranking pipeline design
+- operational AI UX and readiness handling
 
-    subgraph LOAD[Step 1 · Load context]
-        direction LR
-        HIST[Fetch chat history\nlast 10 turns]
-        SEARCH[Hybrid search\nfresh per turn]
-    end
+## Status
 
-    subgraph BUILD[Step 2 · Build prompt]
-        PROMPT[Assemble\nSystem rules + history + context]
-    end
+VERO is operational as a local-first research workspace and still has room to grow in:
 
-    subgraph GEN[Step 3 · Generate]
-        LLM[LLM · Groq · Gemini · Ollama]
-    end
-
-    subgraph SAVE[Step 4 · Persist]
-        MEM[Save turn to session\nfeeds the next turn's history]
-    end
-
-    OUT([Answer + Citations])
-
-    MSG --> HIST
-    MSG --> SEARCH
-    HIST --> PROMPT
-    SEARCH --> PROMPT
-    PROMPT --> LLM
-    LLM --> MEM
-    MEM --> OUT
-    MEM -.->|available next turn| HIST
-```
-
-```bash
-POST /projects/{id}/sessions        # Create a named session
-POST /sessions/{id}/chat            # Send a message
-GET  /sessions/{id}                 # Retrieve full conversation history
-```
-
----
-
-## Development Status
-
-- [x] **Layer 1** — Hardened Ingestion: SHA-256 dedup, multi-format parsers, integrity scores
-- [x] **Layer 2** — Reversible Chunking: `tiktoken` limits, markdown header preservation
-- [x] **Layer 3** — Versioned Embeddings: local-first, cryptographic hash versioning
-- [x] **Layer 4** — Hybrid Retrieval: Vector + BM25 via RRF, Cross-Encoder reranking
-- [x] **Layer 5** — Grounded Answering: multi-provider LLM, mandatory citations, refusal logic
-- [x] **Layer 6** — Conversational Memory: background auto-pipeline, persistent sessions
-- [ ] **Layer 7** — UI Implementation (pending)
-
-Let's build the agentic version. 
+- streaming UX
+- evaluation coverage
+- deployment hardening
+- broader connector support

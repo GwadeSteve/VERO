@@ -1,0 +1,110 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="180" y1="60" x2="1240" y2="840" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1020"/>
+      <stop offset="1" stop-color="#151B31"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#1D2743"/>
+      <stop offset="1" stop-color="#121A2E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7C5CFC"/>
+      <stop offset="1" stop-color="#43C6FF"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1600" height="1000" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#02040B" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+
+  <rect width="1440" height="900" rx="28" fill="url(#bg)"/>
+  <circle cx="1160" cy="160" r="220" fill="#7C5CFC" fill-opacity="0.12"/>
+  <circle cx="240" cy="770" r="200" fill="#43C6FF" fill-opacity="0.08"/>
+
+  <g filter="url(#shadow)">
+    <rect x="92" y="82" width="1256" height="736" rx="28" fill="#0D1324" stroke="#27314D"/>
+  </g>
+
+  <rect x="92" y="82" width="1256" height="66" rx="28" fill="#10182B"/>
+  <rect x="92" y="120" width="1256" height="28" fill="#10182B"/>
+  <circle cx="132" cy="114" r="7" fill="#FF6B6B"/>
+  <circle cx="156" cy="114" r="7" fill="#FFCC66"/>
+  <circle cx="180" cy="114" r="7" fill="#5CD6A8"/>
+
+  <rect x="122" y="174" width="228" height="614" rx="20" fill="#0F1728" stroke="#222D47"/>
+  <text x="150" y="220" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">VERO</text>
+  <text x="150" y="248" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="14">Research workspace engine</text>
+
+  <rect x="140" y="286" width="192" height="52" rx="14" fill="#1A2440"/>
+  <text x="164" y="318" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Projects</text>
+
+  <text x="150" y="378" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">ACTIVE WORKSPACES</text>
+  <rect x="140" y="396" width="192" height="74" rx="16" fill="#131C31" stroke="#222D47"/>
+  <text x="158" y="426" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">Technical Research</text>
+  <text x="158" y="450" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="13">12 sources · 4 sessions</text>
+
+  <rect x="140" y="486" width="192" height="74" rx="16" fill="#131C31" stroke="#222D47"/>
+  <text x="158" y="516" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">Product Docs</text>
+  <text x="158" y="540" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="13">8 sources · 2 sessions</text>
+
+  <text x="150" y="608" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">PIPELINE</text>
+  <rect x="140" y="626" width="192" height="122" rx="16" fill="#131C31" stroke="#222D47"/>
+  <text x="160" y="656" fill="#5CD6A8" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">INGESTION READY</text>
+  <text x="160" y="683" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">PDF · DOCX · MD · TXT</text>
+  <text x="160" y="706" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Web pages · GitHub repos</text>
+  <text x="160" y="729" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Hybrid retrieval + citations</text>
+
+  <rect x="382" y="174" width="614" height="614" rx="20" fill="#0F1728" stroke="#222D47"/>
+  <text x="420" y="220" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">Workspace Chat</text>
+  <text x="420" y="250" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="14">Grounded answers from your documents with source traceability.</text>
+
+  <rect x="420" y="292" width="538" height="88" rx="18" fill="#151F37"/>
+  <circle cx="454" cy="326" r="14" fill="url(#accent)"/>
+  <text x="480" y="324" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">User</text>
+  <text x="480" y="348" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="14">How does VERO keep answers grounded in uploaded sources?</text>
+
+  <rect x="420" y="400" width="538" height="188" rx="18" fill="url(#panel)" stroke="#314060"/>
+  <circle cx="454" cy="434" r="14" fill="#5CD6A8"/>
+  <text x="480" y="432" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">VERO</text>
+  <text x="480" y="460" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="14">VERO runs hybrid retrieval across project documents, reranks</text>
+  <text x="480" y="484" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="14">the candidate chunks, and only then asks the model to answer</text>
+  <text x="480" y="508" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="14">with explicit citations tied to stored chunk boundaries. [1] [2]</text>
+
+  <rect x="480" y="536" width="70" height="26" rx="13" fill="#212E4E"/>
+  <text x="502" y="554" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">[1]</text>
+  <rect x="560" y="536" width="70" height="26" rx="13" fill="#212E4E"/>
+  <text x="582" y="554" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">[2]</text>
+
+  <rect x="420" y="724" width="538" height="36" rx="18" fill="#161F36" stroke="#2D3A5A"/>
+  <text x="446" y="747" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="13">Ask about your sources, architecture, or research notes...</text>
+
+  <rect x="1028" y="174" width="282" height="614" rx="20" fill="#0F1728" stroke="#222D47"/>
+  <text x="1062" y="220" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Signals</text>
+  <text x="1062" y="248" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="14">Retrieval and system visibility</text>
+
+  <rect x="1062" y="286" width="214" height="108" rx="16" fill="#131C31" stroke="#222D47"/>
+  <text x="1082" y="318" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">TOP SOURCES</text>
+  <text x="1082" y="346" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="14">README.md</text>
+  <text x="1224" y="346" fill="#5CD6A8" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">0.92</text>
+  <text x="1082" y="370" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="14">pipeline.py</text>
+  <text x="1224" y="370" fill="#5CD6A8" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">0.87</text>
+
+  <rect x="1062" y="414" width="214" height="126" rx="16" fill="#131C31" stroke="#222D47"/>
+  <text x="1082" y="446" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">ARCHITECTURE</text>
+  <text x="1082" y="474" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Ingest</text>
+  <text x="1150" y="474" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Chunk</text>
+  <text x="1212" y="474" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Embed</text>
+  <line x1="1090" y1="490" x2="1248" y2="490" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+  <text x="1082" y="524" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Retrieve</text>
+  <text x="1168" y="524" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Answer</text>
+  <text x="1236" y="524" fill="#D5DBEA" font-family="Segoe UI, Arial, sans-serif" font-size="13">Store</text>
+
+  <rect x="1062" y="560" width="214" height="160" rx="16" fill="#131C31" stroke="#222D47"/>
+  <text x="1082" y="592" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">STACK</text>
+  <text x="1082" y="620" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="14">FastAPI · React · SQLite</text>
+  <text x="1082" y="646" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="14">ChromaDB · sentence-transformers</text>
+  <text x="1082" y="672" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="14">Groq · Gemini · Ollama</text>
+  <text x="1082" y="698" fill="#F6F8FF" font-family="Segoe UI, Arial, sans-serif" font-size="14">Hybrid retrieval + citations</text>
+
+  <text x="116" y="854" fill="#7F90B4" font-family="Segoe UI, Arial, sans-serif" font-size="14">README interface preview for VERO</text>
+</svg>
